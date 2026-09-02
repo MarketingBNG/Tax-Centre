@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+
+/*
+ * Calm slate palette with a muted teal accent. Cool, low-saturation and
+ * deliberately unbranded — nothing here borrows another product's look.
+ */
+@theme {
+  --color-canvas: #1a1f26;
+  --color-panel: #151a20;
+  --color-raised: #212832;
+  --color-raised-hover: #2a323d;
+  --color-line: #2c3542;
+  --color-line-soft: #232a34;
+  --color-ink: #e4e9ef;
+  --color-ink-dim: #97a3b1;
+  --color-ink-faint: #67737f;
+  --color-accent: #6aa79b;
+  --color-accent-hover: #7dbcaf;
+  --color-accent-ink: #0d1614;
+
+  /* Severity colours: distinguishable at a glance, but softened so a report
+     with a dozen findings does not read as an emergency. */
+  --color-sev-blocking: #d47d7d;
+  --color-sev-risk: #d3a06f;
+  --color-sev-math: #c4b477;
+  --color-sev-opportunity: #7fae91;
+  --color-sev-doc: #7fa0c2;
+  --color-sev-nit: #8a939e;
+
+  --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* The thread and sidebar scroll a lot; the default bars are too loud here. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+@keyframes trc-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.trc-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  vertical-align: -2px;
+  background: var(--color-accent);
+  animation: trc-blink 1s steps(2) infinite;
+}
+
+/* Streamed review text is plain text with a few markers; these style the
+   headings the model emits without pulling in a markdown renderer. */
+.trc-prose h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 18px 0 6px;
+}
+
+.trc-prose strong {
+  font-weight: 600;
+}
