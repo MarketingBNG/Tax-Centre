@@ -6,7 +6,7 @@ import type { SkillRow } from './types';
 /** Rough estimate — good enough for a size warning, not for billing. */
 export const estimateTokens = (text: string): number => Math.ceil((text || '').length / 3.7);
 
-export function listSkills(opts: { enabledOnly?: boolean } = {}): SkillRow[] {
+export function listSkills(opts: { enabledOnly?: boolean } = {}): Promise<SkillRow[]> {
   return all<SkillRow>(
     opts.enabledOnly
       ? `SELECT * FROM skills WHERE enabled = 1 ORDER BY sort_order, title`
@@ -16,17 +16,17 @@ export function listSkills(opts: { enabledOnly?: boolean } = {}): SkillRow[] {
 
 export const getSkill = (id: string) => one<SkillRow>(`SELECT * FROM skills WHERE id = ?`, id);
 
-export function createSkill(input: {
+export async function createSkill(input: {
   title: string;
   description?: string;
   jurisdiction?: string;
   body: string;
   sourceFilename?: string | null;
   createdBy: string;
-}): SkillRow {
+}): Promise<SkillRow> {
   const id = crypto.randomUUID();
   const now = Date.now();
-  run(
+  await run(
     `INSERT INTO skills
        (id, title, description, jurisdiction, body, source_filename, version,
         enabled, sort_order, token_estimate, created_by, created_at, updated_at)
@@ -42,11 +42,11 @@ export function createSkill(input: {
     now,
     now,
   );
-  return getSkill(id)!;
+  return (await getSkill(id))!;
 }
 
 /** Editing bumps the version so a review can name the exact text it used. */
-export function updateSkill(
+export async function updateSkill(
   id: string,
   patch: Partial<{
     title: string;
@@ -56,14 +56,14 @@ export function updateSkill(
     enabled: boolean;
     sort_order: number;
   }>,
-): SkillRow | null {
-  const current = getSkill(id);
+): Promise<SkillRow | null> {
+  const current = await getSkill(id);
   if (!current) return null;
 
   const body = patch.body ?? current.body;
   const version = body !== current.body ? current.version + 1 : current.version;
 
-  run(
+  await run(
     `UPDATE skills SET title = ?, description = ?, jurisdiction = ?, body = ?,
        enabled = ?, sort_order = ?, version = ?, token_estimate = ?, updated_at = ?
      WHERE id = ?`,
@@ -94,8 +94,8 @@ export interface SkillBundle {
  * (sort_order, then title) because any reordering changes the bytes and
  * silently destroys the prompt cache for every review in the firm.
  */
-export function buildSkillBundle(): SkillBundle {
-  const skills = listSkills({ enabledOnly: true });
+export async function buildSkillBundle(): Promise<SkillBundle> {
+  const skills = await listSkills({ enabledOnly: true });
 
   if (!skills.length) {
     return {

@@ -8,7 +8,7 @@ export async function GET() {
   if (!user) return unauthorized();
 
   return Response.json(
-    all<ConversationRow>(
+    await all<ConversationRow>(
       `SELECT id, title, created_at, updated_at FROM conversations
        WHERE user_id = ? ORDER BY updated_at DESC LIMIT 200`,
       user.id,
@@ -22,7 +22,7 @@ export async function POST() {
 
   const id = crypto.randomUUID();
   const now = Date.now();
-  run(
+  await run(
     `INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
     id,
     user.id,

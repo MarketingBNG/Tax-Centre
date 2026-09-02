@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const needle = `%${q.replace(/[~%_]/g, (c) => `~${c}`)}%`;
 
   return Response.json(
-    all<{ id: string; title: string; updated_at: number; snippet: string | null }>(
+    await all<{ id: string; title: string; updated_at: number; snippet: string | null }>(
       `SELECT c.id, c.title, c.updated_at,
               (SELECT substr(m.content, 1, 160) FROM messages m
                 WHERE m.conversation_id = c.id AND m.content LIKE ? ESCAPE '~'

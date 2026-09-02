@@ -8,7 +8,7 @@ export async function GET() {
   if (user.role !== 'admin') return forbidden();
 
   return Response.json({
-    monthlyCapUsd: Number(getSetting('monthly_cap_usd', '200')),
+    monthlyCapUsd: Number(await getSetting('monthly_cap_usd', '200')),
     // These two come from .env rather than the database, so they are shown
     // read-only here — changing them is a deliberate config edit and restart.
     retentionDays: RETENTION_ORIGINALS_DAYS,
@@ -24,8 +24,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
 
   if (body.monthlyCapUsd !== undefined) {
-    setSetting('monthly_cap_usd', Number(body.monthlyCapUsd) || 0);
-    audit(user.id, 'settings.update', 'settings', 'monthly_cap_usd', {
+    await setSetting('monthly_cap_usd', Number(body.monthlyCapUsd) || 0);
+    await audit(user.id, 'settings.update', 'settings', 'monthly_cap_usd', {
       value: body.monthlyCapUsd,
     });
   }

@@ -1,18 +1,18 @@
 import 'server-only';
 import crypto from 'node:crypto';
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import mammoth from 'mammoth';
 import ExcelJS from 'exceljs';
 import { PDFDocument } from 'pdf-lib';
 import { one, run } from './db';
-import { DATA_DIR, MAX_PDF_PAGES, PII_MODE } from './config';
+import { MAX_PDF_PAGES, PII_MODE } from './config';
+import { putBlob, getBlob } from './storage';
 import { tokenizeText, type PiiCounts } from './pii';
 import type { FileRow, FileKind } from './types';
 import type { Part } from './providers/types';
 
-// Base64 inflates ~1.37x against a 32 MB request cap, so keep raw files well
-// under it and fail with a clear message rather than an opaque wire error.
+// Base64 inflates ~1.37x, and the whole request has to fit in memory on a
+// serverless instance, so keep single files well under the platform ceiling.
 const MAX_INLINE_BYTES = 20 * 1024 * 1024;
 
 const IMAGE_MIMES: Record<string, string> = {
@@ -206,7 +206,7 @@ export async function ingestFile(input: {
 
   const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
-  const existing = one<FileRow>(
+  const existing = await one<FileRow>(
     `SELECT * FROM files WHERE user_id = ? AND sha256 = ? AND deleted_at IS NULL LIMIT 1`,
     userId,
     sha256,
@@ -217,7 +217,7 @@ export async function ingestFile(input: {
     // conversation, and its follow-up turns would silently lose the file.
     // Which review used which file is recorded in review_files instead.
     if (conversationId && existing.conversation_id === null) {
-      run(`UPDATE files SET conversation_id = ? WHERE id = ?`, conversationId, existing.id);
+      await run(`UPDATE files SET conversation_id = ? WHERE id = ?`, conversationId, existing.id);
       return { ...existing, conversation_id: conversationId, deduped: true };
     }
     return { ...existing, deduped: true };
@@ -229,10 +229,6 @@ export async function ingestFile(input: {
         `${MAX_INLINE_BYTES / 1048576} MB per-file limit. Split it and upload the parts.`,
     );
   }
-
-  const id = crypto.randomUUID();
-  const storagePath = path.join('uploads', `${id}${path.extname(filename).toLowerCase()}`);
-  writeFileSync(path.join(DATA_DIR, storagePath), buffer);
 
   let pageCount: number | null = null;
   let extracted: string | null = null;
@@ -255,7 +251,6 @@ export async function ingestFile(input: {
           `review. Split it into smaller documents — nothing is reviewed silently.`,
       );
     }
-
   } else if (sniffed.kind === 'docx') {
     extracted = (await mammoth.extractRawText({ buffer })).value;
   } else if (sniffed.kind === 'xlsx') {
@@ -264,16 +259,20 @@ export async function ingestFile(input: {
     extracted = decodeText(buffer);
   }
 
-  // Tokenisation only applies to text we generated. Native PDFs and images go
-  // as bytes and pixels — see the note in lib/pii.ts.
+  // Tokenisation only applies to text we generated. PDFs and images go as
+  // bytes and pixels — see the note in lib/pii.ts.
   let piiCounts: PiiCounts = {};
   if (extracted && PII_MODE === 'tokenize') {
-    const result = tokenizeText(extracted);
+    const result = await tokenizeText(extracted);
     extracted = result.text;
     piiCounts = result.counts;
   }
 
-  run(
+  const id = crypto.randomUUID();
+  const ext = path.extname(filename).toLowerCase();
+  const stored = await putBlob(`uploads/${userId}/${id}${ext}`, buffer, sniffed.mime);
+
+  await run(
     `INSERT INTO files
        (id, user_id, conversation_id, filename, mime, kind, size_bytes, sha256,
         storage_path, page_count, extracted_text, pii_counts, created_at, deleted_at)
@@ -286,14 +285,14 @@ export async function ingestFile(input: {
     sniffed.kind,
     buffer.length,
     sha256,
-    storagePath,
+    stored.url,
     pageCount,
     extracted,
     Object.keys(piiCounts).length ? JSON.stringify(piiCounts) : null,
     Date.now(),
   );
 
-  return one<FileRow>(`SELECT * FROM files WHERE id = ?`, id)!;
+  return (await one<FileRow>(`SELECT * FROM files WHERE id = ?`, id))!;
 }
 
 export interface DocIndexEntry {
@@ -303,36 +302,31 @@ export interface DocIndexEntry {
 }
 
 /**
- * Turn stored files into provider-neutral parts. The active provider decides
- * how they are encoded on the wire.
+ * Turn stored files into provider-neutral parts.
  *
- * `index` records only the parts that occupy a document slot, in order, because
- * that ordering is what a citation's document_index refers to. Images do not
- * take a slot, so they are deliberately absent from it.
+ * `index` records only the parts that occupy a document slot, in order,
+ * because that ordering is what a citation's document_index refers to. Images
+ * do not take a slot, so they are deliberately absent from it.
  */
-export function buildDocumentParts(files: FileRow[]): {
+export async function buildDocumentParts(files: FileRow[]): Promise<{
   parts: Part[];
   index: DocIndexEntry[];
-} {
+}> {
   const parts: Part[] = [];
   const index: DocIndexEntry[] = [];
 
   for (const f of files) {
     const title = f.filename;
-    const abs = path.join(DATA_DIR, f.storage_path);
 
-    if (f.kind === 'pdf') {
-      if (!existsSync(abs)) continue; // purged by retention; skip rather than crash
-      parts.push({ kind: 'pdf', title, base64: readFileSync(abs).toString('base64') });
-      index.push({ fileId: f.id, title, kind: f.kind });
-    } else if (f.kind === 'image') {
-      if (!existsSync(abs)) continue;
-      parts.push({
-        kind: 'image',
-        title,
-        mediaType: f.mime,
-        base64: readFileSync(abs).toString('base64'),
-      });
+    if (f.kind === 'pdf' || f.kind === 'image') {
+      const bytes = await getBlob(f.storage_path);
+      if (!bytes) continue; // purged by retention; skip rather than crash
+      if (f.kind === 'pdf') {
+        parts.push({ kind: 'pdf', title, base64: bytes.toString('base64') });
+        index.push({ fileId: f.id, title, kind: f.kind });
+      } else {
+        parts.push({ kind: 'image', title, mediaType: f.mime, base64: bytes.toString('base64') });
+      }
     } else if (f.extracted_text) {
       parts.push({ kind: 'text-doc', title, text: f.extracted_text });
       index.push({ fileId: f.id, title, kind: f.kind });

@@ -8,8 +8,8 @@ export async function GET() {
   if (user.role !== 'admin') return forbidden();
 
   return Response.json({
-    skills: listSkills(),
-    bundleTokens: buildSkillBundle().tokenEstimate,
+    skills: await listSkills(),
+    bundleTokens: (await buildSkillBundle()).tokenEstimate,
   });
 }
 
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
   if (!body) return badRequest('Provide skill text or upload a document.');
 
-  const skill = createSkill({
+  const skill = await createSkill({
     title: ((form.get('title') as string) ?? sourceFilename ?? 'Untitled skill').trim(),
     description: (form.get('description') as string) ?? '',
     jurisdiction: (form.get('jurisdiction') as string) ?? 'generic',
@@ -58,6 +58,6 @@ export async function POST(req: Request) {
     createdBy: user.id,
   });
 
-  audit(user.id, 'skill.create', 'skill', skill.id, { title: skill.title });
+  await audit(user.id, 'skill.create', 'skill', skill.id, { title: skill.title });
   return Response.json(skill);
 }

@@ -6,6 +6,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!user) return unauthorized();
 
   const { id } = await ctx.params;
-  const bundle = getReviewBundle(id, user.id, user.role === 'admin');
+  const bundle = await getReviewBundle(id, user.id, user.role === 'admin');
   return bundle ? Response.json(bundle) : notFound();
 }

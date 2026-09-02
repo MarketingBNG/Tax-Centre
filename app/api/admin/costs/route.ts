@@ -13,12 +13,12 @@ export async function GET() {
   const since = monthStart.getTime();
 
   const total =
-    one<{ c: number }>(
+    (await one<{ c: number }>(
       `SELECT COALESCE(SUM(cost_micros), 0) AS c FROM usage_records WHERE created_at >= ?`,
       since,
-    )?.c ?? 0;
+    ))?.c ?? 0;
 
-  const byUser = all<{ email: string; display_name: string; cost: number; calls: number }>(
+  const byUser = await all<{ email: string; display_name: string; cost: number; calls: number }>(
     `SELECT u.email, u.display_name,
             COALESCE(SUM(ur.cost_micros), 0) AS cost, COUNT(*) AS calls
      FROM usage_records ur JOIN users u ON u.id = ur.user_id
@@ -26,7 +26,7 @@ export async function GET() {
     since,
   );
 
-  const recent = all<{
+  const recent = await all<{
     id: string;
     created_at: number;
     cost_micros: number;
@@ -44,7 +44,7 @@ export async function GET() {
   // The one metric that catches the expensive silent failure: caching works,
   // then a change puts volatile text in the cached prefix and every request
   // pays full price with nothing erroring.
-  const cache = one<{ reads: number; fresh: number; writes: number }>(
+  const cache = await one<{ reads: number; fresh: number; writes: number }>(
     `SELECT COALESCE(SUM(cache_read_tokens),0) AS reads,
             COALESCE(SUM(input_tokens),0) AS fresh,
             COALESCE(SUM(cache_write_tokens),0) AS writes
@@ -55,7 +55,7 @@ export async function GET() {
 
   return Response.json({
     monthToDateUsd: microsToUsd(total),
-    capUsd: Number(getSetting('monthly_cap_usd', '200')),
+    capUsd: Number(await getSetting('monthly_cap_usd', '200')),
     byUser: byUser.map((r) => ({ ...r, usd: microsToUsd(r.cost) })),
     recent: recent.map((r) => ({ ...r, usd: microsToUsd(r.cost_micros) })),
     cacheHitRate: denom ? (cache?.reads ?? 0) / denom : 0,

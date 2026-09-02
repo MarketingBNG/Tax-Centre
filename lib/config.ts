@@ -26,10 +26,17 @@ if (existsSync(envPath)) {
 }
 
 export const PORT = Number(process.env.PORT || 3100);
-// DATA_DIR is deliberately allowed to point outside the project (client tax
-// documents should not live in the repo), so the path cannot be statically
-// scoped. The ignore comment stops Turbopack tracing the whole project.
-export const DATA_DIR = path.resolve(/*turbopackIgnore: true*/ ROOT, process.env.DATA_DIR || 'data');
+
+/**
+ * Postgres connection string. Prefer the POOLED one: serverless opens many
+ * short-lived connections, and a direct connection runs out of slots fast.
+ * Vercel Postgres exposes POSTGRES_URL; Neon calls it DATABASE_URL.
+ */
+export const DATABASE_URL =
+  process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+
+/** Vercel Blob store token — where uploaded documents actually live. */
+export const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || '';
 export const GOOGLE_CLIENT_ID = process.env.AUTH_GOOGLE_ID || '';
 export const GOOGLE_CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET || '';
 
@@ -96,15 +103,3 @@ export const PII_MODE: PiiMode = process.env.PII_MODE === 'off' ? 'off' : 'token
 /** Days to keep uploaded originals. 0 disables the sweeper. */
 export const RETENTION_ORIGINALS_DAYS = Number(process.env.RETENTION_ORIGINALS_DAYS || 90);
 
-/** Refuse to start if client tax documents would land in a synced folder. */
-export function assertSafeDataDir(): void {
-  const oneDrive = process.env.OneDrive || process.env.OneDriveConsumer || '';
-  if (!oneDrive) return;
-  const normalized = path.resolve(/*turbopackIgnore: true*/ DATA_DIR).toLowerCase();
-  if (normalized.startsWith(path.resolve(/*turbopackIgnore: true*/ oneDrive).toLowerCase())) {
-    throw new Error(
-      `Refusing to start: DATA_DIR (${DATA_DIR}) is inside OneDrive (${oneDrive}). ` +
-        `Client tax documents would sync to the cloud. Set DATA_DIR in .env to a path outside OneDrive.`,
-    );
-  }
-}

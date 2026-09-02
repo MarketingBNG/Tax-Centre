@@ -11,10 +11,10 @@ export async function PUT(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const patch = await req.json().catch(() => ({}));
 
-  const updated = updateSkill(id, patch);
+  const updated = await updateSkill(id, patch);
   if (!updated) return notFound();
 
-  audit(user.id, 'skill.update', 'skill', id, { version: updated.version });
+  await audit(user.id, 'skill.update', 'skill', id, { version: updated.version });
   return Response.json(updated);
 }
 
@@ -24,10 +24,10 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   if (user.role !== 'admin') return forbidden();
 
   const { id } = await ctx.params;
-  const skill = getSkill(id);
+  const skill = await getSkill(id);
   if (!skill) return notFound();
 
-  deleteSkill(id);
-  audit(user.id, 'skill.delete', 'skill', id, { title: skill.title });
+  await deleteSkill(id);
+  await audit(user.id, 'skill.delete', 'skill', id, { title: skill.title });
   return Response.json({ ok: true });
 }

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
   const conversationId = (form.get('conversationId') as string) || null;
   if (conversationId) {
-    const conv = one<ConversationRow>(
+    const conv = await one<ConversationRow>(
       `SELECT id FROM conversations WHERE id = ? AND user_id = ?`,
       conversationId,
       user.id,
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         buffer,
       });
 
-      audit(user.id, 'file.upload', 'file', stored.id, {
+      await audit(user.id, 'file.upload', 'file', stored.id, {
         filename: stored.filename,
         kind: stored.kind,
         bytes: stored.size_bytes,

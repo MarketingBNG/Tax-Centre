@@ -4,6 +4,7 @@ import { one, all, run } from './db';
 import { getProvider } from './providers';
 import { buildSkillBundle } from './skills';
 import { buildDocumentParts, type DocIndexEntry } from './ingest';
+import { abortSignalFor, heartbeat } from './jobs';
 import type { TextBlock, Turn } from './providers/types';
 import type {
   FileRow,
@@ -199,15 +200,15 @@ interface ExtractedReport {
   }[];
 }
 
-function recordUsage(input: {
+async function recordUsage(input: {
   reviewId: string | null;
   userId: string;
   purpose: string;
   model: string;
   usage: NormalisedUsage;
   costMicros: number;
-}): void {
-  run(
+}): Promise<void> {
+  await run(
     `INSERT INTO usage_records
        (id, review_id, user_id, purpose, model, input_tokens, output_tokens,
         cache_read_tokens, cache_write_tokens, cost_micros, created_at)
@@ -243,11 +244,11 @@ export function buildSystemBlocks(bundleText: string): string[] {
  * structure and page numbers join later without the model ever being trusted
  * to state a page number itself.
  */
-function annotateAndPersistCitations(
+async function annotateAndPersistCitations(
   reviewId: string,
   blocks: TextBlock[],
   docIndex: DocIndexEntry[],
-): string {
+): Promise<string> {
   let n = 0;
   const annotated: string[] = [];
 
@@ -261,7 +262,7 @@ function annotateAndPersistCitations(
       const marker = `c${n}`;
 
       for (const cite of block.citations) {
-        run(
+        await run(
           `INSERT INTO citations
              (id, review_id, marker, document_index, document_title, file_id,
               cited_text, start_page, end_page)
@@ -286,10 +287,13 @@ function annotateAndPersistCitations(
 }
 
 /** Resolve marker tokens to page references using only stored API data. */
-function resolveMarkers(reviewId: string, markers: string[] | undefined): PageRef[] {
+async function resolveMarkers(
+  reviewId: string,
+  markers: string[] | undefined,
+): Promise<PageRef[]> {
   if (!markers?.length) return [];
 
-  const rows = all<{
+  const rows = await all<{
     marker: string;
     document_title: string | null;
     file_id: string | null;
@@ -323,20 +327,28 @@ export async function runReview(input: {
   conversationId: string;
   files: FileRow[];
   note?: string;
-  onEvent: (event: StreamEvent) => void;
+  onEvent: (event: StreamEvent) => void | Promise<void>;
   signal?: AbortSignal;
   reviewId?: string;
 }): Promise<string> {
-  const { user, conversationId, files, note, onEvent, signal } = input;
+  const { user, conversationId, files, note, onEvent } = input;
   const reviewId = input.reviewId ?? crypto.randomUUID();
-  const bundle = buildSkillBundle();
+  const bundle = await buildSkillBundle();
   const provider = getProvider();
 
+  // The stop flag lives in the database, because the request that sets it
+  // will not reach whichever instance is running this review.
+  const aborter = abortSignalFor(reviewId);
+  const signal = input.signal ?? aborter.signal;
+
+  // Keeps the row from looking abandoned while a long model call runs.
+  const pulse = setInterval(() => void heartbeat(reviewId).catch(() => undefined), 15_000);
+
   // The caller may have inserted this row already so the stream endpoint has
-  // something to find; OR IGNORE keeps both entry points working.
-  run(
-    `INSERT OR IGNORE INTO reviews (id, conversation_id, user_id, status, model, skill_ids, created_at)
-     VALUES (?, ?, ?, 'running', ?, ?, ?)`,
+  // something to find; DO NOTHING keeps both entry points working.
+  await run(
+    `INSERT INTO reviews (id, conversation_id, user_id, status, model, skill_ids, created_at)
+     VALUES (?, ?, ?, 'running', ?, ?, ?) ON CONFLICT (id) DO NOTHING`,
     reviewId,
     conversationId,
     user.id,
@@ -345,24 +357,30 @@ export async function runReview(input: {
     Date.now(),
   );
 
-  run(`UPDATE reviews SET skill_ids = ? WHERE id = ?`, JSON.stringify(bundle.skills), reviewId);
-  onEvent({ type: 'review_started', reviewId, skills: bundle.skills });
+  await run(
+    `UPDATE reviews SET skill_ids = ?, heartbeat_at = ? WHERE id = ?`,
+    JSON.stringify(bundle.skills),
+    Date.now(),
+    reviewId,
+  );
+  await onEvent({ type: 'review_started', reviewId, skills: bundle.skills });
 
   try {
-    const { parts: docParts, index: docIndex } = buildDocumentParts(files);
+    const { parts: docParts, index: docIndex } = await buildDocumentParts(files);
     if (!docParts.length) throw new Error('No readable documents were attached.');
 
     // Record exactly which files this review read, in the order they were sent,
     // so document_index stays meaningful and follow-up turns re-send the same
     // set rather than everything ever attached to the conversation.
-    docIndex.forEach((entry, i) => {
-      run(
-        `INSERT OR IGNORE INTO review_files (review_id, file_id, document_index) VALUES (?, ?, ?)`,
+    for (const [i, entry] of docIndex.entries()) {
+      await run(
+        `INSERT INTO review_files (review_id, file_id, document_index) VALUES (?, ?, ?)
+         ON CONFLICT (review_id, file_id) DO NOTHING`,
         reviewId,
         entry.fileId,
         i,
       );
-    });
+    }
 
     const parts = [
       ...docParts,
@@ -378,11 +396,11 @@ export async function runReview(input: {
     const passA = await provider.streamReview({
       system: buildSystemBlocks(bundle.text),
       parts,
-      onText: (delta) => onEvent({ type: 'text', delta }),
+      onText: (delta) => void onEvent({ type: 'text', delta }),
       signal,
     });
 
-    recordUsage({
+    await recordUsage({
       reviewId,
       userId: user.id,
       purpose: 'review_pass',
@@ -390,13 +408,18 @@ export async function runReview(input: {
       usage: passA.usage,
       costMicros: passA.costMicros,
     });
-    onEvent({ type: 'usage', phase: 'review', usage: passA.usage, costMicros: passA.costMicros });
+    await onEvent({
+      type: 'usage',
+      phase: 'review',
+      usage: passA.usage,
+      costMicros: passA.costMicros,
+    });
 
-    const annotated = annotateAndPersistCitations(reviewId, passA.blocks, docIndex);
-    run(`UPDATE reviews SET pass_a_text = ? WHERE id = ?`, annotated, reviewId);
+    const annotated = await annotateAndPersistCitations(reviewId, passA.blocks, docIndex);
+    await run(`UPDATE reviews SET pass_a_text = ? WHERE id = ?`, annotated, reviewId);
 
     // ---- Pass B: structure it, with no documents attached ----
-    onEvent({ type: 'status', message: 'Extracting structured findings…' });
+    await onEvent({ type: 'status', message: 'Extracting structured findings…' });
 
     let totalCost = passA.costMicros;
     let extractionOk = 0;
@@ -409,7 +432,7 @@ export async function runReview(input: {
         tool: FINDINGS_TOOL,
       });
 
-      recordUsage({
+      await recordUsage({
         reviewId,
         userId: user.id,
         purpose: 'extract_pass',
@@ -425,8 +448,8 @@ export async function runReview(input: {
         let ordinal = 0;
 
         for (const f of data.findings) {
-          const pages = resolveMarkers(reviewId, f.citation_markers);
-          run(
+          const pages = await resolveMarkers(reviewId, f.citation_markers);
+          await run(
             `INSERT INTO findings
                (id, review_id, ordinal, severity, category, form_code, line_ref,
                 title, detail, recommended_action, confidence, pages, status, created_at)
@@ -450,14 +473,14 @@ export async function runReview(input: {
       }
     } catch (err) {
       // Extraction is a convenience layer. Losing it must never lose the review.
-      onEvent({
+      await onEvent({
         type: 'status',
         message: 'Structured extraction failed — the written review below is complete.',
       });
       console.error('[review] extraction pass failed:', (err as Error).message);
     }
 
-    run(
+    await run(
       `UPDATE reviews SET status = 'complete', summary = ?, extraction_ok = ?,
          cost_micros = ?, finished_at = ? WHERE id = ?`,
       summary,
@@ -467,7 +490,12 @@ export async function runReview(input: {
       reviewId,
     );
 
-    onEvent({ type: 'done', reviewId, costMicros: totalCost, extractionOk: Boolean(extractionOk) });
+    await onEvent({
+      type: 'done',
+      reviewId,
+      costMicros: totalCost,
+      extractionOk: Boolean(extractionOk),
+    });
     return reviewId;
   } catch (err) {
     // A stop request surfaces as an abort, which is a deliberate outcome rather
@@ -475,15 +503,18 @@ export async function runReview(input: {
     const aborted = signal?.aborted || (err as Error)?.name === 'AbortError';
     const message = aborted ? 'Stopped by the reviewer.' : (err as Error).message || String(err);
 
-    run(
+    await run(
       `UPDATE reviews SET status = ?, error_text = ?, finished_at = ? WHERE id = ?`,
       aborted ? 'aborted' : 'failed',
       message,
       Date.now(),
       reviewId,
     );
-    onEvent({ type: aborted ? 'aborted' : 'error', message });
+    await onEvent({ type: aborted ? 'aborted' : 'error', message });
     throw err;
+  } finally {
+    clearInterval(pulse);
+    aborter.stop();
   }
 }
 
@@ -492,17 +523,17 @@ export async function runFollowUp(input: {
   user: UserRow;
   conversationId: string;
   question: string;
-  onEvent: (event: StreamEvent) => void;
+  onEvent: (event: StreamEvent) => void | Promise<void>;
   signal?: AbortSignal;
 }): Promise<void> {
   const { user, conversationId, question, onEvent, signal } = input;
-  const bundle = buildSkillBundle();
+  const bundle = await buildSkillBundle();
 
   // Only the files a review in this conversation actually read. Using
   // files.conversation_id here would re-send attachments the reviewer removed
   // from the composer before pressing Review, and would miss a deduped file
   // whose row belongs to an earlier conversation.
-  const files = all<FileRow>(
+  const files = await all<FileRow>(
     `SELECT DISTINCT f.* FROM files f
      JOIN review_files rf ON rf.file_id = f.id
      JOIN reviews r ON r.id = rf.review_id
@@ -510,13 +541,13 @@ export async function runFollowUp(input: {
      ORDER BY r.created_at, rf.document_index`,
     conversationId,
   );
-  const prior = all<Pick<MessageRow, 'role' | 'content'>>(
+  const prior = await all<Pick<MessageRow, 'role' | 'content'>>(
     `SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at`,
     conversationId,
   );
 
   const provider = getProvider();
-  const { parts: docParts } = buildDocumentParts(files);
+  const { parts: docParts } = await buildDocumentParts(files);
   const turns: Turn[] = [];
 
   // Keep the documents in context rather than stripping them. Where the
@@ -540,11 +571,11 @@ export async function runFollowUp(input: {
   const result = await provider.streamChat({
     system: buildSystemBlocks(bundle.text),
     turns,
-    onText: (delta) => onEvent({ type: 'text', delta }),
+    onText: (delta) => void onEvent({ type: 'text', delta }),
     signal,
   });
 
-  recordUsage({
+  await recordUsage({
     reviewId: null,
     userId: user.id,
     purpose: 'followup',
@@ -553,23 +584,31 @@ export async function runFollowUp(input: {
     costMicros: result.costMicros,
   });
 
-  onEvent({ type: 'done', costMicros: result.costMicros });
+  await onEvent({ type: 'done', costMicros: result.costMicros });
 }
 
-export function getReviewBundle(
+export async function getReviewBundle(
   reviewId: string,
   userId: string,
   isAdmin: boolean,
-): { review: ReviewRow; findings: Finding[] } | null {
+): Promise<{ review: ReviewRow; findings: Finding[] } | null> {
   const review = isAdmin
-    ? one<ReviewRow>(`SELECT * FROM reviews WHERE id = ?`, reviewId)
-    : one<ReviewRow>(`SELECT * FROM reviews WHERE id = ? AND user_id = ?`, reviewId, userId);
+    ? await one<ReviewRow>(`SELECT * FROM reviews WHERE id = ?`, reviewId)
+    : await one<ReviewRow>(
+        `SELECT * FROM reviews WHERE id = ? AND user_id = ?`,
+        reviewId,
+        userId,
+      );
   if (!review) return null;
 
-  const findings = all<FindingRow>(
+  const rows = await all<FindingRow>(
     `SELECT * FROM findings WHERE review_id = ? ORDER BY ordinal`,
     reviewId,
-  ).map((f) => ({ ...f, pages: JSON.parse(f.pages || '[]') as PageRef[] }));
+  );
+  const findings = rows.map((f) => ({
+    ...f,
+    pages: JSON.parse(f.pages || '[]') as PageRef[],
+  }));
 
   return { review, findings };
 }

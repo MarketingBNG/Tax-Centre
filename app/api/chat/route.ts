@@ -14,14 +14,14 @@ export async function POST(req: Request) {
   const { conversationId, question } = await req.json().catch(() => ({}));
   if (!question?.trim()) return badRequest('Empty question');
 
-  const conversation = one<ConversationRow>(
+  const conversation = await one<ConversationRow>(
     `SELECT * FROM conversations WHERE id = ? AND user_id = ?`,
     conversationId,
     user.id,
   );
   if (!conversation) return notFound();
 
-  run(
+  await run(
     `INSERT INTO messages (id, conversation_id, role, content, created_at)
      VALUES (?, ?, 'user', ?, ?)`,
     crypto.randomUUID(),
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         emit({ type: 'error', message: (err as Error).message });
       } finally {
         if (assembled) {
-          run(
+          await run(
             `INSERT INTO messages (id, conversation_id, role, content, created_at)
              VALUES (?, ?, 'assistant', ?, ?)`,
             crypto.randomUUID(),
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
             assembled,
             Date.now(),
           );
-          run(`UPDATE conversations SET updated_at = ? WHERE id = ?`, Date.now(), conversation.id);
+          await run(`UPDATE conversations SET updated_at = ? WHERE id = ?`, Date.now(), conversation.id);
         }
         controller.close();
       }

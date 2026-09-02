@@ -17,7 +17,7 @@
  * It does not call the OpenAI API — that costs money.
  */
 import { encode } from 'next-auth/jwt';
-import { DatabaseSync } from 'node:sqlite';
+import postgres from 'postgres';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import crypto from 'node:crypto';
@@ -26,15 +26,34 @@ import { PDFDocument, StandardFonts } from 'pdf-lib';
 import ExcelJS from 'exceljs';
 
 const BASE = process.env.BASE || 'http://127.0.0.1:3100';
-const DB_PATH = path.join(process.cwd(), 'data', 'app.db');
+const DATABASE_URL = envValue('DATABASE_URL');
 const COOKIE_NAME = 'authjs.session-token';
 
+/** Reads a key out of .env / .env.local, real environment first. */
+function envValue(key) {
+  if (process.env[key]) return process.env[key];
+  for (const file of ['.env.local', '.env']) {
+    let text;
+    try {
+      text = readFileSync(path.join(process.cwd(), file), 'utf8');
+    } catch {
+      continue;
+    }
+    const line = text
+      .split(String.fromCharCode(10))
+      .find((l) => l.trim().startsWith(key + '='));
+    if (line) {
+      const value = line.slice(line.indexOf('=') + 1).trim();
+      if (value) return value;
+    }
+  }
+  return '';
+}
+
 function authSecret() {
-  const line = readFileSync(path.join(process.cwd(), '.env'), 'utf8')
-    .split(/\r?\n/)
-    .find((l) => l.trim().startsWith('AUTH_SECRET='));
-  if (!line) throw new Error('AUTH_SECRET is missing from .env');
-  return line.slice(line.indexOf('=') + 1).trim();
+  const value = envValue('AUTH_SECRET');
+  if (!value) throw new Error('AUTH_SECRET is missing from .env');
+  return value;
 }
 
 let pass = 0;
@@ -188,20 +207,26 @@ for (const [method, url] of [
 
 /* ───────────────────────── seed identities ───────────────────────────── */
 
-// The database exists by now because /login queried it.
-const db = new DatabaseSync(DB_PATH);
-const cols = db.prepare(`PRAGMA table_info(users)`).all().map((c) => c.name);
+// The schema exists by now because /login queried it.
+if (!DATABASE_URL) {
+  console.error(String.fromCharCode(10) + '  DATABASE_URL is not set — the suite needs the same Postgres the app uses.');
+  process.exit(2);
+}
+const db = postgres(DATABASE_URL, { prepare: false, max: 2 });
+const cols = (
+  await db`SELECT column_name FROM information_schema.columns WHERE table_name = 'users'`
+).map((c) => c.column_name);
 ok('users table has no password column', !cols.includes('password_hash'), cols.join(','));
 
 const adminId = crypto.randomUUID();
 const reviewerId = crypto.randomUUID();
 const admin2Id = crypto.randomUUID();
-const insert = db.prepare(
-  `INSERT INTO users (id, email, role, display_name, is_active, created_at) VALUES (?, ?, ?, ?, 1, ?)`,
-);
-insert.run(adminId, 'admin@usaindiacfo.com', 'admin', 'Test Admin', Date.now());
-insert.run(reviewerId, 'rev@usaindiacfo.com', 'reviewer', 'Test Reviewer', Date.now());
-db.close();
+const seed = (id, email, role, name) =>
+  db`INSERT INTO users (id, email, role, display_name, is_active, created_at)
+     VALUES (${id}, ${email}, ${role}, ${name}, 1, ${Date.now()})
+     ON CONFLICT (email) DO NOTHING`;
+await seed(adminId, 'admin@usaindiacfo.com', 'admin', 'Test Admin');
+await seed(reviewerId, 'rev@usaindiacfo.com', 'reviewer', 'Test Reviewer');
 
 const cookieFor = async (email) =>
   encode({ token: { email, name: email, sub: email }, secret: SECRET, salt: COOKIE_NAME, maxAge: 3600 });
@@ -247,12 +272,10 @@ console.log(String.fromCharCode(10) + '=== ADMIN_EMAILS grants admin without an 
        `${r.status} / ${r.json?.role} / ${r.json?.email}`);
 
     // And a reviewer added to the list is promoted rather than left as-is.
-    const probe = new DatabaseSync(DB_PATH);
     const demoteId = crypto.randomUUID();
-    probe.prepare(
-      `INSERT INTO users (id, email, role, display_name, is_active, created_at) VALUES (?, ?, 'reviewer', ?, 1, ?)`,
-    ).run(demoteId, 'listed-as-reviewer@usaindiacfo.com', 'Listed', Date.now());
-    probe.close();
+    await db`INSERT INTO users (id, email, role, display_name, is_active, created_at)
+             VALUES (${demoteId}, 'listed-as-reviewer@usaindiacfo.com', 'reviewer', 'Listed', 1, ${Date.now()})
+             ON CONFLICT (email) DO NOTHING`;
 
     // Not in ADMIN_EMAILS, so it should stay a reviewer.
     const stillReviewer = jar(await cookieFor('listed-as-reviewer@usaindiacfo.com'));
@@ -425,9 +448,7 @@ ok('same file in a second conversation is deduped', reused?.deduped === true);
 {
   // White-box: nothing over HTTP exposes files.conversation_id, and that column
   // is exactly what the bug corrupted.
-  const probe = new DatabaseSync(DB_PATH, { readOnly: true });
-  const row = probe.prepare('SELECT conversation_id FROM files WHERE id = ?').get(reused.id);
-  probe.close();
+  const [row] = await db`SELECT conversation_id FROM files WHERE id = ${reused.id}`;
   ok('the file still belongs to the first conversation', row?.conversation_id === convId,
      row?.conversation_id === convId ? 'unchanged' : `moved to ${row?.conversation_id}`);
 }
@@ -531,6 +552,7 @@ ok("a reviewer cannot read another user's review stream", r.status === 404, `HTT
 r = await call(reviewer, 'POST', `/api/review/${streamReviewId}/abort`);
 ok("a reviewer cannot abort another user's review", r.status === 404, `HTTP ${r.status}`);
 
+await db.end();
 console.log(`
 ${pass} passed, ${fail} failed
 `);

@@ -20,9 +20,13 @@ export const getUserById = (id: string) =>
 export const getUserByEmail = (email: string) =>
   one<UserRow>(`SELECT * FROM users WHERE email = ?`, String(email).trim().toLowerCase());
 
-export function createUser(input: { email: string; role: Role; displayName: string }): UserRow {
+export async function createUser(input: {
+  email: string;
+  role: Role;
+  displayName: string;
+}): Promise<UserRow> {
   const id = crypto.randomUUID();
-  run(
+  await run(
     `INSERT INTO users (id, email, role, display_name, is_active, created_at)
      VALUES (?, ?, ?, ?, 1, ?)`,
     id,
@@ -31,7 +35,7 @@ export function createUser(input: { email: string; role: Role; displayName: stri
     input.displayName,
     Date.now(),
   );
-  return getUserById(id)!;
+  return (await getUserById(id))!;
 }
 
 const domainAllows = (email: string) =>
@@ -40,30 +44,34 @@ const domainAllows = (email: string) =>
 /**
  * Creates or promotes an address listed in ADMIN_EMAILS.
  *
- * Called on every request rather than only at sign-in, so adding someone to
- * the list takes effect on their next request instead of forcing them to sign
- * out and back in. Idempotent, and only writes to the audit log when it
- * actually changes something.
+ * Takes the already-loaded row so the caller does not pay for a second read.
+ * Idempotent, and only writes to the audit log when it actually changes
+ * something.
  */
-function syncConfiguredAdmin(email: string): UserRow | null {
+async function syncConfiguredAdmin(
+  email: string,
+  existing: UserRow | null,
+): Promise<UserRow | null> {
   const normalised = email.trim().toLowerCase();
   if (!ADMIN_EMAILS.includes(normalised) || !domainAllows(normalised)) return null;
 
-  const existing = getUserByEmail(normalised);
-
   if (!existing) {
-    const created = createUser({ email: normalised, role: 'admin', displayName: normalised });
-    audit(created.id, 'user.admin_from_config', 'user', created.id, { email: normalised });
+    const created = await createUser({
+      email: normalised,
+      role: 'admin',
+      displayName: normalised,
+    });
+    await audit(created.id, 'user.admin_from_config', 'user', created.id, { email: normalised });
     return created;
   }
 
-  // A configured admin who was deactivated by hand stays deactivated; the list
+  // A configured admin who was deactivated by hand stays deactivated: the list
   // grants a role, it does not override an explicit removal.
   if (!existing.is_active) return null;
 
   if (existing.role !== 'admin') {
-    run(`UPDATE users SET role = 'admin' WHERE id = ?`, existing.id);
-    audit(existing.id, 'user.promoted_by_config', 'user', existing.id, { email: normalised });
+    await run(`UPDATE users SET role = 'admin' WHERE id = ?`, existing.id);
+    await audit(existing.id, 'user.promoted_by_config', 'user', existing.id, { email: normalised });
     return getUserById(existing.id);
   }
   return existing;
@@ -80,29 +88,30 @@ function syncConfiguredAdmin(email: string): UserRow | null {
  *
  * Anyone else is refused, even with a perfectly valid Google session.
  */
-function resolveAccess(email: string, name: string): UserRow | null {
+async function resolveAccess(email: string, name: string): Promise<UserRow | null> {
   const normalised = email.trim().toLowerCase();
 
   if (!domainAllows(normalised)) {
-    audit(null, 'login.rejected_domain', 'user', null, { email: normalised });
+    await audit(null, 'login.rejected_domain', 'user', null, { email: normalised });
     return null;
   }
 
-  const fromConfig = syncConfiguredAdmin(normalised);
+  const existing = await getUserByEmail(normalised);
+  const fromConfig = await syncConfiguredAdmin(normalised, existing);
+
   if (fromConfig) {
     if (name && fromConfig.display_name === normalised) {
-      run(`UPDATE users SET display_name = ? WHERE id = ?`, name, fromConfig.id);
+      await run(`UPDATE users SET display_name = ? WHERE id = ?`, name, fromConfig.id);
     }
     return fromConfig;
   }
 
-  const existing = getUserByEmail(normalised);
   if (!existing) {
-    audit(null, 'login.rejected_not_invited', 'user', null, { email: normalised });
+    await audit(null, 'login.rejected_not_invited', 'user', null, { email: normalised });
     return null;
   }
   if (!existing.is_active) {
-    audit(existing.id, 'login.rejected_inactive', 'user', existing.id, null);
+    await audit(existing.id, 'login.rejected_inactive', 'user', existing.id, null);
     return null;
   }
   return existing;
@@ -111,19 +120,17 @@ function resolveAccess(email: string, name: string): UserRow | null {
 /* ------------------------------------------------------------- NextAuth */
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // `next start` runs in production mode, where Auth.js refuses to infer the
-  // callback URL from the Host header unless told the deployment is trusted.
-  // That is correct for a self-hosted app we control; set AUTH_URL in .env once
-  // this is behind a real domain so the header is not load-bearing at all.
+  // Auth.js will not infer the callback URL from the Host header in production
+  // unless the deployment is declared trusted. Set AUTH_URL as well once this
+  // is behind a real domain, so the header is not load-bearing at all.
   trustHost: true,
 
   providers: [
     Google({
       clientId: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
-      // Ask Google to pre-filter to the firm's Workspace domain where one is
-      // configured. This is a convenience, not a control — resolveAccess is
-      // what actually enforces it.
+      // Pre-filters to the firm's Workspace domain where one is configured.
+      // A convenience, not a control — resolveAccess is what enforces it.
       authorization: ALLOWED_EMAIL_DOMAIN
         ? { params: { hd: ALLOWED_EMAIL_DOMAIN, prompt: 'select_account' } }
         : { params: { prompt: 'select_account' } },
@@ -135,20 +142,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: { signIn: '/login', error: '/login' },
 
   callbacks: {
-    signIn({ profile }) {
+    async signIn({ profile }) {
       const email = profile?.email;
       if (!email) return false;
       // Google's own verification flag; an unverified address must not pass.
       if (profile?.email_verified === false) return false;
-      return Boolean(resolveAccess(email, String(profile?.name ?? '')));
+      return Boolean(await resolveAccess(email, String(profile?.name ?? '')));
     },
 
-    jwt({ token }) {
-      // Re-read the row on every request rather than trusting the token: a
-      // role change or a deactivation then takes effect immediately instead of
-      // waiting for the JWT to expire.
-      if (token.email) syncConfiguredAdmin(String(token.email));
-      const row = token.email ? getUserByEmail(String(token.email)) : null;
+    async jwt({ token }) {
+      if (!token.email) return token;
+
+      // Re-read on every request rather than trusting the token: a role change
+      // or a deactivation then takes effect immediately instead of waiting for
+      // the JWT to expire. One read, and a write only when something changed.
+      const existing = await getUserByEmail(String(token.email));
+      const row = (await syncConfiguredAdmin(String(token.email), existing)) ?? existing;
+
       token.appUserId = row?.is_active ? row.id : undefined;
       token.appRole = row?.is_active ? row.role : undefined;
       return token;
@@ -180,17 +190,20 @@ export async function currentUser(): Promise<UserRow | null> {
       console.warn(
         [
           '',
-          '  ⚠  DISABLE_AUTH=true — sign-in is bypassed and every visitor is an admin.',
-          '     Set it to false in .env before this is reachable by anyone else.',
+          '  DISABLE_AUTH=true — sign-in is bypassed and every visitor is an admin.',
+          '  Set it to false before this is reachable by anyone else.',
           '',
         ].join('\n'),
       );
     }
-    return getUserByEmail(PREVIEW_EMAIL) ?? createUser({
-      email: PREVIEW_EMAIL,
-      role: 'admin',
-      displayName: 'Preview (auth disabled)',
-    });
+    return (
+      (await getUserByEmail(PREVIEW_EMAIL)) ??
+      (await createUser({
+        email: PREVIEW_EMAIL,
+        role: 'admin',
+        displayName: 'Preview (auth disabled)',
+      }))
+    );
   }
 
   const session = await auth();

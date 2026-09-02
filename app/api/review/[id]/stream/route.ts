@@ -1,21 +1,26 @@
 import { currentUser, unauthorized, notFound } from '@/lib/auth';
 import { one } from '@/lib/db';
-import { readEvents, isRunning, reviewStatus } from '@/lib/jobs';
+import { readEvents, reviewStatus, isStale, markStaleFailed } from '@/lib/jobs';
 
-export const maxDuration = 800;
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 /**
  * Replays a review's event log from `?from=<cursor>`, then tails it until the
  * review finishes. Reconnecting with the last cursor picks up exactly where the
  * browser left off, so a refresh mid-review loses nothing.
+ *
+ * Staleness matters here: the instance running the review can be killed by a
+ * deploy or a timeout, and nothing would then move the row off 'running'. When
+ * the heartbeat goes quiet this closes the review out rather than tailing an
+ * event log that will never grow.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return unauthorized();
 
   const { id } = await ctx.params;
-  const owns = one<{ id: string }>(
+  const owns = await one<{ id: string }>(
     `SELECT id FROM reviews WHERE id = ? AND (user_id = ? OR ? = 'admin')`,
     id,
     user.id,
@@ -39,25 +44,41 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         }
       };
 
-      // Polling rather than a pub/sub fan-out: one process, a handful of
-      // concurrent reviews, and the event log is the source of truth anyway.
-      for (;;) {
-        if (req.signal.aborted) break;
+      // Polling rather than a pub/sub fan-out: there is no shared process to
+      // broadcast from, and the event log is the source of truth anyway.
+      try {
+        for (;;) {
+          if (req.signal.aborted) break;
 
-        const batch = readEvents(id, cursor);
-        for (const row of batch) {
-          cursor = row.id;
-          send({ cursor: row.id, ...row.event });
+          const batch = await readEvents(id, cursor);
+          for (const row of batch) {
+            cursor = row.id;
+            send({ cursor: row.id, ...row.event });
+          }
+
+          const status = await reviewStatus(id);
+
+          if (status !== 'running') {
+            if (batch.length === 0) {
+              send({ type: 'closed', status, cursor });
+              break;
+            }
+          } else if (batch.length === 0 && (await isStale(id))) {
+            await markStaleFailed(id);
+            send({
+              type: 'error',
+              message:
+                'The review stopped unexpectedly — the server running it went away. ' +
+                'Nothing was lost; start it again.',
+            });
+            send({ type: 'closed', status: 'failed', cursor });
+            break;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, batch.length ? 80 : 500));
         }
-
-        const status = reviewStatus(id);
-        const settled = status !== 'running' && !isRunning(id);
-        if (settled && batch.length === 0) {
-          send({ type: 'closed', status, cursor });
-          break;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, batch.length ? 60 : 400));
+      } catch (err) {
+        send({ type: 'error', message: (err as Error).message });
       }
 
       open = false;

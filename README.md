@@ -4,7 +4,7 @@ An internal AI tax review workbench for USAIndiaCFO. Claude-style chat interface
 An admin publishes the firm's review methodology once; everyone else just attaches
 tax files and gets a structured findings report back.
 
-Next.js 16 (App Router) · React 19 · Tailwind 4 · TypeScript · SQLite (`node:sqlite`)
+Next.js 16 (App Router) · React 19 · Tailwind 4 · TypeScript · Postgres · Vercel Blob
 
 Runs on **OpenAI `gpt-5.6-luna`** — roughly **$0.02 per 40-page review**. PDFs and
 scans are read natively.
@@ -25,6 +25,8 @@ Two values go in `.env` — it has step-by-step instructions inside:
 
 ```
 OPENAI_API_KEY=sk-...                 # platform.openai.com/api-keys
+DATABASE_URL=postgres://...           # pooled connection string
+BLOB_READ_WRITE_TOKEN=vercel_blob_... # Vercel → Storage → Blob
 AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET   # console.cloud.google.com/apis/credentials
 ```
 
@@ -40,6 +42,43 @@ everyone else by email under **Admin → People**.
 For production: `npm run build && npm start`.
 
 > Port 3000 is used by other projects on this machine, so this defaults to **3100**.
+
+## Deploying to Vercel
+
+This runs on Vercel, which means three managed pieces rather than a local disk:
+
+| Concern | Where it lives | Why |
+|---|---|---|
+| Database | Postgres (Vercel Postgres or Neon) | The filesystem is read-only and per-instance, so SQLite cannot persist |
+| Uploaded documents | Vercel Blob | Same reason — a local path would vanish between upload and review |
+| Long reviews | `waitUntil`, capped by `maxDuration` | A function is frozen once it responds, so the work is explicitly handed off |
+
+Steps:
+
+1. **Create the stores.** Vercel → Storage → Postgres, and again for Blob. Link both
+   to the project. That sets `POSTGRES_URL` and `BLOB_READ_WRITE_TOKEN` automatically.
+   Use the **pooled** connection string: serverless opens many short-lived
+   connections and a direct one runs out of slots.
+2. **Set the remaining env vars** in the Vercel project: `OPENAI_API_KEY`,
+   `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET` (generate a fresh one),
+   `ADMIN_EMAILS`, `ALLOWED_EMAIL_DOMAIN`, and `AUTH_URL` set to the real domain.
+3. **Add the production redirect URI** in Google Console:
+   `https://your-domain/api/auth/callback/google`
+4. Deploy. The schema is created on the first request — every statement is
+   `IF NOT EXISTS`, so concurrent cold starts are harmless.
+
+Locally, `vercel env pull` writes the same values into `.env.local`.
+
+### What the platform constrains
+
+- **A review must finish inside `maxDuration`** (300s in `vercel.json`; Hobby caps at
+  60s, so Pro is effectively required). A run that outlives it is closed out as failed
+  by the staleness check rather than hanging as `running` forever.
+- **Stop is eventual, not instant.** The request setting it will not reach the instance
+  running the review, so it writes `reviews.abort_requested` and the running job
+  notices within a couple of seconds.
+- **Uploads are capped at 20 MB per file** and buffer in memory, because a serverless
+  instance has nowhere to stream them to.
 
 ## How it works
 
@@ -124,10 +163,8 @@ file over the page limit is refused with the actual page count.
   Findings, reviews and the audit log are kept. Purge from **Usage & cost →
   Document retention**. This app is a review assistant, not your document management
   system; a second, less-governed copy of every client PDF is liability without benefit.
-- **`data/` is not encrypted by this app.** It relies on BitLocker on the volume.
-  Confirm BitLocker is on before real client returns go through this.
-- **The startup guard refuses to run if `DATA_DIR` is inside OneDrive.** Your Desktop
-  is not currently redirected, but one "Back up this folder" click would change that.
+- **Encryption at rest is the provider's**, not this app's — Postgres and Blob both
+  encrypt at rest. Confirm that satisfies your WISP before real client returns.
 
 ## Cost
 
@@ -142,10 +179,13 @@ Nothing errors when this happens — the bill just goes up.
 ## Tests
 
 ```bash
-# stop the server, then:
-rm -rf data && npm run build && npm start   # in one terminal
-npm test                                     # in another
+npm run build && npm start   # in one terminal
+npm test                     # in another
 ```
+
+The suite talks to the same Postgres as the app, so `DATABASE_URL` must be set. It
+seeds its own users and cleans up after itself; point it at a scratch database
+rather than one holding real reviews.
 
 85 checks against a real HTTP server: the anonymous-access matrix, that an
 authenticated-but-not-invited Google account is still refused, immediate effect of
@@ -186,16 +226,17 @@ app/                 pages + route handlers
 components/          Chat, Markdown, FindingsReport, PdfViewer, AdminPanel, Mark
 lib/
   config.ts          env, model + pricing table, OneDrive guard
-  db.ts              schema + additive column migrations
+  db.ts              Postgres pool, schema, and the ?-to-$n placeholder shim
   auth.ts            NextAuth + Google, the allowlist, role guards
   pii.ts             identifier tokenisation
   ai.ts              Claude adapter — the only file importing the SDK
   ingest.ts          magic-byte sniffing, extraction, document blocks
   skills.ts          skill CRUD, deterministic bundle assembly
   review.ts          two-pass pipeline, prompts, citation resolution
+  storage.ts         Vercel Blob: uploaded documents
   retention.ts       expiry sweeper and hard delete
   jobs.ts            detached review jobs + the replayable event log
-data/                SQLite + uploads. Gitignored. This is what to back up.
+vercel.json          per-route function limits
 ```
 
 ## Known advisory (assessed, not actioned)

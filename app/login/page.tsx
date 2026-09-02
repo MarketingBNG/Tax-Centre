@@ -27,7 +27,16 @@ export default async function LoginPage({
 
   const { error } = await searchParams;
   const configured = isAuthConfigured();
-  const isFirstRun = (one<{ c: number }>(`SELECT COUNT(*) AS c FROM users`)?.c ?? 0) === 0;
+
+  // The very first deploy often has no database yet. Say so plainly instead
+  // of returning a 500 from the one page a new visitor can reach.
+  let isFirstRun = false;
+  let databaseReachable = true;
+  try {
+    isFirstRun = Number((await one<{ c: number }>(`SELECT COUNT(*) AS c FROM users`))?.c ?? 0) === 0;
+  } catch {
+    databaseReachable = false;
+  }
 
   return (
     <div className="grid h-screen place-items-center p-5">
@@ -40,7 +49,12 @@ export default async function LoginPage({
           Sign in with your work Google account to run a review.
         </p>
 
-        {!configured ? (
+        {!databaseReachable ? (
+          <div className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+            Cannot reach the database. Set <code>DATABASE_URL</code> to a pooled Postgres
+            connection string (Vercel → Storage → Postgres, or neon.tech) and redeploy.
+          </div>
+        ) : !configured ? (
           <div className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#f0a9a9]">
             Google sign-in is not set up yet. Add <code>AUTH_GOOGLE_ID</code>,{' '}
             <code>AUTH_GOOGLE_SECRET</code> and <code>AUTH_SECRET</code> to <code>.env</code>,

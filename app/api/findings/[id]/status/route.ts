@@ -14,7 +14,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   // Ownership joined through the review, so a reviewer cannot triage someone
   // else's findings by guessing an id.
-  const row = one<{ id: string }>(
+  const row = await one<{ id: string }>(
     `SELECT f.id FROM findings f
      JOIN reviews r ON r.id = f.review_id
      WHERE f.id = ? AND (r.user_id = ? OR ? = 'admin')`,
@@ -24,6 +24,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   );
   if (!row) return notFound();
 
-  run(`UPDATE findings SET status = ? WHERE id = ?`, status, id);
+  await run(`UPDATE findings SET status = ? WHERE id = ?`, status, id);
   return Response.json({ ok: true });
 }

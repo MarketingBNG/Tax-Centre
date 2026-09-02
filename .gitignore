@@ -1,7 +1,7 @@
 node_modules/
 .next/
 out/
-data/
+# data/ is no longer used — storage is Postgres + Vercel Blob
 .env
 .env*.local
 next-env.d.ts

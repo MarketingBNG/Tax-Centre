@@ -24,21 +24,24 @@ import { getSetting, setSetting } from './db';
 
 export type PiiCounts = Record<string, number>;
 
-function tokenKey(): string {
-  let key = getSetting('pii_token_key', '');
+async function tokenKey(): Promise<string> {
+  let key = await getSetting('pii_token_key', '');
   if (!key) {
     key = crypto.randomBytes(32).toString('hex');
-    setSetting('pii_token_key', key);
+    await setSetting('pii_token_key', key);
   }
   return key;
 }
 
-function tag(kind: string, value: string): string {
+/** Binds the HMAC key once so the per-value tagger stays synchronous. */
+function makeTagger(key: string) {
+  return (kind: string, value: string): string => {
   const digest = crypto
-    .createHmac('sha256', tokenKey())
+    .createHmac('sha256', key)
     .update(`${kind}:${value.replace(/\D/g, '')}`)
     .digest('hex');
   return `[${kind}-${digest.slice(0, 4)}]`;
+  };
 }
 
 /** ABA routing numbers carry a checksum, which nearly eliminates false hits. */
@@ -70,9 +73,12 @@ function passesLuhn(digits: string): boolean {
  * review depends on, which is worse than a miss — so every rule either has a
  * checksum, a punctuation shape, or an adjacent label.
  */
-export function tokenizeText(input: string): { text: string; counts: PiiCounts } {
+export async function tokenizeText(
+  input: string,
+): Promise<{ text: string; counts: PiiCounts }> {
   const counts: PiiCounts = {};
   const bump = (k: string) => (counts[k] = (counts[k] ?? 0) + 1);
+  const tag = makeTagger(await tokenKey());
   let text = input;
 
   // SSN / ITIN in dashed form — unambiguous.
