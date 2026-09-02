@@ -33,6 +33,9 @@ function connect(): postgres.Sql {
     max: 5,
     idle_timeout: 20,
     connect_timeout: 15,
+    // Schema setup uses IF NOT EXISTS, so every cold start logs a NOTICE per
+    // existing index. Nothing is wrong; just don't print it.
+    onnotice: () => {},
   });
 }
 
