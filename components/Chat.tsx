@@ -197,10 +197,7 @@ export function Chat({ me }: { me: Me }) {
       });
     } else if (!me.apiKeyConfigured) {
       setBanner({
-        text:
-          me.provider === 'openai'
-            ? 'No OpenAI API key configured. Add OPENAI_API_KEY to .env and restart the server.'
-            : 'No Anthropic API key configured. Add ANTHROPIC_API_KEY to .env and restart the server.',
+        text: 'No OpenAI API key configured. Add OPENAI_API_KEY to .env and restart the server.',
         kind: 'error',
       });
     }

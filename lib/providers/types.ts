@@ -1,15 +1,14 @@
 import type { NormalisedUsage } from '../types';
 
-export type ProviderId = 'anthropic' | 'openai';
+export type ProviderId = 'openai';
 
 /**
- * What the abstraction cannot hide, and therefore has to declare.
+ * What the provider can and cannot do.
  *
- * `citations` is the one that changes the product rather than the plumbing:
- * only Claude returns server-computed page locations for an arbitrary PDF.
- * Where it is false, findings carry no page anchors — we do not ask the model
- * to state page numbers and present them as provenance, because an unverifiable
- * page reference in a tax review is worse than none.
+ * `citations` is false here: nothing returns server-computed page locations for
+ * an arbitrary PDF, so findings carry no page anchors. We deliberately do not
+ * ask the model to state page numbers and present them as provenance — an
+ * unverifiable page reference in a tax review is worse than none.
  */
 export interface ProviderCapabilities {
   nativePdf: boolean;

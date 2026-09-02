@@ -30,7 +30,6 @@ export const PORT = Number(process.env.PORT || 3100);
 // documents should not live in the repo), so the path cannot be statically
 // scoped. The ignore comment stops Turbopack tracing the whole project.
 export const DATA_DIR = path.resolve(/*turbopackIgnore: true*/ ROOT, process.env.DATA_DIR || 'data');
-export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 export const GOOGLE_CLIENT_ID = process.env.AUTH_GOOGLE_ID || '';
 export const GOOGLE_CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET || '';
 
@@ -63,39 +62,19 @@ export const APP_NAME = 'Tax Review Center';
 
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
-/** Which provider serves reviews. Everything else adapts to this one value. */
-export type ProviderName = 'anthropic' | 'openai';
-export const AI_PROVIDER: ProviderName =
-  process.env.AI_PROVIDER === 'anthropic' ? 'anthropic' : 'openai';
 
 export type ModelRole = 'reviewer' | 'extractor' | 'chat';
 
-const ANTHROPIC_MODELS: Record<ModelRole, string> = {
-  reviewer: process.env.REVIEW_MODEL || 'claude-opus-5',
-  extractor: process.env.EXTRACT_MODEL || 'claude-sonnet-5',
-  chat: process.env.CHAT_MODEL || 'claude-opus-5',
-};
-
-const OPENAI_MODELS: Record<ModelRole, string> = {
+export const MODELS: Record<ModelRole, string> = {
   reviewer: process.env.OPENAI_REVIEW_MODEL || 'gpt-5.6-luna',
   extractor: process.env.OPENAI_EXTRACT_MODEL || 'gpt-5.6-luna',
   chat: process.env.OPENAI_CHAT_MODEL || 'gpt-5.6-luna',
 };
 
-export const MODELS: Record<ModelRole, string> =
-  AI_PROVIDER === 'anthropic' ? ANTHROPIC_MODELS : OPENAI_MODELS;
-
 export const EFFORT = process.env.REVIEW_EFFORT || 'high';
 
-/**
- * USD per million tokens, plus the multiplier applied to cached input.
- * Anthropic: cache reads 0.1x, 5-minute writes 1.25x.
- * OpenAI: cached input is a flat discount, no write premium.
- */
+/** USD per million tokens. Cached input is a flat discount, no write premium. */
 export const PRICING: Record<string, { in: number; out: number; cachedIn: number }> = {
-  'claude-opus-5': { in: 5, out: 25, cachedIn: 0.5 },
-  'claude-sonnet-5': { in: 2, out: 10, cachedIn: 0.2 },
-  'claude-haiku-4-5': { in: 1, out: 5, cachedIn: 0.1 },
   'gpt-5.6-luna': { in: 0.2, out: 1.2, cachedIn: 0.02 },
   'gpt-5.6-terra': { in: 2, out: 12, cachedIn: 0.2 },
   'gpt-5.6-sol': { in: 4, out: 20, cachedIn: 0.4 },

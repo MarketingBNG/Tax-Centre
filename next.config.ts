@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // These pull in native/large deps that must not be bundled into the server
   // build; Next must require() them at runtime instead.
-  serverExternalPackages: ['exceljs', 'mammoth', 'pdf-lib', 'qrcode', '@anthropic-ai/sdk'],
+  serverExternalPackages: ['exceljs', 'mammoth', 'pdf-lib'],
 
   async headers() {
     return [

@@ -16,7 +16,7 @@ import { getSetting, setSetting } from './db';
  *    token across every document and every review with no mapping table to leak.
  *
  * Hard limitation, stated plainly: this cannot touch native PDFs or images. We
- * send those as bytes and pixels, and Claude reads the number off the scan
+ * send those as bytes and pixels, and the model reads the number off the scan
  * directly. Redacting those would mean rasterise -> OCR -> locate -> black-box,
  * which throws away the native-PDF fidelity that makes this pipeline good and
  * risks covering the wrong figure. This reduces exposure; it does not remove PII.

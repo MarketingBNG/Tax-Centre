@@ -14,7 +14,7 @@
  * still applies: the user row has to exist and be active, which is exactly the
  * behaviour under test.
  *
- * It does not call the OpenAI or Anthropic APIs — that costs money.
+ * It does not call the OpenAI API — that costs money.
  */
 import { encode } from 'next-auth/jwt';
 import { DatabaseSync } from 'node:sqlite';
@@ -213,7 +213,7 @@ const stranger = jar(await cookieFor('nobody@gmail.com'));
 console.log('\n=== identity is not authorisation ===');
 r = await call(admin, 'GET', '/api/me');
 ok('an allowlisted admin is recognised', r.json?.role === 'admin' && r.json?.email === 'admin@usaindiacfo.com', `HTTP ${r.status}`);
-ok('provider reported', ['openai', 'anthropic'].includes(r.json?.provider), `${r.json?.provider} / ${r.json?.model} / citations=${r.json?.citationsSupported}`);
+ok('provider reported', r.json?.provider === 'openai', `${r.json?.provider} / ${r.json?.model} / citations=${r.json?.citationsSupported}`);
 ok('pii tokenisation on by default', r.json?.piiMode === 'tokenize');
 
 r = await call(stranger, 'GET', '/api/me');

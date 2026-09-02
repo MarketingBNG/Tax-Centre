@@ -5,9 +5,10 @@ import type { NormalisedUsage } from '../types';
 /**
  * Cost in integer millionths of a USD. Never floats for money.
  *
- * `inputTokens` is the uncached remainder only on both providers, so the total
- * prompt is input + cacheRead + cacheWrite. Anthropic charges a premium to
- * write a cache entry; OpenAI does not, so cacheWriteTokens is simply zero there.
+ * `inputTokens` is the uncached remainder, so the total prompt is
+ * input + cacheRead. OpenAI charges no premium to write a cache entry, so
+ * cacheWriteTokens is always zero and the term is kept only so the shape stays
+ * stable if another provider is ever added back.
  */
 export function priceMicros(model: string, u: NormalisedUsage): number {
   const rate = PRICING[model];

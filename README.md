@@ -6,19 +6,13 @@ tax files and gets a structured findings report back.
 
 Next.js 16 (App Router) · React 19 · Tailwind 4 · TypeScript · SQLite (`node:sqlite`)
 
-Two providers, switched with one line in `.env` (`AI_PROVIDER`):
+Runs on **OpenAI `gpt-5.6-luna`** — roughly **$0.02 per 40-page review**. PDFs and
+scans are read natively.
 
-| | OpenAI (`gpt-5.6-luna`) | Anthropic (`claude-opus-5`) |
-|---|---|---|
-| Cost per 40-page review | **~$0.02** | ~$0.58 |
-| PDFs, including scans | yes, natively | yes, natively |
-| Photos of receipts | yes | yes |
-| Page references on findings | no | yes, API-verified |
-
-Page references are the real trade. Only Anthropic returns server-computed page
-locations, so on OpenAI findings carry no page anchors. We do not ask the model to
-state page numbers and present them as provenance — an unverifiable page reference in
-a tax review is worse than none.
+Findings carry no page references. Nothing in the API returns server-computed page
+locations for an arbitrary PDF, and we deliberately do not ask the model to state page
+numbers and present them as provenance — an unverifiable page reference in a tax review
+is worse than none.
 
 ## Start it
 
@@ -42,9 +36,6 @@ http://localhost:3100/api/auth/callback/google
 
 Everyone in `ADMIN_EMAILS` can sign in immediately and is an admin. Admins then add
 everyone else by email under **Admin → People**.
-
-To use Claude instead of OpenAI, set `AI_PROVIDER=anthropic` and fill in
-`ANTHROPIC_API_KEY`.
 
 For production: `npm run build && npm start`.
 
@@ -81,7 +72,7 @@ Severities map to workflow rather than generic high/medium/low:
 
 | Format | Handling |
 |---|---|
-| PDF (incl. scans) | Sent natively — both providers read scanned pages via vision. Page-accurate citations on Anthropic only. |
+| PDF (incl. scans) | Sent natively — the model reads scanned pages via vision |
 | DOCX | Text extracted with `mammoth` |
 | XLSX / XLSM | Rendered per sheet with real cell addresses (`Depreciation!D14`) plus a formula index, so a broken fill pattern stays visible instead of being flattened into a plain table |
 | CSV / TXT / MD | Decoded, including the UTF-16 and BOM variants Excel produces |
@@ -141,9 +132,8 @@ file over the page limit is refused with the actual page count.
 ## Cost
 
 `/admin` → Usage & cost shows month-to-date spend, cost per review, per-person
-breakdown, and cache hit rate. A 40-page return runs roughly $0.02 on
-gpt-5.6-luna, or $0.23–$0.58 on Claude depending on the model. Follow-up turns are
-cheaper still because the documents and skill bundle are cached.
+breakdown, and cache hit rate. A 40-page return runs roughly $0.02. Follow-up turns are cheaper still because the
+documents and skill bundle are cached.
 
 **If the cache hit rate drops below ~30%, something is wrong.** The likely cause is a
 change that put volatile text (a date, a client name) into the cached prompt prefix.
@@ -157,7 +147,7 @@ rm -rf data && npm run build && npm start   # in one terminal
 npm test                                     # in another
 ```
 
-82 checks against a real HTTP server: the anonymous-access matrix, that an
+85 checks against a real HTTP server: the anonymous-access matrix, that an
 authenticated-but-not-invited Google account is still refused, immediate effect of
 deactivation, the last-admin lockout guard, magic-byte rejection, dedupe (including
 that a re-upload does not steal a file from another conversation), upload guards, PII
@@ -223,8 +213,8 @@ deliberately; re-check when exceljs updates its `uuid` dependency.
 
 Neither is a code change, and neither is something this app can settle:
 
-1. **Get Anthropic's answers in writing** on training use, retention windows, and
-   whether Zero Data Retention is available on your plan — before real client returns
+1. **Get OpenAI's answers in writing** on training use, retention windows, and whether
+   a zero-retention arrangement is available on your plan — before real client returns
    go through this.
 2. **Point counsel at Treas. Reg. §301.7216**, which sets distinct requirements for
    disclosing taxpayer information to preparers **outside the US** — directly relevant

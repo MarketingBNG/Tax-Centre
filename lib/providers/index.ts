@@ -1,11 +1,9 @@
 import 'server-only';
-import { AI_PROVIDER } from '../config';
-import { anthropicProvider } from './anthropic';
 import { openaiProvider } from './openai';
 import type { AiProvider } from './types';
 
 export function getProvider(): AiProvider {
-  return AI_PROVIDER === 'anthropic' ? anthropicProvider : openaiProvider;
+  return openaiProvider;
 }
 
 export const microsToUsd = (micros: number): number => micros / 1_000_000;
