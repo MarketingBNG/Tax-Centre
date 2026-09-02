@@ -40,8 +40,8 @@ The Google OAuth client needs this exact redirect URI:
 http://localhost:3100/api/auth/callback/google
 ```
 
-The first person to sign in becomes the admin (pinned to `BOOTSTRAP_ADMIN_EMAIL`).
-After that, an admin adds people by email under **Admin → People**.
+Everyone in `ADMIN_EMAILS` can sign in immediately and is an admin. Admins then add
+everyone else by email under **Admin → People**.
 
 To use Claude instead of OpenAI, set `AI_PROVIDER=anthropic` and fill in
 `ANTHROPIC_API_KEY`.
@@ -96,10 +96,11 @@ file over the page limit is refused with the actual page count.
 - **Sign-in is Google OAuth only** — no passwords are stored, so there is no password
   to leak, reset or brute-force. Sessions are 12-hour signed JWTs.
 - **A Google login is identity, not authorisation.** Google will authenticate any
-  account on earth, so the `users` table is the allowlist: an admin adds someone by
-  email first, and only then does sign-in succeed. `ALLOWED_EMAIL_DOMAIN` adds a second
-  fence at the domain level. The very first sign-in bootstraps the initial admin and is
-  pinned to `BOOTSTRAP_ADMIN_EMAIL`.
+  account on earth, so access is granted by exactly two things: being listed in
+  `ADMIN_EMAILS`, or being added by an admin under **Admin → People**. Anyone else is
+  refused despite a perfectly valid Google session. `ALLOWED_EMAIL_DOMAIN` adds a second
+  fence at the domain level. `ADMIN_EMAILS` is grant-only — removing someone from it
+  does not demote them, so nobody loses access by surprise.
 - **Role and active status are re-read from the database on every request**, not trusted
   from the token — so deactivating someone or changing their role takes effect on their
   next request rather than when a token expires.

@@ -222,6 +222,45 @@ ok('a valid Google session for an un-invited address is refused', r.status === 4
 r = await call(reviewer, 'GET', '/api/me');
 ok('an allowlisted reviewer is recognised', r.json?.role === 'reviewer');
 
+console.log(String.fromCharCode(10) + '=== ADMIN_EMAILS grants admin without an invitation ===');
+{
+  const adminLine =
+    readFileSync(path.join(process.cwd(), '.env'), 'utf8')
+      .split(String.fromCharCode(10))
+      .find((l) => l.trim().startsWith('ADMIN_EMAILS=')) ?? '';
+  const configured = adminLine
+    .split('=')
+    .slice(1)
+    .join('=')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.includes('@'));
+
+  ok('at least one admin is configured', configured.length > 0, configured.join(', ') || 'none');
+
+  if (configured.length) {
+    // No user row exists for this address; the configured list alone must let
+    // it in, as an admin.
+    const listedJar = jar(await cookieFor(configured[0]));
+    r = await call(listedJar, 'GET', '/api/me');
+    ok('a listed address signs in with no prior invitation', r.json?.role === 'admin',
+       `${r.status} / ${r.json?.role} / ${r.json?.email}`);
+
+    // And a reviewer added to the list is promoted rather than left as-is.
+    const probe = new DatabaseSync(DB_PATH);
+    const demoteId = crypto.randomUUID();
+    probe.prepare(
+      `INSERT INTO users (id, email, role, display_name, is_active, created_at) VALUES (?, ?, 'reviewer', ?, 1, ?)`,
+    ).run(demoteId, 'listed-as-reviewer@usaindiacfo.com', 'Listed', Date.now());
+    probe.close();
+
+    // Not in ADMIN_EMAILS, so it should stay a reviewer.
+    const stillReviewer = jar(await cookieFor('listed-as-reviewer@usaindiacfo.com'));
+    r = await call(stillReviewer, 'GET', '/api/me');
+    ok('an address absent from the list is not promoted', r.json?.role === 'reviewer', r.json?.role);
+  }
+}
+
 /* ──────────────────────────── skills ────────────────────────────────── */
 
 console.log('\n=== skills ===');

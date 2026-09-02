@@ -37,8 +37,18 @@ export const GOOGLE_CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET || '';
 /** Optional: only addresses at this domain may sign in, e.g. usaindiacfo.com */
 export const ALLOWED_EMAIL_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || '').trim();
 
-/** Optional: pins who the very first sign-in may bootstrap as admin. */
-export const BOOTSTRAP_ADMIN_EMAIL = (process.env.BOOTSTRAP_ADMIN_EMAIL || '').trim();
+/**
+ * Addresses that are always admins. Anyone listed here can sign in without
+ * being invited first, and is created as (or promoted to) an admin on sign-in.
+ *
+ * Grant-only by design: removing someone from this list does not demote them,
+ * because a silent demotion on next sign-in would be a confusing way to lose
+ * access. Demote through Admin -> People instead.
+ */
+export const ADMIN_EMAILS: string[] = (process.env.ADMIN_EMAILS || '')
+  .split(/[,;\s]+/)
+  .map((e) => e.trim().toLowerCase())
+  .filter((e) => e.includes('@'));
 
 /**
  * Local preview switch. When true, every request is treated as a signed-in

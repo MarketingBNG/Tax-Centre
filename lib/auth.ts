@@ -7,7 +7,7 @@ import {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   ALLOWED_EMAIL_DOMAIN,
-  BOOTSTRAP_ADMIN_EMAIL,
+  ADMIN_EMAILS,
   DISABLE_AUTH,
 } from './config';
 import type { UserRow, Role } from './types';
@@ -34,47 +34,78 @@ export function createUser(input: { email: string; role: Role; displayName: stri
   return getUserById(id)!;
 }
 
-const userCount = () => one<{ c: number }>(`SELECT COUNT(*) AS c FROM users`)?.c ?? 0;
+const domainAllows = (email: string) =>
+  !ALLOWED_EMAIL_DOMAIN || email.endsWith(`@${ALLOWED_EMAIL_DOMAIN.toLowerCase()}`);
+
+/**
+ * Creates or promotes an address listed in ADMIN_EMAILS.
+ *
+ * Called on every request rather than only at sign-in, so adding someone to
+ * the list takes effect on their next request instead of forcing them to sign
+ * out and back in. Idempotent, and only writes to the audit log when it
+ * actually changes something.
+ */
+function syncConfiguredAdmin(email: string): UserRow | null {
+  const normalised = email.trim().toLowerCase();
+  if (!ADMIN_EMAILS.includes(normalised) || !domainAllows(normalised)) return null;
+
+  const existing = getUserByEmail(normalised);
+
+  if (!existing) {
+    const created = createUser({ email: normalised, role: 'admin', displayName: normalised });
+    audit(created.id, 'user.admin_from_config', 'user', created.id, { email: normalised });
+    return created;
+  }
+
+  // A configured admin who was deactivated by hand stays deactivated; the list
+  // grants a role, it does not override an explicit removal.
+  if (!existing.is_active) return null;
+
+  if (existing.role !== 'admin') {
+    run(`UPDATE users SET role = 'admin' WHERE id = ?`, existing.id);
+    audit(existing.id, 'user.promoted_by_config', 'user', existing.id, { email: normalised });
+    return getUserById(existing.id);
+  }
+  return existing;
+}
 
 /**
  * Who is allowed in.
  *
  * Google will happily authenticate any Google account on earth, so identity
- * alone is not authorisation. The users table is the allowlist: an admin adds
- * someone by email first, and only then can they sign in. The one exception is
- * the very first sign-in, which bootstraps the initial admin — and even that is
- * pinned to BOOTSTRAP_ADMIN_EMAIL when it is set.
+ * alone is not authorisation. Two things grant access:
+ *
+ *   1. Being listed in ADMIN_EMAILS — always an admin, no invitation needed.
+ *   2. Being added by an admin under Admin -> People.
+ *
+ * Anyone else is refused, even with a perfectly valid Google session.
  */
 function resolveAccess(email: string, name: string): UserRow | null {
   const normalised = email.trim().toLowerCase();
 
-  if (ALLOWED_EMAIL_DOMAIN && !normalised.endsWith(`@${ALLOWED_EMAIL_DOMAIN.toLowerCase()}`)) {
+  if (!domainAllows(normalised)) {
     audit(null, 'login.rejected_domain', 'user', null, { email: normalised });
     return null;
   }
 
+  const fromConfig = syncConfiguredAdmin(normalised);
+  if (fromConfig) {
+    if (name && fromConfig.display_name === normalised) {
+      run(`UPDATE users SET display_name = ? WHERE id = ?`, name, fromConfig.id);
+    }
+    return fromConfig;
+  }
+
   const existing = getUserByEmail(normalised);
-  if (existing) {
-    if (!existing.is_active) {
-      audit(existing.id, 'login.rejected_inactive', 'user', existing.id, null);
-      return null;
-    }
-    return existing;
+  if (!existing) {
+    audit(null, 'login.rejected_not_invited', 'user', null, { email: normalised });
+    return null;
   }
-
-  // First-run bootstrap. Self-closing: once one account exists this never fires.
-  if (userCount() === 0) {
-    if (BOOTSTRAP_ADMIN_EMAIL && normalised !== BOOTSTRAP_ADMIN_EMAIL.toLowerCase()) {
-      audit(null, 'login.rejected_bootstrap', 'user', null, { email: normalised });
-      return null;
-    }
-    const created = createUser({ email: normalised, role: 'admin', displayName: name || normalised });
-    audit(created.id, 'setup.first_admin', 'user', created.id, { email: normalised });
-    return created;
+  if (!existing.is_active) {
+    audit(existing.id, 'login.rejected_inactive', 'user', existing.id, null);
+    return null;
   }
-
-  audit(null, 'login.rejected_not_invited', 'user', null, { email: normalised });
-  return null;
+  return existing;
 }
 
 /* ------------------------------------------------------------- NextAuth */
@@ -116,6 +147,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Re-read the row on every request rather than trusting the token: a
       // role change or a deactivation then takes effect immediately instead of
       // waiting for the JWT to expire.
+      if (token.email) syncConfiguredAdmin(String(token.email));
       const row = token.email ? getUserByEmail(String(token.email)) : null;
       token.appUserId = row?.is_active ? row.id : undefined;
       token.appRole = row?.is_active ? row.role : undefined;

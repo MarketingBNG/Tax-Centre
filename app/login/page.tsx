@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { currentUser, isAuthConfigured } from '@/lib/auth';
 import { one } from '@/lib/db';
-import { ALLOWED_EMAIL_DOMAIN, BOOTSTRAP_ADMIN_EMAIL, DISABLE_AUTH } from '@/lib/config';
+import { ALLOWED_EMAIL_DOMAIN, ADMIN_EMAILS, DISABLE_AUTH } from '@/lib/config';
 import { googleSignIn } from '../actions';
 import { Mark } from '@/components/Mark';
 
@@ -82,19 +82,18 @@ export default async function LoginPage({
           </div>
         ) : null}
 
-        {configured && isFirstRun ? (
-          <div className="mt-4 rounded-lg border border-line-soft bg-canvas px-3 py-2 text-[12.5px] text-ink-faint">
-            First run — the first account to sign in becomes the admin
-            {BOOTSTRAP_ADMIN_EMAIL ? ` (restricted to ${BOOTSTRAP_ADMIN_EMAIL})` : ''}. After
-            that, only people an admin has added can sign in.
+{configured && isFirstRun && ADMIN_EMAILS.length === 0 ? (
+          <div className="mt-4 rounded-lg border border-sev-math/35 bg-sev-math/10 px-3 py-2 text-[12.5px] text-[#dcc79a]">
+            No admins are configured yet, so nobody can sign in. Add your team&apos;s
+            addresses to <code>ADMIN_EMAILS</code> in <code>.env</code> and restart.
           </div>
         ) : null}
 
-        {configured && !isFirstRun ? (
+        {configured && ADMIN_EMAILS.length > 0 ? (
           <p className="mt-4 text-[12.5px] text-ink-faint">
             Access is by invitation
             {ALLOWED_EMAIL_DOMAIN ? `, and limited to @${ALLOWED_EMAIL_DOMAIN} addresses` : ''}.
-            An admin adds your email before you can sign in.
+            Admins can sign in directly; everyone else needs to be added by one first.
           </p>
         ) : null}
       </div>
