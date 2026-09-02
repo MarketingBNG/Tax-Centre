@@ -4,7 +4,7 @@ import { one, run } from '@/lib/db';
 import { runFollowUp } from '@/lib/review';
 import type { ConversationRow, StreamEvent } from '@/lib/types';
 
-export const maxDuration = 800;
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
