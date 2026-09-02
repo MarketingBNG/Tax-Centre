@@ -534,11 +534,12 @@ export async function runFollowUp(input: {
   // from the composer before pressing Review, and would miss a deduped file
   // whose row belongs to an earlier conversation.
   const files = await all<FileRow>(
-    `SELECT DISTINCT f.* FROM files f
+    `SELECT f.* FROM files f
      JOIN review_files rf ON rf.file_id = f.id
      JOIN reviews r ON r.id = rf.review_id
      WHERE r.conversation_id = ? AND f.deleted_at IS NULL
-     ORDER BY r.created_at, rf.document_index`,
+     GROUP BY f.id
+     ORDER BY MIN(r.created_at), MIN(rf.document_index)`,
     conversationId,
   );
   const prior = await all<Pick<MessageRow, 'role' | 'content'>>(

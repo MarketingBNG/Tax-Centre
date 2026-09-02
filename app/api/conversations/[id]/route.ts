@@ -32,12 +32,13 @@ export async function GET(_req: Request, ctx: Ctx) {
   // lib/review.ts runFollowUp for why files.conversation_id is not the source
   // of truth here.
   const files = await all<FileRow>(
-    `SELECT DISTINCT f.id, f.filename, f.kind, f.size_bytes, f.page_count, f.pii_counts
+    `SELECT f.id, f.filename, f.kind, f.size_bytes, f.page_count, f.pii_counts
      FROM files f
      JOIN review_files rf ON rf.file_id = f.id
      JOIN reviews r ON r.id = rf.review_id
      WHERE r.conversation_id = ? AND f.deleted_at IS NULL
-     ORDER BY r.created_at, rf.document_index`,
+     GROUP BY f.id
+     ORDER BY MIN(r.created_at), MIN(rf.document_index)`,
     id,
   );
 

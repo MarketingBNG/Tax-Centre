@@ -1,23 +1,22 @@
 import 'server-only';
-import { put, del, head } from '@vercel/blob';
+import { put, del, get } from '@vercel/blob';
 import { BLOB_TOKEN } from './config';
 
 /**
- * Uploaded documents live in blob storage, not on disk.
+ * Uploaded documents live in blob storage, not on disk: the runtime has no
+ * writable filesystem that survives a request, so a local path would mean a
+ * client's return vanished between the upload and the review that reads it.
  *
- * The runtime has no writable filesystem that survives a request, so a local
- * path would mean a client's return vanished between the upload and the review
- * that reads it.
- *
- * Blobs are stored with `access: 'public'`, which is how this SDK works — the
- * URL is the capability. That URL is never exposed to the browser: it is kept
- * in the database, and `/api/files/[id]/raw` re-checks ownership and proxies
- * the bytes. `addRandomSuffix` makes the path unguessable so the URL cannot be
- * derived from a filename.
+ * The store is PRIVATE, and what we persist is the pathname rather than a URL.
+ * A public blob URL is itself a capability — anyone holding it can read the
+ * document — so keeping one in the database would quietly route around the
+ * ownership checks in /api/files/[id]/raw. Reads here are authenticated with
+ * the store token instead, and that route re-checks ownership and proxies the
+ * bytes.
  */
 
 export interface StoredBlob {
-  url: string;
+  pathname: string;
   size: number;
 }
 
@@ -37,37 +36,35 @@ export async function putBlob(
 ): Promise<StoredBlob> {
   assertConfigured();
   const result = await put(key, body, {
-    access: 'public',
+    access: 'private',
     contentType,
     addRandomSuffix: true,
     token: BLOB_TOKEN,
   });
-  return { url: result.url, size: body.length };
+  return { pathname: result.pathname, size: body.length };
 }
 
 /** Reads a stored document back. Returns null if it has been purged. */
-export async function getBlob(url: string): Promise<Buffer | null> {
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  return Buffer.from(await res.arrayBuffer());
-}
-
-export async function deleteBlob(url: string): Promise<void> {
-  assertConfigured();
+export async function getBlob(pathname: string): Promise<Buffer | null> {
+  if (!BLOB_TOKEN) return null;
   try {
-    await del(url, { token: BLOB_TOKEN });
+    const result = await get(pathname, { access: 'private', token: BLOB_TOKEN });
+    if (!result?.stream) return null;
+    const chunks: Uint8Array[] = [];
+    // @ts-expect-error - the SDK returns a web ReadableStream, which is async-iterable at runtime
+    for await (const chunk of result.stream) chunks.push(chunk as Uint8Array);
+    return Buffer.concat(chunks);
   } catch {
-    // Already gone is the desired end state, not an error.
+    return null;
   }
 }
 
-export async function blobExists(url: string): Promise<boolean> {
-  if (!BLOB_TOKEN) return false;
+export async function deleteBlob(pathname: string): Promise<void> {
+  if (!BLOB_TOKEN) return;
   try {
-    await head(url, { token: BLOB_TOKEN });
-    return true;
+    await del(pathname, { token: BLOB_TOKEN });
   } catch {
-    return false;
+    // Already gone is the desired end state, not an error.
   }
 }
 

@@ -73,8 +73,8 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, created_at);
 
--- storage_path holds a blob URL rather than a filesystem path: the runtime has
--- no writable disk that survives a request.
+-- storage_path holds a private blob pathname, not a URL: a public blob URL is
+-- itself a capability and would route around the ownership checks.
 CREATE TABLE IF NOT EXISTS files (
   id               TEXT PRIMARY KEY,
   user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS skills (
   enabled         INTEGER NOT NULL DEFAULT 1,
   sort_order      INTEGER NOT NULL DEFAULT 100,
   token_estimate  INTEGER NOT NULL DEFAULT 0,
-  created_by      TEXT REFERENCES users(id),
+  created_by      TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at      BIGINT NOT NULL,
   updated_at      BIGINT NOT NULL
 );
@@ -211,6 +211,26 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
+
+-- A skill is firm methodology, not personal property: it must outlive whoever
+-- published it. Without ON DELETE SET NULL the reference blocks deleting that
+-- account entirely. Guarded so the lock is only taken when the constraint is
+-- actually wrong (confdeltype 'n' means SET NULL).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    WHERE t.relname = 'skills'
+      AND c.conname = 'skills_created_by_fkey'
+      AND c.confdeltype = 'n'
+  ) THEN
+    ALTER TABLE skills DROP CONSTRAINT IF EXISTS skills_created_by_fkey;
+    ALTER TABLE skills ADD CONSTRAINT skills_created_by_fkey
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 `;
 
 /**

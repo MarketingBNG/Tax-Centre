@@ -213,6 +213,21 @@ if (!DATABASE_URL) {
   process.exit(2);
 }
 const db = postgres(DATABASE_URL, { prepare: false, max: 2 });
+
+// Postgres persists between runs, unlike the file database this suite was
+// written against. Clear the accounts it creates first, or the second run
+// reports false failures ("already exists", "401") that say nothing about the
+// code. Cascades remove their conversations, files, reviews and usage rows.
+await db`DELETE FROM users WHERE email IN (
+  'admin@usaindiacfo.com',
+  'rev@usaindiacfo.com',
+  'admin2@usaindiacfo.com',
+  'listed-as-reviewer@usaindiacfo.com',
+  'preview@localhost'
+) OR email LIKE '%@example.test'`;
+// Skills deliberately outlive their author (ON DELETE SET NULL), so they
+// have to be cleared separately or the bundle count grows every run.
+await db`DELETE FROM skills WHERE title IN ('1120-S review checklist', 'Test 1120-S checklist')`;
 const cols = (
   await db`SELECT column_name FROM information_schema.columns WHERE table_name = 'users'`
 ).map((c) => c.column_name);

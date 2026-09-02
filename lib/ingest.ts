@@ -285,7 +285,7 @@ export async function ingestFile(input: {
     sniffed.kind,
     buffer.length,
     sha256,
-    stored.url,
+    stored.pathname,
     pageCount,
     extracted,
     Object.keys(piiCounts).length ? JSON.stringify(piiCounts) : null,
