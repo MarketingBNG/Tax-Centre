@@ -121,6 +121,13 @@ export interface NormalisedUsage {
   cacheWriteTokens: number;
 }
 
+/** Per-review totals across every model call it made. */
+export interface ReviewUsage {
+  inputTokens: number;
+  outputTokens: number;
+  costMicros: number;
+}
+
 export type StreamEvent =
   | { type: 'text'; delta: string }
   | { type: 'status'; message: string }

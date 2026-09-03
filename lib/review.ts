@@ -12,6 +12,7 @@ import type {
   FindingRow,
   MessageRow,
   NormalisedUsage,
+  ReviewUsage,
   PageRef,
   ReviewRow,
   Severity,
@@ -592,7 +593,7 @@ export async function getReviewBundle(
   reviewId: string,
   userId: string,
   isAdmin: boolean,
-): Promise<{ review: ReviewRow; findings: Finding[] } | null> {
+): Promise<{ review: ReviewRow; findings: Finding[]; usage: ReviewUsage } | null> {
   const review = isAdmin
     ? await one<ReviewRow>(`SELECT * FROM reviews WHERE id = ?`, reviewId)
     : await one<ReviewRow>(
@@ -611,5 +612,23 @@ export async function getReviewBundle(
     pages: JSON.parse(f.pages || '[]') as PageRef[],
   }));
 
-  return { review, findings };
+  // Both passes (and any follow-up chat) record separately; the header wants
+  // one number per review, so total them here rather than in the component.
+  const usage = (await one<ReviewUsage>(
+    `SELECT COALESCE(SUM(input_tokens), 0)::bigint  AS "inputTokens",
+            COALESCE(SUM(output_tokens), 0)::bigint AS "outputTokens",
+            COALESCE(SUM(cost_micros), 0)::bigint   AS "costMicros"
+       FROM usage_records WHERE review_id = ?`,
+    reviewId,
+  )) ?? { inputTokens: 0, outputTokens: 0, costMicros: 0 };
+
+  return {
+    review,
+    findings,
+    usage: {
+      inputTokens: Number(usage.inputTokens),
+      outputTokens: Number(usage.outputTokens),
+      costMicros: Number(usage.costMicros),
+    },
+  };
 }

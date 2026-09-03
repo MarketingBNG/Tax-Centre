@@ -35,6 +35,7 @@ export interface ReviewBundle {
     status: string;
   };
   findings: Finding[];
+  usage: { inputTokens: number; outputTokens: number; costMicros: number };
 }
 
 const SEVERITY_STYLE: Record<string, string> = {
@@ -55,6 +56,11 @@ const SEVERITY_ORDER = [
   'missed_opportunity',
   'presentation_nit',
 ];
+
+/** 12345 -> "12.3k"; token counts run long and the header is one line. */
+function fmt(n: number) {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+}
 
 function Chip({ severity, label }: { severity: string; label: string }) {
   return (
@@ -110,9 +116,15 @@ export function FindingsReport({
     return acc;
   }, {});
 
-  const cost = bundle.review.cost_micros
-    ? `$${(bundle.review.cost_micros / 1e6).toFixed(3)}`
-    : '';
+  const { inputTokens, outputTokens } = bundle.usage;
+  // usage_records is the ledger; review.cost_micros is the older single-number
+  // field, kept as a fallback for reviews recorded before tokens were totalled.
+  const micros = bundle.usage.costMicros || bundle.review.cost_micros;
+  const cost = micros ? `$${(micros / 1e6).toFixed(3)}` : '';
+  const tokens =
+    inputTokens || outputTokens
+      ? `${fmt(inputTokens)} in · ${fmt(outputTokens)} out`
+      : '';
 
   return (
     <div className="mb-6 overflow-hidden rounded-xl border border-line bg-panel">
@@ -120,6 +132,7 @@ export function FindingsReport({
         <b className="text-[14.5px]">Findings</b>
         <span className="text-[12.5px] text-ink-faint">
           {findings.length} item{findings.length === 1 ? '' : 's'}
+          {tokens ? ` · ${tokens}` : ''}
           {cost ? ` · ${cost}` : ''}
         </span>
       </div>
