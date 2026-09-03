@@ -98,6 +98,11 @@ Issue: <what is wrong and how you know, quoting the document>
 Action: <what the preparer should do>
 Confidence: <high | medium | low>
 
+Keep it tight. The opening paragraph is two sentences at most, and Issue and
+Action are one sentence each — enough to quote the figure or reference that
+proves the point, and nothing more. A preparer should be able to skim the whole
+review. Brevity applies to the wording, never to the coverage.
+
 Report every issue you find. If you find none, say so plainly and explain what you
 checked. Do not invent issues to fill space.`;
 
