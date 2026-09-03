@@ -570,12 +570,18 @@ export function Chat({ me }: { me: Me }) {
               </div>
             ) : null}
 
-            {messages.map((m) => (
+            {messages.map((m) => {
+              // Pass A streams prose; Pass B turns it into the structured report.
+              // Once the report has arrived it supersedes the prose it came from,
+              // so showing both would just be the same findings twice.
+              const report =
+                m.role === 'assistant' && m.review_id ? reviews[m.review_id] : null;
+              return (
               <div key={m.id}>
-                {m.role === 'assistant' && m.review_id && reviews[m.review_id] ? (
-                  <FindingsReport bundle={reviews[m.review_id]} labels={me.severityLabels} />
+                {report ? (
+                  <FindingsReport bundle={report} labels={me.severityLabels} />
                 ) : null}
-                <div className="group mb-6">
+                <div className={report ? 'hidden' : 'group mb-6'}>
                   <div className="mb-1.5 flex items-center gap-2">
                     <span className="text-[11.5px] font-semibold tracking-wide text-ink-faint">
                       {m.role === 'user' ? 'You' : 'Review'}
@@ -599,7 +605,8 @@ export function Chat({ me }: { me: Me }) {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {streamText !== null ? (
               <div className="mb-6">
