@@ -105,7 +105,7 @@ const colLetter = (n: number): string => {
 };
 
 /**
- * Render a workbook so cell addresses survive into the review. A finding that
+ * Render a workbook so cell addresses survive into the prompt. An answer that
  * says "row 14" is useless; "Depreciation!D14" is actionable. Formulas are
  * emitted alongside computed values rather than instead of them, so a broken
  * fill pattern stays visible instead of being flattened into a plain table.
@@ -190,10 +190,13 @@ export interface IngestedFile extends FileRow {
 export async function ingestFile(input: {
   userId: string;
   conversationId: string | null;
+  /** Set instead of conversationId when the upload is going to a project shelf. */
+  projectId?: string | null;
   filename: string;
   buffer: Buffer;
 }): Promise<IngestedFile> {
   const { userId, conversationId, filename, buffer } = input;
+  const projectId = input.projectId ?? null;
   const sniffed = sniff(buffer, filename);
 
   if (sniffed.kind === 'unsupported') {
@@ -206,17 +209,44 @@ export async function ingestFile(input: {
 
   const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
+  /**
+   * Deduplication is scoped to where the upload is going.
+   *
+   * Matching across scopes is wrong in both directions. Re-pointing the row
+   * steals the document out of the conversation that already had it, and its
+   * follow-up turns silently lose the file. Handing the row back without
+   * re-pointing it is no better: the new conversation shows an attachment the
+   * model cannot see, and answers that it has no document.
+   *
+   * So a match only counts when it is already in the same place the upload is
+   * going, or when it is not yet anywhere. Everything else falls through and
+   * gets its own row, which is also what keeps retention honest — purging one
+   * conversation cannot empty another.
+   */
   const existing = await one<FileRow>(
-    `SELECT * FROM files WHERE user_id = ? AND sha256 = ? AND deleted_at IS NULL LIMIT 1`,
+    `SELECT * FROM files
+      WHERE user_id = ? AND sha256 = ? AND deleted_at IS NULL
+        AND ( (?::text IS NOT NULL AND project_id = ?)
+           OR (?::text IS NOT NULL AND conversation_id = ?)
+           OR (conversation_id IS NULL AND project_id IS NULL) )
+      ORDER BY created_at LIMIT 1`,
     userId,
     sha256,
+    projectId,
+    projectId,
+    conversationId,
+    conversationId,
   );
   if (existing) {
-    // Do NOT re-point conversation_id at the new conversation. Re-uploading the
-    // same return elsewhere would then steal the document out of the original
-    // conversation, and its follow-up turns would silently lose the file.
-    // Which review used which file is recorded in review_files instead.
-    if (conversationId && existing.conversation_id === null) {
+    const unattached = existing.conversation_id === null && existing.project_id === null;
+
+    // Still in the composer with nowhere to live: give it this home rather than
+    // storing the same bytes twice.
+    if (unattached && projectId) {
+      await run(`UPDATE files SET project_id = ? WHERE id = ?`, projectId, existing.id);
+      return { ...existing, project_id: projectId, deduped: true };
+    }
+    if (unattached && conversationId) {
       await run(`UPDATE files SET conversation_id = ? WHERE id = ?`, conversationId, existing.id);
       return { ...existing, conversation_id: conversationId, deduped: true };
     }
@@ -248,7 +278,7 @@ export async function ingestFile(input: {
     if (pageCount > MAX_PDF_PAGES) {
       throw new Error(
         `"${filename}" has ${pageCount} pages, over the ${MAX_PDF_PAGES}-page limit for one ` +
-          `review. Split it into smaller documents — nothing is reviewed silently.`,
+          `request. Split it into smaller documents — nothing is truncated silently.`,
       );
     }
   } else if (sniffed.kind === 'docx') {
@@ -274,12 +304,13 @@ export async function ingestFile(input: {
 
   await run(
     `INSERT INTO files
-       (id, user_id, conversation_id, filename, mime, kind, size_bytes, sha256,
+       (id, user_id, conversation_id, project_id, filename, mime, kind, size_bytes, sha256,
         storage_path, page_count, extracted_text, pii_counts, created_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     id,
     userId,
     conversationId,
+    projectId,
     filename,
     sniffed.mime,
     sniffed.kind,

@@ -4,8 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Markdown } from './Markdown';
 import { Mark } from './Mark';
-import { FindingsReport, type ReviewBundle } from './FindingsReport';
+import { Thinking } from './Thinking';
+import { ToolPanel } from './ToolPanel';
+import { SettingsDialog } from './SettingsDialog';
+import { ProjectPanel } from './ProjectPanel';
 import { doSignOut } from '../app/actions';
+import { APP_NAME } from '../lib/app';
+import type { ToolRun } from '../lib/types';
 
 interface Me {
   id: string;
@@ -15,16 +20,25 @@ interface Me {
   apiKeyConfigured: boolean;
   authDisabled: boolean;
   provider: string;
-  citationsSupported: boolean;
   model: string;
-  severityLabels: Record<string, string>;
+  toolsEnabled?: boolean;
 }
 
 interface Conversation {
   id: string;
   title: string;
   updated_at: number;
+  starred?: number;
+  archived_at?: number | null;
+  project_id?: string | null;
   snippet?: string | null;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  chatCount: number;
+  docCount: number;
 }
 
 interface Attachment {
@@ -36,142 +50,176 @@ interface Attachment {
   piiSummary: string | null;
 }
 
+interface ThreadFile {
+  id: string;
+  filename: string;
+  kind: string;
+  sizeBytes: number;
+  pageCount: number | null;
+  fromProject: boolean;
+}
+
 interface ThreadMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  review_id: string | null;
+  createdAt: number;
+  thinking: string | null;
+  model: string | null;
+  finish: 'stop' | 'length' | 'aborted' | null;
+  vote: number | null;
+  toolRuns: ToolRun[];
+  version: number;
+  versionCount: number;
+  versionIds: string[];
 }
+
+interface Settings {
+  model: string;
+  thinking: string;
+  style: string;
+  styleLabel: string;
+  connectors: string[];
+}
+
+interface ConnectorOption {
+  id: string;
+  kind: 'mcp' | 'account';
+  name: string;
+  /** For a personal account, which one — the address it signed in as. */
+  detail: string | null;
+  toolCount: number;
+}
+
+interface Option {
+  id: string;
+  label: string;
+  blurb?: string;
+}
+
+interface Pickers {
+  models: Option[];
+  thinkingLevels: Option[];
+  styles: Option[];
+}
+
+type Action = 'send' | 'edit' | 'retry' | 'continue';
 
 const formatBytes = (n: number) =>
   n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`;
 
+/** Pasting a wall of text is an attachment in disguise; treat it as one. */
+const PASTE_AS_FILE_THRESHOLD = 4000;
+
 export function Chat({ me }: { me: Me }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
-  const [reviews, setReviews] = useState<Record<string, ReviewBundle>>({});
+  const [files, setFiles] = useState<ThreadFile[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [pickers, setPickers] = useState<Pickers | null>(null);
+  const [availableConnectors, setAvailableConnectors] = useState<ConnectorOption[]>([]);
+
   const [draft, setDraft] = useState('');
   const [streamText, setStreamText] = useState<string | null>(null);
-  const [statusLine, setStatusLine] = useState<string | null>(null);
+  const [streamThinking, setStreamThinking] = useState('');
+  const [streamTools, setStreamTools] = useState<ToolRun[]>([]);
+  const [continuingId, setContinuingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
   const [banner, setBanner] = useState<{ text: string; kind: 'error' | 'warn' } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(0);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Conversation[] | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
+  const [menu, setMenu] = useState<'model' | 'thinking' | 'style' | 'connectors' | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [openProject, setOpenProject] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
 
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
   const chatAbort = useRef<AbortController | null>(null);
-  const activeReview = useRef<string | null>(null);
+  const recognition = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   const scrollDown = useCallback(() => {
     const el = threadRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
+  /* ------------------------------------------------------------- loading */
+
   const loadConversations = useCallback(async () => {
-    const res = await fetch('/api/conversations');
+    const res = await fetch(`/api/conversations${showArchived ? '?archived=1' : ''}`);
     if (res.ok) setConversations(await res.json());
+  }, [showArchived]);
+
+  const loadProjects = useCallback(async () => {
+    const res = await fetch('/api/projects');
+    if (res.ok) setProjects(await res.json());
+  }, []);
+
+  const loadConnectors = useCallback(async () => {
+    const res = await fetch('/api/connectors');
+    if (res.ok) setAvailableConnectors(await res.json());
+  }, []);
+
+  const loadPickers = useCallback(async () => {
+    const res = await fetch('/api/prefs');
+    if (!res.ok) return;
+    const data = await res.json();
+    setPickers({
+      models: data.models.map((m: { id: string; label: string; blurb: string }) => ({
+        id: m.id,
+        label: m.label,
+        blurb: m.blurb,
+      })),
+      thinkingLevels: data.thinkingLevels.map((t: { id: string; label: string; blurb: string }) => ({
+        id: t.id,
+        label: t.label,
+        blurb: t.blurb,
+      })),
+      styles: data.styles.map((s: { id: string; name: string; blurb: string }) => ({
+        id: s.id,
+        label: s.name,
+        blurb: s.blurb,
+      })),
+    });
+
+    // A chat that does not exist yet still needs the pickers to show something,
+    // so seed them from this person's defaults until a real thread is opened.
+    setSettings((prev) =>
+      prev ?? {
+        model: data.model ?? data.defaults.model,
+        thinking: data.thinking ?? data.defaults.thinking,
+        style: data.style ?? data.defaults.style,
+        styleLabel: '',
+        connectors: [],
+      },
+    );
   }, []);
 
   const loadConversation = useCallback(async (id: string) => {
     const res = await fetch(`/api/conversations/${id}`);
-    if (!res.ok) return null;
+    if (!res.ok) return;
     const data = await res.json();
     setMessages(data.messages);
-    setReviews(data.reviews ?? {});
-    return data as { runningReviewId: string | null };
+    setFiles(data.files);
+    setSettings(data.settings);
+    setProjectId(data.conversation.projectId ?? null);
   }, []);
-
-  /**
-   * Reads a review's event log from `cursor` onward.
-   *
-   * The review runs on the server independently of this connection, so calling
-   * this again after a refresh — or after the connection drops — resumes from
-   * the last cursor instead of losing the run.
-   */
-  const followReview = useCallback(
-    async (reviewId: string, convId: string, fromCursor = 0) => {
-      if (activeReview.current === reviewId) return;
-      activeReview.current = reviewId;
-      setBusy(true);
-
-      let cursor = fromCursor;
-      let assembled = '';
-      let outcome: 'stopped' | string | null = null;
-
-      try {
-        for (let attempt = 0; attempt < 4; attempt++) {
-          const res = await fetch(`/api/review/${reviewId}/stream?from=${cursor}`);
-          if (!res.ok || !res.body) break;
-
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-          let settled = false;
-
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            const lines = buffer.split('\n');
-            buffer = lines.pop() ?? '';
-
-            for (const line of lines) {
-              if (!line.trim()) continue;
-              let ev: Record<string, unknown>;
-              try {
-                ev = JSON.parse(line);
-              } catch {
-                continue;
-              }
-              if (typeof ev.cursor === 'number') cursor = ev.cursor;
-
-              if (ev.type === 'text') {
-                assembled += ev.delta as string;
-                setStreamText(assembled);
-              } else if (ev.type === 'status') {
-                setStatusLine(ev.message as string);
-              } else if (ev.type === 'aborted') {
-                outcome = 'stopped';
-              } else if (ev.type === 'error') {
-                outcome = ev.message as string;
-              } else if (ev.type === 'closed') {
-                settled = true;
-              }
-            }
-          }
-
-          if (settled) break;
-          // Connection dropped before the review finished — reconnect from the
-          // cursor rather than restarting or abandoning it.
-        }
-
-        if (outcome === 'stopped') {
-          setBanner({ text: 'Review stopped. Anything already written has been kept.', kind: 'warn' });
-        } else if (outcome) {
-          setBanner({ text: outcome, kind: 'error' });
-        }
-      } finally {
-        activeReview.current = null;
-        setStreamText(null);
-        setStatusLine(null);
-        setBusy(false);
-        await loadConversation(convId);
-        await loadConversations();
-      }
-    },
-    [loadConversation, loadConversations],
-  );
 
   const openConversation = useCallback(
     async (id: string) => {
@@ -179,17 +227,37 @@ export function Chat({ me }: { me: Me }) {
       setAttachments([]);
       setBanner(null);
       setStreamText(null);
-
-      const data = await loadConversation(id);
-      // Reattach to a review still in flight — this is what makes refreshing
-      // mid-review harmless.
-      if (data?.runningReviewId) void followReview(data.runningReviewId, id, 0);
+      setStreamThinking('');
+      setStreamTools([]);
+      await loadConversation(id);
     },
-    [loadConversation, followReview],
+    [loadConversation],
   );
 
   useEffect(() => {
     loadConversations();
+    loadProjects();
+    loadPickers();
+    loadConnectors();
+    // The OAuth round trip lands back here with a query string; say how it
+    // went, then clear it so a refresh does not repeat the message.
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get('connected');
+    const failed = params.get('account_error');
+    if (connected || failed) {
+      setBanner(
+        failed
+          ? { text: 'Could not connect that account: ' + failed, kind: 'error' }
+          : {
+              text:
+                connected +
+                ' is connected. Switch it on for a chat from the connector menu in the composer.',
+              kind: 'warn',
+            },
+      );
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     if (me.authDisabled) {
       setBanner({
         text: 'Sign-in is disabled (DISABLE_AUTH=true in .env). Everyone is an admin. Turn it off before anyone else can reach this.',
@@ -201,7 +269,7 @@ export function Chat({ me }: { me: Me }) {
         kind: 'error',
       });
     }
-  }, [loadConversations, me]);
+  }, [loadConversations, loadProjects, loadPickers, loadConnectors, me]);
 
   useEffect(scrollDown, [messages, streamText, scrollDown]);
 
@@ -218,19 +286,52 @@ export function Chat({ me }: { me: Me }) {
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Close a picker by clicking anywhere else.
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [menu]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (meta && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (meta && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        startNew();
+      } else if (e.key === 'Escape' && chatAbort.current) {
+        chatAbort.current.abort();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  /* -------------------------------------------------------------- actions */
+
   function startNew() {
     setConversationId(null);
     setMessages([]);
-    setReviews({});
+    setFiles([]);
     setAttachments([]);
     setStreamText(null);
+    setStreamThinking('');
+    setStreamTools([]);
     setBanner(null);
     inputRef.current?.focus();
   }
 
   async function ensureConversation(): Promise<string> {
     if (conversationId) return conversationId;
-    const res = await fetch('/api/conversations', { method: 'POST' });
+    const res = await fetch('/api/conversations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId }),
+    });
     const conv = await res.json();
     setConversationId(conv.id);
     return conv.id;
@@ -267,57 +368,46 @@ export function Chat({ me }: { me: Me }) {
     }
   }
 
-  async function send() {
-    const note = draft.trim();
-    const files = attachments.slice();
-    if (busy || (!note && !files.length)) return;
+  /**
+   * Every way of producing an answer goes through here: a new question, an
+   * edited one, a retry and a continue differ only in what the server is asked
+   * to attach the answer to.
+   */
+  async function run(
+    action: Action,
+    options: { question?: string; messageId?: string; fileIds?: string[] } = {},
+  ) {
+    if (busy) return;
 
     setBanner(null);
-    setDraft('');
-    setAttachments([]);
+    setStreamText('');
+    setStreamThinking('');
+    setStreamTools([]);
+    setContinuingId(action === 'continue' ? (options.messageId ?? null) : null);
+    setBusy(true);
 
     const convId = await ensureConversation();
-    const label = files.length
-      ? `Review requested — ${files.map((f) => f.filename).join(', ')}${note ? `\n\n${note}` : ''}`
-      : note;
-
-    setMessages((prev) => [
-      ...prev,
-      { id: `local-${Date.now()}`, role: 'user', content: label, review_id: null },
-    ]);
-    setStreamText('');
-
-    if (files.length) {
-      // Reviews are detached jobs: start one, then follow its event log.
-      setBusy(true);
-      try {
-        const res = await fetch('/api/review', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversationId: convId, fileIds: files.map((f) => f.id), note }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
-        await followReview(data.reviewId, convId, 0);
-      } catch (err) {
-        setBanner({ text: (err as Error).message, kind: 'error' });
-        setStreamText(null);
-        setBusy(false);
-      }
-      return;
-    }
-
-    // Follow-up questions are short, so they stream on the request itself.
-    setBusy(true);
     const controller = new AbortController();
     chatAbort.current = controller;
+
     let assembled = '';
+    let thoughts = '';
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId: convId, question: note }),
+        body: JSON.stringify({
+          conversationId: convId,
+          action,
+          question: options.question,
+          messageId: options.messageId,
+          fileIds: options.fileIds ?? [],
+          model: settings?.model,
+          style: settings?.style,
+          thinking: settings?.thinking,
+          connectors: settings?.connectors ?? [],
+        }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {
@@ -344,14 +434,21 @@ export function Chat({ me }: { me: Me }) {
           } catch {
             continue;
           }
+
           if (ev.type === 'text') {
             assembled += ev.delta as string;
             setStreamText(assembled);
+          } else if (ev.type === 'thinking') {
+            thoughts += ev.delta as string;
+            setStreamThinking(thoughts);
+          } else if (ev.type === 'tool') {
+            setStreamTools((prev) => [...prev, ev.run as ToolRun]);
           } else if (ev.type === 'error') {
             setBanner({ text: ev.message as string, kind: 'error' });
           }
         }
       }
+
       await loadConversation(convId);
       await loadConversations();
     } catch (err) {
@@ -364,21 +461,106 @@ export function Chat({ me }: { me: Me }) {
     } finally {
       chatAbort.current = null;
       setStreamText(null);
+      setStreamThinking('');
+      setStreamTools([]);
+      setContinuingId(null);
       setBusy(false);
     }
   }
 
-  async function stop() {
-    const reviewId = activeReview.current;
-    if (reviewId) {
-      await fetch(`/api/review/${reviewId}/abort`, { method: 'POST' }).catch(() => {});
+  async function send() {
+    const text = draft.trim();
+    const pending = attachments.slice();
+    if (busy || (!text && !pending.length)) return;
+
+    setDraft('');
+    setAttachments([]);
+
+    const names = pending.map((f) => f.filename).join(', ');
+    const label = pending.length ? (text ? `${names}\n\n${text}` : names) : text;
+
+    // Shown immediately so the thread does not sit empty while the request is
+    // still being set up; replaced by the real row when the turn is reloaded.
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `local-${Date.now()}`,
+        role: 'user',
+        content: label,
+        createdAt: Date.now(),
+        thinking: null,
+        model: null,
+        finish: null,
+        vote: null,
+        toolRuns: [],
+        version: 1,
+        versionCount: 1,
+        versionIds: [],
+      },
+    ]);
+
+    await run('send', { question: text, fileIds: pending.map((f) => f.id) });
+  }
+
+  async function switchVersion(messageId: string) {
+    if (!conversationId || busy) return;
+    await fetch(`/api/conversations/${conversationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ headMessageId: messageId }),
+    });
+    await loadConversation(conversationId);
+  }
+
+  async function vote(messageId: string, value: number) {
+    const current = messages.find((m) => m.id === messageId)?.vote ?? null;
+    const next = current === value ? null : value;
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, vote: next } : m)));
+    await fetch(`/api/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vote: next }),
+    });
+  }
+
+  async function patchConversation(id: string, body: Record<string, unknown>) {
+    await fetch(`/api/conversations/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    await loadConversations();
+  }
+
+  async function applySetting(key: 'model' | 'thinking' | 'style', value: string) {
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
+    setMenu(null);
+    // Persisted on the conversation when one exists; a chat that has not been
+    // created yet carries the choice in the next request instead.
+    if (conversationId) await patchConversation(conversationId, { [key]: value });
+  }
+
+  /**
+   * Switch a connector on or off for this thread. Off by default and never
+   * remembered across conversations: reaching an outside system is a decision
+   * made per thread, not a preference that quietly follows you around.
+   */
+  async function toggleConnector(id: string) {
+    const active = settings?.connectors ?? [];
+    const next = active.includes(id) ? active.filter((c) => c !== id) : [...active, id];
+    setSettings((prev) => (prev ? { ...prev, connectors: next } : prev));
+    if (conversationId) {
+      await fetch(`/api/conversations/${conversationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectors: next }),
+      });
     }
-    chatAbort.current?.abort();
   }
 
   async function copyMessage(m: ThreadMessage) {
     try {
-      await navigator.clipboard.writeText(m.content);
+      await navigator.clipboard.writeText(m.content.replace(/\[\[cite:[^\]]*\]\]/g, ''));
       setCopied(m.id);
       setTimeout(() => setCopied((c) => (c === m.id ? null : c)), 1500);
     } catch {
@@ -390,17 +572,121 @@ export function Chat({ me }: { me: Me }) {
     const title = renameDraft.trim();
     setRenaming(null);
     if (!title) return;
-    await fetch(`/api/conversations/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
-    });
-    loadConversations();
+    await patchConversation(id, { title });
   }
+
+  /** Browser dictation where it exists; silently absent where it does not. */
+  function toggleDictation() {
+    if (listening) {
+      recognition.current?.stop();
+      return;
+    }
+    const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
+    const Ctor = (w.SpeechRecognition ?? w.webkitSpeechRecognition) as
+      | (new () => {
+          continuous: boolean;
+          interimResults: boolean;
+          lang: string;
+          start: () => void;
+          stop: () => void;
+          onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+          onend: (() => void) | null;
+          onerror: (() => void) | null;
+        })
+      | undefined;
+
+    if (!Ctor) {
+      setBanner({ text: 'This browser has no built-in dictation.', kind: 'warn' });
+      return;
+    }
+
+    const rec = new Ctor();
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.lang = navigator.language || 'en-US';
+    rec.onresult = (e) => {
+      let heard = '';
+      for (let i = 0; i < e.results.length; i++) heard += e.results[i][0].transcript;
+      setDraft(heard.trim());
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recognition.current = rec;
+    rec.start();
+    setListening(true);
+  }
+
+  /* --------------------------------------------------------------- render */
 
   const canSend = !busy && (draft.trim().length > 0 || attachments.length > 0);
   const initial = (me.displayName || me.email).charAt(0).toUpperCase();
   const listed = results ?? conversations;
+  const sources = files.map((f) => ({ id: f.id, filename: f.filename }));
+  const currentProject = projects.find((p) => p.id === projectId) ?? null;
+  const activeConnectorCount = (settings?.connectors ?? []).length;
+
+  const optionLabel = (options: Option[] | undefined, id: string | undefined) =>
+    options?.find((o) => o.id === id)?.label ?? id ?? '';
+
+  const picker = (
+    kind: 'model' | 'thinking' | 'style',
+    options: Option[],
+    selected: string,
+  ) => (
+    <div className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setMenu(menu === kind ? null : kind);
+        }}
+        className="rounded-[7px] border border-line px-2 py-1 text-[12px] text-ink-dim hover:bg-raised hover:text-ink"
+      >
+        {optionLabel(options, selected)} ⌄
+      </button>
+      {menu === kind ? (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute bottom-full left-0 z-20 mb-1.5 w-60 overflow-hidden rounded-xl border border-line bg-panel shadow-xl"
+        >
+          {options.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => applySetting(kind, o.id)}
+              className={`block w-full px-3 py-2 text-left hover:bg-raised ${
+                o.id === selected ? 'bg-raised' : ''
+              }`}
+            >
+              <div className="text-[13px] font-medium">{o.label}</div>
+              {o.blurb ? <div className="text-[11.5px] text-ink-faint">{o.blurb}</div> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const versionNav = (m: ThreadMessage) =>
+    m.versionCount > 1 ? (
+      <span className="flex items-center gap-1 text-[11.5px] text-ink-faint">
+        <button
+          disabled={m.version === 1 || busy}
+          onClick={() => switchVersion(m.versionIds[m.version - 2])}
+          className="px-0.5 hover:text-ink disabled:opacity-30"
+        >
+          ‹
+        </button>
+        <span className="tabular-nums">
+          {m.version}/{m.versionCount}
+        </span>
+        <button
+          disabled={m.version === m.versionCount || busy}
+          onClick={() => switchVersion(m.versionIds[m.version])}
+          className="px-0.5 hover:text-ink disabled:opacity-30"
+        >
+          ›
+        </button>
+      </span>
+    ) : null;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -408,40 +694,116 @@ export function Chat({ me }: { me: Me }) {
       <aside className="flex w-72 shrink-0 flex-col gap-2.5 border-r border-line-soft bg-panel p-3">
         <div className="flex items-center gap-2.5 px-1.5 pt-1 pb-2.5 text-[16.5px] font-semibold tracking-tight">
           <Mark size={19} />
-          Tax Review Center
+          {APP_NAME}
         </div>
 
         <button
           onClick={startNew}
           className="flex w-full items-center gap-2 rounded-[10px] border border-line bg-raised px-3 py-2 text-left font-medium hover:bg-raised-hover"
         >
-          ＋ New review
+          ＋ New chat
         </button>
 
-        {me.role === 'admin' ? (
-          <Link
-            href="/admin"
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13.5px] text-ink-dim hover:bg-raised hover:text-ink"
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13.5px] text-ink-dim hover:bg-raised hover:text-ink"
           >
-            ⚙ Skills &amp; admin
-          </Link>
-        ) : null}
+            ⚙ Settings
+          </button>
+          {me.role === 'admin' ? (
+            <Link
+              href="/admin"
+              className="rounded-lg px-2.5 py-1.5 text-[13.5px] text-ink-dim hover:bg-raised hover:text-ink"
+            >
+              Admin
+            </Link>
+          ) : null}
+        </div>
 
         <input
+          ref={searchRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search reviews…"
+          placeholder="Search chats…"
           className="w-full rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-[13px] outline-none placeholder:text-ink-faint focus:border-[#3c4653]"
         />
 
-        <div className="px-2.5 pb-1 text-[11.5px] font-semibold text-ink-faint">
-          {results ? `${results.length} match${results.length === 1 ? '' : 'es'}` : 'Recent reviews'}
+        {/* -------------------------------------------------- projects */}
+        <div className="flex items-center justify-between px-2.5 pt-1 text-[11.5px] font-semibold text-ink-faint">
+          <span>Projects</span>
+          <button
+            title="New project"
+            onClick={async () => {
+              const name = prompt('Name this project');
+              if (!name?.trim()) return;
+              const res = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+              });
+              if (res.ok) {
+                const created = await res.json();
+                await loadProjects();
+                setOpenProject(created.id);
+              }
+            }}
+            className="hover:text-ink"
+          >
+            ＋
+          </button>
+        </div>
+
+        <div className="flex max-h-40 flex-col gap-px overflow-y-auto">
+          {projects.map((p) => (
+            <div
+              key={p.id}
+              className={`group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13.5px] ${
+                p.id === projectId ? 'bg-raised text-ink' : 'text-ink-dim hover:bg-raised hover:text-ink'
+              }`}
+            >
+              <button
+                onClick={() => {
+                  setProjectId(p.id);
+                  startNew();
+                }}
+                className="flex-1 truncate text-left"
+                title={`${p.chatCount} chats · ${p.docCount} documents`}
+              >
+                ▤ {p.name}
+              </button>
+              <button
+                onClick={() => setOpenProject(p.id)}
+                title="Project settings"
+                className="px-1 text-ink-faint opacity-0 group-hover:opacity-100 hover:text-accent"
+              >
+                ⚙
+              </button>
+            </div>
+          ))}
+          {projects.length === 0 ? (
+            <div className="px-2.5 py-1 text-[12px] text-ink-faint">None yet</div>
+          ) : null}
+        </div>
+
+        {/* ----------------------------------------------------- chats */}
+        <div className="flex items-center justify-between px-2.5 pt-1 pb-1 text-[11.5px] font-semibold text-ink-faint">
+          <span>
+            {results
+              ? `${results.length} match${results.length === 1 ? '' : 'es'}`
+              : showArchived
+                ? 'Archived'
+                : 'Recent chats'}
+          </span>
+          <button onClick={() => setShowArchived((v) => !v)} className="hover:text-ink">
+            {showArchived ? 'Back' : 'Archive'}
+          </button>
         </div>
 
         <div className="flex flex-1 flex-col gap-px overflow-y-auto">
           {listed.length === 0 ? (
             <div className="p-3 text-center text-[12.5px] text-ink-faint">
-              {results ? 'Nothing found' : 'No reviews yet'}
+              {results ? 'Nothing found' : showArchived ? 'Nothing archived' : 'No chats yet'}
             </div>
           ) : (
             listed.map((c) => (
@@ -477,17 +839,24 @@ export function Chat({ me }: { me: Me }) {
                         className="flex-1 truncate text-left"
                         title={`${c.title}  (double-click to rename)`}
                       >
+                        {c.starred ? '★ ' : ''}
                         {c.title}
                       </button>
                       <button
-                        onClick={() => {
-                          setRenaming(c.id);
-                          setRenameDraft(c.title);
-                        }}
-                        title="Rename"
+                        onClick={() => patchConversation(c.id, { starred: !c.starred })}
+                        title={c.starred ? 'Unstar' : 'Star'}
+                        className={`px-1 hover:text-accent ${
+                          c.starred ? 'text-accent' : 'text-ink-faint opacity-0 group-hover:opacity-100'
+                        }`}
+                      >
+                        ★
+                      </button>
+                      <button
+                        onClick={() => patchConversation(c.id, { archived: !showArchived })}
+                        title={showArchived ? 'Unarchive' : 'Archive'}
                         className="px-1 text-ink-faint opacity-0 group-hover:opacity-100 hover:text-accent"
                       >
-                        ✎
+                        ▢
                       </button>
                       <button
                         onClick={async () => {
@@ -518,7 +887,7 @@ export function Chat({ me }: { me: Me }) {
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="truncate font-medium">{me.displayName}</div>
-            <div className="text-ink-faint">{me.role === 'admin' ? 'Admin' : 'Reviewer'}</div>
+            <div className="text-ink-faint">{me.role === 'admin' ? 'Admin' : 'Member'}</div>
           </div>
           <form action={doSignOut}>
             <button
@@ -555,6 +924,28 @@ export function Chat({ me }: { me: Me }) {
           uploadFiles([...e.dataTransfer.files]);
         }}
       >
+        {conversationId || currentProject ? (
+          <div className="flex items-center gap-2.5 border-b border-line-soft px-6 py-2 text-[12.5px] text-ink-faint">
+            {currentProject ? (
+              <button onClick={() => setOpenProject(currentProject.id)} className="hover:text-ink">
+                ▤ {currentProject.name}
+              </button>
+            ) : null}
+            {files.length ? (
+              <span>
+                {files.length} document{files.length === 1 ? '' : 's'} in context
+              </span>
+            ) : null}
+            <div className="ml-auto flex items-center gap-2.5">
+              {conversationId ? (
+                <a href={`/api/export?conversationId=${conversationId}`} className="hover:text-ink">
+                  Export
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         <div ref={threadRef} className="flex-1 overflow-y-auto px-6 pt-7 pb-2">
           <div className="mx-auto max-w-[780px]">
             {messages.length === 0 && streamText === null ? (
@@ -562,61 +953,161 @@ export function Chat({ me }: { me: Me }) {
                 <div className="mb-4 flex justify-center opacity-80">
                   <Mark size={34} />
                 </div>
-                <h1 className="mb-2.5 text-[30px] font-normal tracking-tight">Ready to review</h1>
+                <h1 className="mb-2.5 text-[30px] font-normal tracking-tight">How can I help?</h1>
                 <p className="mx-auto max-w-[460px] text-ink-dim">
-                  Attach a tax return — PDF, Word, Excel, CSV or a scan — and it will be
-                  reviewed against your firm&apos;s published methodology.
+                  {currentProject
+                    ? `Working in ${currentProject.name}. Its instructions and documents apply to this chat.`
+                    : 'Ask anything. Attach a PDF, Word, Excel, CSV or an image and I will read it first.'}
                 </p>
               </div>
             ) : null}
 
-            {messages.map((m) => {
-              // Pass A streams prose; Pass B turns it into the structured report.
-              // Once the report has arrived it supersedes the prose it came from,
-              // so showing both would just be the same findings twice.
-              const report =
-                m.role === 'assistant' && m.review_id ? reviews[m.review_id] : null;
-              return (
-              <div key={m.id}>
-                {report ? (
-                  <FindingsReport bundle={report} labels={me.severityLabels} />
-                ) : null}
-                <div className={report ? 'hidden' : 'group mb-6'}>
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="text-[11.5px] font-semibold tracking-wide text-ink-faint">
-                      {m.role === 'user' ? 'You' : 'Review'}
+            {messages.map((m) => (
+              <div key={m.id} className="group mb-6">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="text-[11.5px] font-semibold tracking-wide text-ink-faint">
+                    {m.role === 'user' ? 'You' : 'Assistant'}
+                  </span>
+                  {m.role === 'assistant' && m.model ? (
+                    <span className="text-[11px] text-ink-faint opacity-0 transition-opacity group-hover:opacity-100">
+                      {optionLabel(pickers?.models, m.model)}
                     </span>
-                    <button
-                      onClick={() => copyMessage(m)}
-                      title="Copy to clipboard"
-                      className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink"
-                    >
-                      {copied === m.id ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                  <div
-                    className={
-                      m.role === 'user'
-                        ? 'rounded-xl border border-line bg-raised px-4 py-3 whitespace-pre-wrap'
-                        : ''
-                    }
-                  >
-                    {m.role === 'user' ? m.content : <Markdown text={m.content} />}
-                  </div>
+                  ) : null}
+                  {versionNav(m)}
                 </div>
-              </div>
-              );
-            })}
 
-            {streamText !== null ? (
+                {m.role === 'user' ? (
+                  editing === m.id ? (
+                    <div className="rounded-xl border border-accent bg-raised px-3 py-2.5">
+                      <textarea
+                        autoFocus
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        rows={Math.min(12, editDraft.split('\n').length + 1)}
+                        className="w-full resize-y bg-transparent text-[14px] outline-none"
+                      />
+                      <div className="mt-2 flex justify-end gap-2 text-[12.5px]">
+                        <button
+                          onClick={() => setEditing(null)}
+                          className="rounded-[7px] border border-line px-2.5 py-1 hover:bg-raised-hover"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          disabled={!editDraft.trim()}
+                          onClick={() => {
+                            const text = editDraft.trim();
+                            setEditing(null);
+                            run('edit', { question: text, messageId: m.id });
+                          }}
+                          className="rounded-[7px] bg-accent px-2.5 py-1 font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-40"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-xl border border-line bg-raised px-4 py-3 whitespace-pre-wrap">
+                        {m.content}
+                      </div>
+                      <div className="mt-1 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          onClick={() => copyMessage(m)}
+                          className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint hover:text-ink"
+                        >
+                          {copied === m.id ? 'Copied' : 'Copy'}
+                        </button>
+                        {m.id.startsWith('local-') ? null : (
+                          <button
+                            onClick={() => {
+                              setEditing(m.id);
+                              setEditDraft(m.content);
+                            }}
+                            className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint hover:text-ink"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )
+                ) : (
+                  <>
+                    {m.thinking ? <Thinking text={m.thinking} /> : null}
+                    <ToolPanel runs={m.toolRuns} />
+                    <Markdown
+                      text={
+                        continuingId === m.id && streamText !== null
+                          ? m.content + streamText
+                          : m.content
+                      }
+                      streaming={continuingId === m.id}
+                      sources={sources}
+                    />
+
+                    {m.finish === 'length' || m.finish === 'aborted' ? (
+                      <button
+                        disabled={busy}
+                        onClick={() => run('continue', { messageId: m.id })}
+                        className="mt-2 rounded-[9px] border border-line bg-raised px-3 py-1 text-[12.5px] hover:bg-raised-hover disabled:opacity-40"
+                      >
+                        {m.finish === 'length' ? 'Continue' : 'Continue from where it stopped'}
+                      </button>
+                    ) : null}
+
+                    <div className="mt-1.5 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={() => copyMessage(m)}
+                        className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint hover:text-ink"
+                      >
+                        {copied === m.id ? 'Copied' : 'Copy'}
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => run('retry', { messageId: m.id })}
+                        className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint hover:text-ink disabled:opacity-40"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        onClick={() => vote(m.id, 1)}
+                        title="Good answer"
+                        className={`rounded border border-line px-1.5 py-0.5 text-[11px] hover:text-ink ${
+                          m.vote === 1 ? 'text-accent' : 'text-ink-faint'
+                        }`}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => vote(m.id, -1)}
+                        title="Bad answer"
+                        className={`rounded border border-line px-1.5 py-0.5 text-[11px] hover:text-ink ${
+                          m.vote === -1 ? 'text-sev-blocking' : 'text-ink-faint'
+                        }`}
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+
+            {/* A fresh answer being written. A continue streams into the message
+                above instead, so this is skipped while one is running. */}
+            {streamText !== null && !continuingId ? (
               <div className="mb-6">
                 <div className="mb-1.5 text-[11.5px] font-semibold tracking-wide text-ink-faint">
-                  Review
+                  Assistant
                 </div>
-                <Markdown text={streamText} streaming />
-                {statusLine ? (
-                  <div className="mt-2 text-[13px] text-ink-faint">{statusLine}</div>
-                ) : null}
+                <Thinking text={streamThinking} streaming={!streamText} />
+                <ToolPanel runs={streamTools} />
+                {streamText ? (
+                  <Markdown text={streamText} streaming sources={sources} />
+                ) : streamThinking ? null : (
+                  <div className="text-[13px] text-ink-faint">Working…</div>
+                )}
               </div>
             ) : null}
           </div>
@@ -672,17 +1163,35 @@ export function Chat({ me }: { me: Me }) {
                 e.target.style.height = 'auto';
                 e.target.style.height = `${Math.min(e.target.scrollHeight, 220)}px`;
               }}
+              onPaste={(e) => {
+                const pasted = [...e.clipboardData.files];
+                if (pasted.length) {
+                  e.preventDefault();
+                  uploadFiles(pasted);
+                  return;
+                }
+                // A very long paste is a document, and reads far better as one
+                // than as a screenful of grey text in the composer.
+                const text = e.clipboardData.getData('text');
+                if (text.length > PASTE_AS_FILE_THRESHOLD) {
+                  e.preventDefault();
+                  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+                  uploadFiles([
+                    new File([text], `pasted-${stamp}.txt`, { type: 'text/plain' }),
+                  ]);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   send();
                 }
               }}
-              placeholder="Attach tax files and press Review — no prompt needed. Or ask a question."
+              placeholder="Ask anything, or attach a file…"
               className="max-h-[220px] min-h-[26px] w-full resize-none bg-transparent outline-none placeholder:text-ink-faint"
             />
 
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
                 onClick={() => fileRef.current?.click()}
                 title="Attach files"
@@ -690,13 +1199,81 @@ export function Chat({ me }: { me: Me }) {
               >
                 ＋
               </button>
+              <button
+                onClick={toggleDictation}
+                title="Dictate"
+                className={`grid h-7.5 w-7.5 place-items-center rounded-lg border text-[13px] leading-none hover:bg-raised ${
+                  listening ? 'border-accent text-accent' : 'border-line text-ink-dim hover:text-ink'
+                }`}
+              >
+                ●
+              </button>
+
+              {pickers && settings ? (
+                <>
+                  {picker('model', pickers.models, settings.model)}
+                  {picker('thinking', pickers.thinkingLevels, settings.thinking)}
+                  {picker('style', pickers.styles, settings.style)}
+                </>
+              ) : null}
+
+              {availableConnectors.length ? (
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenu(menu === 'connectors' ? null : 'connectors');
+                    }}
+                    className={`rounded-[7px] border px-2 py-1 text-[12px] hover:bg-raised ${
+                      activeConnectorCount
+                        ? 'border-accent text-accent'
+                        : 'border-line text-ink-dim hover:text-ink'
+                    }`}
+                  >
+                    ⚯ {activeConnectorCount ? `${activeConnectorCount} connected` : 'Connectors'} ⌄
+                  </button>
+                  {menu === 'connectors' ? (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute bottom-full left-0 z-20 mb-1.5 w-72 overflow-hidden rounded-xl border border-line bg-panel shadow-xl"
+                    >
+                      {availableConnectors.map((c) => {
+                        const on = settings?.connectors?.includes(c.id) ?? false;
+                        return (
+                          <label
+                            key={c.id}
+                            className="flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-raised"
+                          >
+                            <input type="checkbox" checked={on} onChange={() => toggleConnector(c.id)} />
+                            <span className="flex-1">
+                              <span className="block text-[13px] font-medium">{c.name}</span>
+                              <span className="block text-[11.5px] text-ink-faint">
+                                {c.detail ? c.detail + ' · ' : ''}
+                                {c.toolCount} tool{c.toolCount === 1 ? '' : 's'}
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                      {files.length && activeConnectorCount ? (
+                        <div className="border-t border-line-soft bg-sev-math/10 px-3 py-2 text-[11.5px] text-[#dcc79a]">
+                          This chat has documents in it and can reach an outside system.
+                          The assistant will not send their contents anywhere unless you
+                          ask it to, and every call is logged.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               <span className="text-[12px] text-ink-faint">
                 {uploading ? `Uploading ${uploading} file(s)…` : ''}
               </span>
 
               {busy ? (
                 <button
-                  onClick={stop}
+                  onClick={() => chatAbort.current?.abort()}
                   className="ml-auto rounded-[9px] border border-line bg-raised px-3.5 py-1.5 font-medium hover:bg-raised-hover"
                 >
                   ■ Stop
@@ -707,17 +1284,18 @@ export function Chat({ me }: { me: Me }) {
                   disabled={!canSend}
                   className="ml-auto rounded-[9px] bg-accent px-3.5 py-1.5 font-semibold text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {attachments.length ? 'Review' : 'Send'}
+                  Send
                 </button>
               )}
             </div>
           </div>
 
           <div className="mx-auto mt-2 max-w-[780px] text-center text-[12px] text-ink-faint">
-            AI review aid — not tax advice. A licensed preparer must verify every item.
+            AI can make mistakes — check anything that matters.
             {' · '}
-            <span title={`provider: ${me.provider}`}>{me.model}</span>
-            {me.citationsSupported ? '' : ' · page references unavailable on this provider'}
+            <span title={`provider: ${me.provider}`}>
+              {optionLabel(pickers?.models, settings?.model ?? me.model)}
+            </span>
           </div>
         </div>
       </main>
@@ -733,6 +1311,28 @@ export function Chat({ me }: { me: Me }) {
           e.target.value = '';
         }}
       />
+
+      {showSettings ? (
+        <SettingsDialog
+          onClose={() => setShowSettings(false)}
+          onSaved={() => {
+            loadPickers();
+            if (conversationId) loadConversation(conversationId);
+          }}
+        />
+      ) : null}
+
+      {openProject ? (
+        <ProjectPanel
+          projectId={openProject}
+          onClose={() => setOpenProject(null)}
+          onChanged={() => {
+            loadProjects();
+            if (conversationId) loadConversation(conversationId);
+          }}
+          onOpenChat={openConversation}
+        />
+      ) : null}
     </div>
   );
 }

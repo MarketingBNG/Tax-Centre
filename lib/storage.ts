@@ -5,7 +5,7 @@ import { BLOB_TOKEN } from './config';
 /**
  * Uploaded documents live in blob storage, not on disk: the runtime has no
  * writable filesystem that survives a request, so a local path would mean a
- * client's return vanished between the upload and the review that reads it.
+ * an attachment vanished between the upload and the message that reads it.
  *
  * The store is PRIVATE, and what we persist is the pathname rather than a URL.
  * A public blob URL is itself a capability — anyone holding it can read the

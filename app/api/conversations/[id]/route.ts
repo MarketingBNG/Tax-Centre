@@ -1,7 +1,11 @@
-import { currentUser, unauthorized, notFound, audit } from '@/lib/auth';
-import { one, all, run } from '@/lib/db';
-import { getReviewBundle } from '@/lib/review';
-import type { ConversationRow, MessageRow, FileRow } from '@/lib/types';
+import { currentUser, unauthorized, notFound, badRequest, audit } from '@/lib/auth';
+import { one, run } from '@/lib/db';
+import { visibleFiles } from '@/lib/chat';
+import { getMessage, leafUnder, loadThread, parseToolLog, setHead } from '@/lib/thread';
+import { getPrefs, getProject, resolveModel, resolveStyle, resolveThinking } from '@/lib/prefs';
+import { isKnownModel, isThinkingLevel } from '@/lib/models';
+import { ACCOUNT_PREFIX, connectorsFor, parseSelection, validSelection } from '@/lib/connectors';
+import type { ConversationRow } from '@/lib/types';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -23,46 +27,60 @@ export async function GET(_req: Request, ctx: Ctx) {
   const conversation = await owned(id, user.id);
   if (!conversation) return notFound();
 
-  const messages = await all<MessageRow>(
-    `SELECT id, role, content, review_id, created_at FROM messages
-     WHERE conversation_id = ? ORDER BY created_at`,
-    id,
-  );
-  // The files reviews in this conversation actually read — see the note in
-  // lib/review.ts runFollowUp for why files.conversation_id is not the source
-  // of truth here.
-  const files = await all<FileRow>(
-    `SELECT f.id, f.filename, f.kind, f.size_bytes, f.page_count, f.pii_counts
-     FROM files f
-     JOIN review_files rf ON rf.file_id = f.id
-     JOIN reviews r ON r.id = rf.review_id
-     WHERE r.conversation_id = ? AND f.deleted_at IS NULL
-     GROUP BY f.id
-     ORDER BY MIN(r.created_at), MIN(rf.document_index)`,
-    id,
-  );
-
-  const reviews: Record<string, unknown> = {};
-  for (const m of messages) {
-    if (!m.review_id) continue;
-    const bundle = await getReviewBundle(m.review_id, user.id, user.role === 'admin');
-    if (bundle) reviews[m.review_id] = bundle;
-  }
-
-  // A review still in flight has no assistant message yet, so the client needs
-  // to be told about it explicitly in order to reattach to its stream.
-  const running = await one<{ id: string }>(
-    `SELECT id FROM reviews WHERE conversation_id = ? AND status = 'running'
-     ORDER BY created_at DESC LIMIT 1`,
-    id,
-  );
+  const [thread, files, prefs] = await Promise.all([
+    loadThread(id, conversation.head_id),
+    visibleFiles(conversation),
+    getPrefs(user.id),
+  ]);
+  const style = await resolveStyle(user.id, conversation.style, prefs);
 
   return Response.json({
-    conversation,
-    messages,
-    files,
-    reviews,
-    runningReviewId: running?.id ?? null,
+    conversation: {
+      id: conversation.id,
+      title: conversation.title,
+      starred: conversation.starred,
+      archivedAt: conversation.archived_at,
+      projectId: conversation.project_id,
+    },
+    // What this thread will actually run with, resolved rather than raw, so the
+    // composer shows the effective setting instead of a blank "inherited".
+    settings: {
+      model: resolveModel(conversation.model, prefs),
+      thinking: resolveThinking(conversation.thinking, prefs),
+      style: style.id,
+      styleLabel: style.label,
+      // Resolved against what is still live, so a connector an admin switched
+      // off or an account since disconnected stops showing as active here.
+      connectors: [
+        ...(await connectorsFor(conversation.connectors)).map((c) => c.id),
+        ...(await validSelection(
+          user.id,
+          parseSelection(conversation.connectors).accountIds.map((a) => `${ACCOUNT_PREFIX}${a}`),
+        )),
+      ],
+    },
+    messages: thread.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      createdAt: m.created_at,
+      thinking: m.thinking,
+      model: m.model,
+      finish: m.finish,
+      vote: m.vote,
+      toolRuns: parseToolLog(m.tool_log),
+      version: m.version,
+      versionCount: m.versionCount,
+      versionIds: m.versionIds,
+    })),
+    files: files.map((f) => ({
+      id: f.id,
+      filename: f.filename,
+      kind: f.kind,
+      sizeBytes: f.size_bytes,
+      pageCount: f.page_count,
+      fromProject: Boolean(f.project_id),
+    })),
   });
 }
 
@@ -71,14 +89,76 @@ export async function PATCH(req: Request, ctx: Ctx) {
   if (!user) return unauthorized();
 
   const { id } = await ctx.params;
-  if (!(await owned(id, user.id))) return notFound();
+  const conversation = await owned(id, user.id);
+  if (!conversation) return notFound();
 
-  const { title } = await req.json().catch(() => ({}));
-  const trimmed = String(title ?? '').trim().slice(0, 120);
-  if (!trimmed) return Response.json({ error: 'Title cannot be empty' }, { status: 400 });
+  const body = await req.json().catch(() => ({}));
+  const touch = () => run(`UPDATE conversations SET updated_at = ? WHERE id = ?`, Date.now(), id);
+  let title: string | undefined;
 
-  await run(`UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?`, trimmed, Date.now(), id);
-  return Response.json({ ok: true, title: trimmed });
+  if (body.title !== undefined) {
+    title = String(body.title ?? '').trim().slice(0, 120);
+    if (!title) return badRequest('Title cannot be empty');
+    await run(`UPDATE conversations SET title = ? WHERE id = ?`, title, id);
+  }
+
+  if (body.starred !== undefined) {
+    await run(`UPDATE conversations SET starred = ? WHERE id = ?`, body.starred ? 1 : 0, id);
+  }
+
+  if (body.archived !== undefined) {
+    await run(
+      `UPDATE conversations SET archived_at = ? WHERE id = ?`,
+      body.archived ? Date.now() : null,
+      id,
+    );
+  }
+
+  if (body.projectId !== undefined) {
+    const wanted = body.projectId ? String(body.projectId) : null;
+    if (wanted && !(await getProject(user.id, wanted))) return notFound();
+    await run(`UPDATE conversations SET project_id = ? WHERE id = ?`, wanted, id);
+  }
+
+  for (const key of ['model', 'thinking', 'style'] as const) {
+    if (body[key] === undefined) continue;
+    const raw = body[key] === null ? null : String(body[key]);
+    const value =
+      key === 'model'
+        ? raw && isKnownModel(raw)
+          ? raw
+          : null
+        : key === 'thinking'
+          ? raw && isThinkingLevel(raw)
+            ? raw
+            : null
+          : raw || null;
+    await run(`UPDATE conversations SET ${key} = ? WHERE id = ?`, value, id);
+  }
+
+  if (body.connectors !== undefined) {
+    const live = await validSelection(user.id, body.connectors);
+    await run(
+      `UPDATE conversations SET connectors = ? WHERE id = ?`,
+      live.length ? JSON.stringify(live) : null,
+      id,
+    );
+  }
+
+  // Switching to another version of a message: the head becomes that branch's
+  // newest tip, so the reader lands on the end of the alternative rather than
+  // in the middle of it.
+  if (body.headMessageId !== undefined) {
+    const target = await getMessage(id, String(body.headMessageId));
+    if (!target) return notFound();
+    await setHead(id, await leafUnder(id, target.id));
+  }
+
+  if (body.title !== undefined || body.starred !== undefined || body.archived !== undefined) {
+    await touch();
+  }
+
+  return Response.json({ ok: true, title });
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {

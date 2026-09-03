@@ -24,6 +24,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import ExcelJS from 'exceljs';
+import { startStubServer } from './mcp-stub.mjs';
 
 const BASE = process.env.BASE || 'http://127.0.0.1:3100';
 const DATABASE_URL = envValue('DATABASE_URL');
@@ -194,9 +195,8 @@ for (const [method, url] of [
   ['GET', '/api/conversations'],
   ['POST', '/api/conversations'],
   ['POST', '/api/files'],
-  ['POST', '/api/review'],
   ['POST', '/api/chat'],
-  ['GET', '/api/admin/skills'],
+  ['GET', '/api/admin/prompt'],
   ['GET', '/api/admin/costs'],
   ['GET', '/api/admin/users'],
   ['GET', '/api/admin/retention'],
@@ -217,50 +217,49 @@ const db = postgres(DATABASE_URL, { prepare: false, max: 2 });
 // Postgres persists between runs, unlike the file database this suite was
 // written against. Clear the accounts it creates first, or the second run
 // reports false failures ("already exists", "401") that say nothing about the
-// code. Cascades remove their conversations, files, reviews and usage rows.
+// code. Cascades remove their conversations, files and usage rows.
 await db`DELETE FROM users WHERE email IN (
   'admin@usaindiacfo.com',
   'rev@usaindiacfo.com',
   'admin2@usaindiacfo.com',
-  'listed-as-reviewer@usaindiacfo.com',
+  'listed-as-member@usaindiacfo.com',
   'preview@localhost'
 ) OR email LIKE '%@example.test'`;
-// Skills deliberately outlive their author (ON DELETE SET NULL), so they
-// have to be cleared separately or the bundle count grows every run.
-await db`DELETE FROM skills WHERE title IN ('1120-S review checklist', 'Test 1120-S checklist')`;
+// House instructions live in settings, which no cascade touches.
+await db`DELETE FROM settings WHERE key = 'system_prompt'`;
 const cols = (
   await db`SELECT column_name FROM information_schema.columns WHERE table_name = 'users'`
 ).map((c) => c.column_name);
 ok('users table has no password column', !cols.includes('password_hash'), cols.join(','));
 
 const adminId = crypto.randomUUID();
-const reviewerId = crypto.randomUUID();
+const memberId = crypto.randomUUID();
 const admin2Id = crypto.randomUUID();
 const seed = (id, email, role, name) =>
   db`INSERT INTO users (id, email, role, display_name, is_active, created_at)
      VALUES (${id}, ${email}, ${role}, ${name}, 1, ${Date.now()})
      ON CONFLICT (email) DO NOTHING`;
 await seed(adminId, 'admin@usaindiacfo.com', 'admin', 'Test Admin');
-await seed(reviewerId, 'rev@usaindiacfo.com', 'reviewer', 'Test Reviewer');
+await seed(memberId, 'rev@usaindiacfo.com', 'member', 'Test Member');
 
 const cookieFor = async (email) =>
   encode({ token: { email, name: email, sub: email }, secret: SECRET, salt: COOKIE_NAME, maxAge: 3600 });
 
 const admin = jar(await cookieFor('admin@usaindiacfo.com'));
-const reviewer = jar(await cookieFor('rev@usaindiacfo.com'));
+const member = jar(await cookieFor('rev@usaindiacfo.com'));
 const stranger = jar(await cookieFor('nobody@gmail.com'));
 
 console.log('\n=== identity is not authorisation ===');
 r = await call(admin, 'GET', '/api/me');
 ok('an allowlisted admin is recognised', r.json?.role === 'admin' && r.json?.email === 'admin@usaindiacfo.com', `HTTP ${r.status}`);
-ok('provider reported', r.json?.provider === 'openai', `${r.json?.provider} / ${r.json?.model} / citations=${r.json?.citationsSupported}`);
+ok('provider reported', r.json?.provider === 'openai', `${r.json?.provider} / ${r.json?.model}`);
 ok('pii tokenisation on by default', r.json?.piiMode === 'tokenize');
 
 r = await call(stranger, 'GET', '/api/me');
 ok('a valid Google session for an un-invited address is refused', r.status === 401, `HTTP ${r.status}`);
 
-r = await call(reviewer, 'GET', '/api/me');
-ok('an allowlisted reviewer is recognised', r.json?.role === 'reviewer');
+r = await call(member, 'GET', '/api/me');
+ok('an allowlisted member is recognised', r.json?.role === 'member');
 
 console.log(String.fromCharCode(10) + '=== ADMIN_EMAILS grants admin without an invitation ===');
 {
@@ -286,35 +285,39 @@ console.log(String.fromCharCode(10) + '=== ADMIN_EMAILS grants admin without an 
     ok('a listed address signs in with no prior invitation', r.json?.role === 'admin',
        `${r.status} / ${r.json?.role} / ${r.json?.email}`);
 
-    // And a reviewer added to the list is promoted rather than left as-is.
+    // And a member added to the list is promoted rather than left as-is.
     const demoteId = crypto.randomUUID();
     await db`INSERT INTO users (id, email, role, display_name, is_active, created_at)
-             VALUES (${demoteId}, 'listed-as-reviewer@usaindiacfo.com', 'reviewer', 'Listed', 1, ${Date.now()})
+             VALUES (${demoteId}, 'listed-as-member@usaindiacfo.com', 'member', 'Listed', 1, ${Date.now()})
              ON CONFLICT (email) DO NOTHING`;
 
-    // Not in ADMIN_EMAILS, so it should stay a reviewer.
-    const stillReviewer = jar(await cookieFor('listed-as-reviewer@usaindiacfo.com'));
-    r = await call(stillReviewer, 'GET', '/api/me');
-    ok('an address absent from the list is not promoted', r.json?.role === 'reviewer', r.json?.role);
+    // Not in ADMIN_EMAILS, so it should stay a member.
+    const stillMember = jar(await cookieFor('listed-as-member@usaindiacfo.com'));
+    r = await call(stillMember, 'GET', '/api/me');
+    ok('an address absent from the list is not promoted', r.json?.role === 'member', r.json?.role);
   }
 }
 
-/* ──────────────────────────── skills ────────────────────────────────── */
+/* ────────────────────── house instructions ───────────────────── */
 
-console.log('\n=== skills ===');
-let form = new FormData();
-form.set('title', '1120-S review checklist');
-form.set('jurisdiction', 'us-federal');
-form.set('body', '1. Tie Schedule K to the K-1s.\n2. Compare officer compensation to distributions.');
-r = await call(admin, 'POST', '/api/admin/skills', form, true);
-ok('skill published', r.status === 200 && r.json?.version === 1, `HTTP ${r.status}`);
-const skillId = r.json?.id;
+console.log('\n=== house instructions ===');
+// These are firm-wide and live in the same settings row the real app reads, so
+// the original has to go back afterwards. Leaving the test string behind would
+// silently change how the assistant answers for everybody.
+r = await call(admin, 'GET', '/api/admin/prompt');
+const housePromptBefore = r.json?.customPrompt ?? '';
 
-r = await call(admin, 'GET', '/api/admin/skills');
-ok('skill appears in the bundle', r.json?.skills?.length === 1 && r.json?.bundleTokens > 0, `${r.json?.bundleTokens} tok`);
+r = await call(admin, 'POST', '/api/admin/prompt', { customPrompt: 'Always answer in British English.' });
+ok('instructions saved', r.status === 200, `HTTP ${r.status}`);
 
-r = await call(admin, 'PUT', `/api/admin/skills/${skillId}`, { body: 'Updated checklist body.' });
-ok('editing bumps the version', r.json?.version === 2, `v${r.json?.version}`);
+r = await call(admin, 'GET', '/api/admin/prompt');
+ok('instructions read back', r.json?.customPrompt === 'Always answer in British English.', r.json?.customPrompt);
+ok('the built-in rules are shown too', typeof r.json?.basePrompt === 'string' && r.json.basePrompt.length > 100);
+ok('a token estimate is reported', r.json?.tokenEstimate > 0, `${r.json?.tokenEstimate} tok`);
+
+await call(admin, 'POST', '/api/admin/prompt', { customPrompt: housePromptBefore });
+r = await call(admin, 'GET', '/api/admin/prompt');
+ok('the house instructions are put back afterwards', r.json?.customPrompt === housePromptBefore, r.json?.customPrompt);
 
 /* ──────────────────────────── uploads ───────────────────────────────── */
 
@@ -323,7 +326,7 @@ r = await call(admin, 'POST', '/api/conversations');
 const convId = r.json?.id;
 ok('conversation created', Boolean(convId));
 
-form = new FormData();
+let form = new FormData();
 form.set('conversationId', convId);
 for (const name of ['sample-1120s.pdf', 'workpaper.xlsx', 'gl-export.csv', 'blocked.exe']) {
   form.append('files', new Blob([readFileSync(path.join(FIXTURES, name))]), name);
@@ -384,17 +387,17 @@ ok('currency-prefixed figure not mistaken for a card number', !/CARD/.test(preci
 console.log('\n=== access control ===');
 const pdfId = files.find((f) => f.kind === 'pdf')?.id;
 
-r = await call(reviewer, 'GET', `/api/files/${pdfId}/raw`);
-ok("reviewer cannot fetch admin's file (404, not 403)", r.status === 404, `HTTP ${r.status}`);
+r = await call(member, 'GET', `/api/files/${pdfId}/raw`);
+ok("a member cannot fetch admin's file (404, not 403)", r.status === 404, `HTTP ${r.status}`);
 
-r = await call(reviewer, 'GET', `/api/conversations/${convId}`);
-ok("reviewer cannot open admin's conversation", r.status === 404, `HTTP ${r.status}`);
+r = await call(member, 'GET', `/api/conversations/${convId}`);
+ok("a member cannot open admin's conversation", r.status === 404, `HTTP ${r.status}`);
 
-r = await call(reviewer, 'GET', '/api/admin/skills');
-ok('reviewer blocked from admin skills', r.status === 403, `HTTP ${r.status}`);
+r = await call(member, 'GET', '/api/admin/prompt');
+ok('a member is blocked from the house instructions', r.status === 403, `HTTP ${r.status}`);
 
-r = await call(reviewer, 'GET', '/api/admin/costs');
-ok('reviewer blocked from cost data', r.status === 403, `HTTP ${r.status}`);
+r = await call(member, 'GET', '/api/admin/costs');
+ok('a member is blocked from cost data', r.status === 403, `HTTP ${r.status}`);
 
 r = await call(admin, 'GET', `/api/files/${pdfId}/raw`);
 ok('admin can fetch own file', r.status === 200, `HTTP ${r.status}`);
@@ -420,10 +423,10 @@ r = await call(admin, 'POST', '/api/admin/users', { email: 'admin2@usaindiacfo.c
 ok('someone can be added with no password', r.status === 200 && r.json?.email === 'admin2@usaindiacfo.com', `HTTP ${r.status}`);
 const createdAdmin2 = r.json?.id;
 
-r = await call(admin, 'POST', '/api/admin/users', { email: 'not-an-email', role: 'reviewer' });
+r = await call(admin, 'POST', '/api/admin/users', { email: 'not-an-email', role: 'member' });
 ok('a malformed email is refused', r.status === 400, `HTTP ${r.status}`);
 
-r = await call(admin, 'POST', '/api/admin/users', { email: 'admin2@usaindiacfo.com', role: 'reviewer' });
+r = await call(admin, 'POST', '/api/admin/users', { email: 'admin2@usaindiacfo.com', role: 'member' });
 ok('a duplicate email is refused', r.status === 409, `HTTP ${r.status}`);
 
 // The newly added address can sign in straight away.
@@ -450,7 +453,7 @@ ok('a deactivated admin cannot act at all', r.status === 401, `HTTP ${r.status}`
 
 /* ──────────────────── dedupe across conversations ───────────────────── */
 
-console.log('\n=== dedupe must not steal a file from another conversation ===');
+console.log('\n=== the same document in two conversations ===');
 r = await call(admin, 'POST', '/api/conversations');
 const convB = r.json?.id;
 form = new FormData();
@@ -458,14 +461,39 @@ form.set('conversationId', convB);
 form.append('files', new Blob([readFileSync(path.join(FIXTURES, 'sample-1120s.pdf'))]), 'sample-1120s.pdf');
 r = await call(admin, 'POST', '/api/files', form, true);
 const reused = r.json?.files?.[0];
-ok('same file in a second conversation is deduped', reused?.deduped === true);
+ok('the upload succeeds', Boolean(reused?.id), JSON.stringify(r.json?.errors ?? []));
 
 {
   // White-box: nothing over HTTP exposes files.conversation_id, and that column
-  // is exactly what the bug corrupted.
+  // is exactly what the original bug corrupted.
+  //
+  // Two properties, and both matter. The first conversation must keep its own
+  // file — deduplication used to move it, which silently emptied the older
+  // thread. The second must get a usable one: handing back a row belonging to
+  // another conversation left this one showing an attachment the model could
+  // not actually see, and answering that it had no document.
+  const [first] = await db`
+    SELECT id FROM files
+     WHERE conversation_id = ${convId} AND filename = 'sample-1120s.pdf' AND deleted_at IS NULL`;
+  ok('the first conversation keeps its file', Boolean(first?.id));
+
   const [row] = await db`SELECT conversation_id FROM files WHERE id = ${reused.id}`;
-  ok('the file still belongs to the first conversation', row?.conversation_id === convId,
-     row?.conversation_id === convId ? 'unchanged' : `moved to ${row?.conversation_id}`);
+  ok(
+    'the second conversation gets its own',
+    row?.conversation_id === convB,
+    row?.conversation_id === convId ? 'still pointing at the first' : String(row?.conversation_id),
+  );
+  ok('and they are different rows', first?.id !== reused?.id);
+}
+
+{
+  // Re-uploading into the same conversation is the case deduplication is for.
+  const again = new FormData();
+  again.set('conversationId', convB);
+  again.append('files', new Blob([readFileSync(path.join(FIXTURES, 'sample-1120s.pdf'))]), 'sample-1120s.pdf');
+  r = await call(admin, 'POST', '/api/files', again, true);
+  ok('re-uploading into the same conversation is deduped', r.json?.files?.[0]?.deduped === true);
+  ok('and returns the row already there', r.json?.files?.[0]?.id === reused?.id);
 }
 /* ─────────────────── rename, search, inline preview ─────────────────── */
 
@@ -476,8 +504,8 @@ ok('conversation renamed', r.json?.title === 'Acme Holdings 1120-S', `HTTP ${r.s
 r = await call(admin, 'PATCH', `/api/conversations/${convId}`, { title: '   ' });
 ok('a blank title is refused', r.status === 400, `HTTP ${r.status}`);
 
-r = await call(reviewer, 'PATCH', `/api/conversations/${convId}`, { title: 'hijacked' });
-ok("a reviewer cannot rename someone else's conversation", r.status === 404, `HTTP ${r.status}`);
+r = await call(member, 'PATCH', `/api/conversations/${convId}`, { title: 'hijacked' });
+ok("a member cannot rename someone else's conversation", r.status === 404, `HTTP ${r.status}`);
 
 console.log('\n=== search ===');
 r = await call(admin, 'GET', '/api/search?q=Acme');
@@ -489,7 +517,7 @@ ok('a wildcard-only query does not match everything', Array.isArray(r.json) && r
 r = await call(admin, 'GET', '/api/search?q=zzzznothing');
 ok('an unmatched query returns nothing', Array.isArray(r.json) && r.json.length === 0);
 
-r = await call(reviewer, 'GET', '/api/search?q=Acme');
+r = await call(member, 'GET', '/api/search?q=Acme');
 ok("search does not leak another user's conversations", Array.isArray(r.json) && r.json.length === 0);
 
 console.log('\n=== in-app document preview ===');
@@ -497,34 +525,27 @@ r = await call(admin, 'GET', `/api/files/${pdfId}/raw?inline=1`);
 ok('inline mode serves the file for the viewer', r.status === 200 && (r.headers.get('content-disposition') ?? '').startsWith('inline'), (r.headers.get('content-disposition') ?? '').slice(0, 28));
 ok('inline mode still sandboxes the response', (r.headers.get('content-security-policy') ?? '').includes('sandbox'));
 
-r = await call(reviewer, 'GET', `/api/files/${pdfId}/raw?inline=1`);
+r = await call(member, 'GET', `/api/files/${pdfId}/raw?inline=1`);
 ok('inline mode respects ownership', r.status === 404, `HTTP ${r.status}`);
 
-/* ──────────── durable review streaming (needs no provider key) ────────── */
+/* ──────────────────────────── chat ───────────────────────────── */
 
-console.log('\n=== reviews run detached and replay from a cursor ===');
-// With no provider key configured the job fails fast — which still exercises
-// the whole path: detached start, persisted events, replay, and close.
-r = await call(admin, 'POST', '/api/review', { conversationId: convId, fileIds: [pdfId] });
-ok('POST /api/review returns an id immediately, not a stream', r.status === 200 && typeof r.json?.reviewId === 'string', `HTTP ${r.status}`);
-const streamReviewId = r.json?.reviewId;
-
-r = await call(admin, 'GET', `/api/conversations/${convId}`);
-ok('the conversation reports whether a review is in flight', 'runningReviewId' in (r.json ?? {}));
-
-// Starting the review wrote the user's message, so message-text search has
-// something to find now.
-r = await call(admin, 'GET', '/api/search?q=sample-1120s');
-ok('search finds a conversation by message text', Array.isArray(r.json) && r.json.some((c) => c.id === convId), `${r.json?.length} result(s)`);
-
-const first = await fetch(`${BASE}/api/review/${streamReviewId}/stream?from=0`, {
-  headers: { Cookie: admin.header() },
+console.log('\n=== chat ===');
+// Attachments ride along with the message rather than starting a separate job.
+const chat = await fetch(`${BASE}/api/chat`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Cookie: admin.header() },
+  body: JSON.stringify({
+    conversationId: convId,
+    question: 'What is in sample-1120s?',
+    fileIds: [pdfId],
+  }),
 });
-ok('stream endpoint responds with ndjson', first.ok && (first.headers.get('content-type') ?? '').includes('ndjson'), first.headers.get('content-type') ?? '');
+ok('chat responds with ndjson', chat.ok && (chat.headers.get('content-type') ?? '').includes('ndjson'), chat.headers.get('content-type') ?? '');
 
 const events = [];
 {
-  const reader = first.body.getReader();
+  const reader = chat.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
   for (;;) {
@@ -536,36 +557,520 @@ const events = [];
     for (const l of lines) if (l.trim()) events.push(JSON.parse(l));
   }
 }
-ok('the log replayed at least one event', events.length > 0, `${events.length} event(s)`);
-ok('the stream ends with an explicit close', events.at(-1)?.type === 'closed', events.at(-1)?.type);
-ok('every event carries a replay cursor', events.filter((e) => e.type !== 'closed').every((e) => typeof e.cursor === 'number'));
+// Asserted loosely on purpose: with a key configured this streams a real
+// answer, and without one it fails. Either way the path is proven — the
+// message persisted, the stream opened, and the outcome arrived as an event
+// rather than as a dead connection.
+ok('the turn produced events', events.length > 0, events.map((e) => e.type).join(','));
+ok(
+  'a failure arrives as an error event, not a hang',
+  events.some((e) => e.type === 'error' || e.type === 'done'),
+  events.map((e) => e.type).join(','),
+);
 
-{
-  // Reconnecting past the cursor must not repeat what was already delivered.
-  const lastCursor = events.at(-1)?.cursor ?? 0;
-  const again = await fetch(`${BASE}/api/review/${streamReviewId}/stream?from=${lastCursor}`, {
-    headers: { Cookie: admin.header() },
-  });
-  const replayed = (await again.text())
-    .trim()
-    .split(String.fromCharCode(10))
-    .filter(Boolean)
-    .map((l) => JSON.parse(l));
-  ok('reconnecting from the cursor replays no duplicates', replayed.every((e) => e.type === 'closed'), replayed.map((e) => e.type).join(','));
+r = await call(admin, 'GET', `/api/conversations/${convId}`);
+ok('the question was persisted', (r.json?.messages ?? []).some((m) => m.content.includes('sample-1120s')));
+ok(
+  'the attachment is bound to the conversation',
+  (r.json?.files ?? []).some((f) => f.id === pdfId),
+  `${r.json?.files?.length} file(s)`,
+);
+
+r = await call(admin, 'GET', '/api/search?q=sample-1120s');
+ok('search finds a conversation by message text', Array.isArray(r.json) && r.json.some((c) => c.id === convId), `${r.json?.length} result(s)`);
+
+r = await call(member, 'POST', '/api/chat', { conversationId: convId, question: 'hello' });
+ok("a member cannot post into someone else's conversation", r.status === 404, `HTTP ${r.status}`);
+
+
+/* ─────────────────────── preferences and styles ──────────────────────── */
+
+console.log('\n=== preferences, styles, memory ===');
+
+for (const [method, url] of [
+  ['GET', '/api/prefs'],
+  ['GET', '/api/memories'],
+  ['GET', '/api/styles'],
+  ['GET', '/api/projects'],
+  ['GET', '/api/export'],
+]) {
+  r = await call(anon, method, url);
+  ok(`${method} ${url} refuses an anonymous caller`, r.status === 401, `HTTP ${r.status}`);
 }
 
-r = await call(admin, 'GET', `/api/reviews/${streamReviewId}`);
-ok('the review settled and was recorded', ['failed', 'complete', 'aborted'].includes(r.json?.review?.status), r.json?.review?.status);
-ok('the reason was stored, not swallowed', Boolean(r.json?.review?.error_text) || r.json?.review?.status === 'complete', (r.json?.review?.error_text ?? '').slice(0, 55));
+r = await call(admin, 'GET', '/api/prefs');
+ok('prefs list the model choices', (r.json?.models ?? []).length >= 2, `${r.json?.models?.length} models`);
+ok('prefs list the built-in styles', (r.json?.styles ?? []).some((s) => s.id === 'concise'));
+ok('memory is on by default', r.json?.memoryEnabled === true);
 
-r = await call(admin, 'POST', `/api/review/${streamReviewId}/abort`);
-ok('aborting a settled review is a no-op, not an error', r.status === 200 && r.json?.stopped === false, `stopped=${r.json?.stopped}`);
+r = await call(admin, 'POST', '/api/prefs', {
+  instructions: 'Give me the figure before the explanation.',
+  thinking: 'extended',
+});
+ok('preferences save', r.status === 200 && r.json?.thinking === 'extended', JSON.stringify(r.json));
 
-r = await call(reviewer, 'GET', `/api/review/${streamReviewId}/stream?from=0`);
-ok("a reviewer cannot read another user's review stream", r.status === 404, `HTTP ${r.status}`);
+r = await call(admin, 'POST', '/api/prefs', { model: 'not-a-real-model' });
+ok('an unknown model falls back rather than being stored', r.json?.model === null, String(r.json?.model));
 
-r = await call(reviewer, 'POST', `/api/review/${streamReviewId}/abort`);
-ok("a reviewer cannot abort another user's review", r.status === 404, `HTTP ${r.status}`);
+r = await call(admin, 'POST', '/api/styles', { name: 'Client email', instructions: 'No jargon.' });
+const styleId = r.json?.id;
+ok('a custom style is created', r.status === 200 && Boolean(styleId));
+
+r = await call(admin, 'GET', '/api/prefs');
+ok('a custom style joins the picker', (r.json?.styles ?? []).some((s) => s.id === styleId && !s.builtIn));
+
+r = await call(member, 'PATCH', `/api/styles/${styleId}`, { name: 'stolen', instructions: 'x' });
+r = await call(admin, 'GET', '/api/styles');
+ok(
+  'one person cannot rename a style belonging to another',
+  (r.json ?? []).some((s) => s.id === styleId && s.name === 'Client email'),
+);
+
+r = await call(admin, 'POST', '/api/memories', { text: 'Prefers figures before prose.' });
+const memoryId = r.json?.id;
+ok('a memory is stored', r.status === 200 && Boolean(memoryId));
+
+r = await call(member, 'DELETE', `/api/memories/${memoryId}`);
+r = await call(admin, 'GET', '/api/memories');
+ok(
+  'one person cannot delete a memory belonging to another',
+  (r.json ?? []).some((m) => m.id === memoryId),
+  `${r.json?.length} remaining`,
+);
+
+r = await call(admin, 'DELETE', `/api/memories/${memoryId}`);
+r = await call(admin, 'GET', '/api/memories');
+ok('the owner can delete it', !(r.json ?? []).some((m) => m.id === memoryId));
+
+/* ─────────────────────────────── projects ────────────────────────────── */
+
+console.log('\n=== projects ===');
+
+r = await call(admin, 'POST', '/api/projects', { name: 'Acme 2025' });
+const projectId = r.json?.id;
+ok('a project is created', r.status === 200 && Boolean(projectId));
+
+r = await call(admin, 'POST', '/api/projects', { name: '  ' });
+ok('a nameless project is refused', r.status === 400, `HTTP ${r.status}`);
+
+r = await call(admin, 'PATCH', `/api/projects/${projectId}`, {
+  instructions: 'Amounts are in USD. Assume the federal schedule.',
+});
+ok('project instructions save', r.status === 200);
+
+{
+  const form = new FormData();
+  form.append('projectId', projectId);
+  form.append(
+    'files',
+    new Blob([readFileSync(path.join(FIXTURES, 'gl-export.csv'))], { type: 'text/csv' }),
+    'shelf.csv',
+  );
+  r = await call(admin, 'POST', '/api/files', form, true);
+  ok(
+    'a document can go on the project shelf',
+    (r.json?.files ?? []).length === 1,
+    JSON.stringify(r.json?.errors ?? []),
+  );
+}
+
+{
+  const form = new FormData();
+  form.append('projectId', projectId);
+  form.append('conversationId', convId);
+  form.append('files', new Blob([Buffer.from('x')], { type: 'text/plain' }), 'both.txt');
+  r = await call(admin, 'POST', '/api/files', form, true);
+  ok('a file cannot go to a chat and a project at once', r.status === 400, `HTTP ${r.status}`);
+}
+
+r = await call(member, 'GET', `/api/projects/${projectId}`);
+ok('a member cannot read a project belonging to another', r.status === 404, `HTTP ${r.status}`);
+
+r = await call(admin, 'POST', '/api/conversations', { projectId });
+const projectConvId = r.json?.id;
+ok('a chat can be created inside a project', r.json?.project_id === projectId);
+
+r = await call(admin, 'GET', `/api/conversations/${projectConvId}`);
+ok(
+  'the project shelf is visible to a chat inside it',
+  (r.json?.files ?? []).some((f) => f.filename === 'shelf.csv' && f.fromProject),
+  `${r.json?.files?.length} file(s)`,
+);
+
+r = await call(admin, 'POST', '/api/conversations', { projectId: 'not-mine' });
+ok('an unknown project id is ignored rather than trusted', r.json?.project_id === null);
+
+/* ──────────────────────── branching and versions ─────────────────────── */
+
+console.log('\n=== branching ===');
+
+r = await call(admin, 'POST', '/api/conversations');
+const branchConv = r.json?.id;
+
+async function turn(body) {
+  const res = await fetch(`${BASE}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: admin.header() },
+    body: JSON.stringify({ conversationId: branchConv, ...body }),
+  });
+  await res.text();
+  return res;
+}
+
+await turn({ question: 'Reply with the single word: alpha.' });
+
+r = await call(admin, 'GET', `/api/conversations/${branchConv}`);
+let thread = r.json?.messages ?? [];
+ok('the turn produced a question and an answer', thread.length === 2, `${thread.length} message(s)`);
+
+const firstAnswer = thread.find((m) => m.role === 'assistant');
+const firstQuestion = thread.find((m) => m.role === 'user');
+
+if (firstAnswer) {
+  await turn({ action: 'retry', messageId: firstAnswer.id });
+  r = await call(admin, 'GET', `/api/conversations/${branchConv}`);
+  thread = r.json?.messages ?? [];
+  const retried = thread.find((m) => m.role === 'assistant');
+  ok(
+    'retrying makes a second version of the answer',
+    retried?.versionCount === 2,
+    `${retried?.versionCount} version(s)`,
+  );
+  ok('the retry is the one on screen', retried?.version === 2, `showing ${retried?.version}`);
+
+  r = await call(admin, 'PATCH', `/api/conversations/${branchConv}`, {
+    headMessageId: retried?.versionIds?.[0],
+  });
+  r = await call(admin, 'GET', `/api/conversations/${branchConv}`);
+  const back = (r.json?.messages ?? []).find((m) => m.role === 'assistant');
+  ok('stepping back shows the first version again', back?.version === 1, `showing ${back?.version}`);
+}
+
+if (firstQuestion) {
+  await turn({
+    action: 'edit',
+    messageId: firstQuestion.id,
+    question: 'Reply with the single word: beta.',
+  });
+  r = await call(admin, 'GET', `/api/conversations/${branchConv}`);
+  const edited = (r.json?.messages ?? []).find((m) => m.role === 'user');
+  ok(
+    'editing makes a second version of the question',
+    edited?.versionCount === 2,
+    `${edited?.versionCount} version(s)`,
+  );
+  ok('the edited question is what the thread now shows', edited?.content?.includes('beta'), edited?.content ?? '');
+}
+
+r = await call(admin, 'POST', '/api/chat', {
+  conversationId: branchConv,
+  action: 'edit',
+  messageId: firstAnswer?.id,
+  question: 'x',
+});
+ok('an answer cannot be edited as if it were a question', r.status === 400, `HTTP ${r.status}`);
+
+r = await call(admin, 'POST', '/api/chat', {
+  conversationId: branchConv,
+  action: 'retry',
+  messageId: firstQuestion?.id,
+});
+ok('a question cannot be retried as if it were an answer', r.status === 400, `HTTP ${r.status}`);
+
+r = await call(admin, 'GET', `/api/conversations/${branchConv}`);
+const answerId = (r.json?.messages ?? []).find((m) => m.role === 'assistant')?.id;
+if (answerId) {
+  r = await call(admin, 'PATCH', `/api/messages/${answerId}`, { vote: 1 });
+  ok('an answer can be rated', r.json?.vote === 1, JSON.stringify(r.json));
+  r = await call(member, 'PATCH', `/api/messages/${answerId}`, { vote: -1 });
+  ok('a member cannot rate an answer belonging to another', r.status === 404, `HTTP ${r.status}`);
+}
+
+/* ─────────────────────── stars, archive, export ──────────────────────── */
+
+console.log('\n=== stars, archive, export ===');
+
+r = await call(admin, 'PATCH', `/api/conversations/${branchConv}`, { starred: true });
+r = await call(admin, 'GET', '/api/conversations');
+ok('a starred chat sorts to the top', r.json?.[0]?.id === branchConv, r.json?.[0]?.title ?? '');
+
+r = await call(admin, 'PATCH', `/api/conversations/${branchConv}`, { archived: true });
+r = await call(admin, 'GET', '/api/conversations');
+ok('an archived chat leaves the main list', !(r.json ?? []).some((c) => c.id === branchConv));
+
+r = await call(admin, 'GET', '/api/conversations?archived=1');
+ok('and appears in the archive', (r.json ?? []).some((c) => c.id === branchConv));
+
+r = await call(admin, 'PATCH', `/api/conversations/${branchConv}`, { archived: false });
+
+r = await call(admin, 'GET', `/api/export?conversationId=${branchConv}`);
+ok('a conversation exports as markdown', r.status === 200 && r.text.startsWith('#'), r.text.slice(0, 40));
+ok('the export is offered as a download', (r.headers.get('content-disposition') ?? '').includes('attachment'));
+
+r = await call(member, 'GET', `/api/export?conversationId=${branchConv}`);
+ok('a member cannot export a conversation belonging to another', r.status === 404, `HTTP ${r.status}`);
+
+r = await call(admin, 'GET', '/api/export');
+ok('everything exports as json', r.status === 200 && Array.isArray(r.json?.conversations), typeof r.json);
+ok(
+  'the export carries the memories and projects',
+  Array.isArray(r.json?.memories) && Array.isArray(r.json?.projects),
+);
+
+/* ───────────────────────── project deletion ──────────────────────────── */
+
+r = await call(admin, 'DELETE', `/api/projects/${projectId}`);
+ok('a project can be deleted', r.status === 200);
+
+r = await call(admin, 'GET', `/api/conversations/${projectConvId}`);
+ok(
+  'its chats survive the deletion',
+  r.status === 200 && r.json?.conversation?.projectId === null,
+  `HTTP ${r.status}`,
+);
+ok('but its shelf is no longer in context', !(r.json?.files ?? []).some((f) => f.filename === 'shelf.csv'));
+
+// Styles show up in a real settings screen, so the one this suite made goes away
+// again. The suite shares a database with the app by design.
+await call(admin, 'DELETE', `/api/styles/${styleId}`);
+r = await call(admin, 'GET', '/api/styles');
+ok('the test style is cleaned up', !(r.json ?? []).some((s) => s.id === styleId));
+
+console.log('\n=== audit log ===');
+r = await call(member, 'GET', '/api/admin/audit');
+ok('the audit log is admins only', r.status === 403, `HTTP ${r.status}`);
+
+r = await call(admin, 'GET', '/api/admin/audit');
+ok('the audit log reads back', Array.isArray(r.json?.entries), typeof r.json?.entries);
+ok('it records the uploads this suite made', (r.json?.entries ?? []).some((e) => e.action === 'file.upload'), (r.json?.actions ?? []).map((a) => a.action).join(','));
+
+r = await call(admin, 'GET', '/api/admin/audit?action=file.upload');
+ok('and filters by action', (r.json?.entries ?? []).every((e) => e.action === 'file.upload'), `${r.json?.entries?.length} entries`);
+
+
+/* ────────────────────────────── connectors ───────────────────────────── */
+
+console.log('\n=== connectors ===');
+
+const stub = await startStubServer();
+
+for (const [method, url] of [
+  ['GET', '/api/admin/connectors'],
+  ['POST', '/api/admin/connectors'],
+  ['GET', '/api/connectors'],
+]) {
+  r = await call(anon, method, url, method === 'POST' ? {} : undefined);
+  ok(`${method} ${url} refuses an anonymous caller`, r.status === 401, `HTTP ${r.status}`);
+}
+
+r = await call(member, 'GET', '/api/admin/connectors');
+ok('a member cannot see the connector configuration', r.status === 403, `HTTP ${r.status}`);
+
+r = await call(admin, 'POST', '/api/admin/connectors', {
+  name: 'Practice records',
+  url: stub.url,
+  authHeader: 'Authorization',
+  authValue: `Bearer ${stub.token}`,
+});
+const connectorId = r.json?.id;
+ok('a connector is created', r.status === 200 && Boolean(connectorId), JSON.stringify(r.json ?? {}));
+ok('the credential is never returned', r.json?.authValue === undefined && r.json?.hasSecret === true);
+
+r = await call(admin, 'POST', '/api/admin/connectors', { name: 'Bad', url: 'ftp://nope' });
+ok('a non-http URL is refused', r.status === 400, `HTTP ${r.status}`);
+
+r = await call(admin, 'POST', '/api/admin/connectors', {
+  name: 'Metadata',
+  url: 'http://169.254.169.254/latest/meta-data/',
+});
+ok('the cloud metadata endpoint is refused', r.status === 400, `HTTP ${r.status}`);
+
+r = await call(admin, 'POST', `/api/admin/connectors/${connectorId}/refresh`);
+ok('the server is reachable and lists its tools', (r.json?.tools ?? []).length === 2, r.json?.error ?? `${r.json?.tools?.length} tools`);
+ok(
+  'read-only tools are marked as such',
+  (r.json?.tools ?? []).find((t) => t.name === 'lookup_client')?.readOnly === true,
+);
+ok(
+  'a tool that writes is marked too',
+  (r.json?.tools ?? []).find((t) => t.name === 'delete_client')?.readOnly === false,
+);
+
+r = await call(member, 'GET', '/api/connectors');
+ok(
+  'a connector with nothing approved is not offered to anyone',
+  !(r.json ?? []).some((c) => c.id === connectorId),
+  `${r.json?.length} offered`,
+);
+
+r = await call(admin, 'PATCH', `/api/admin/connectors/${connectorId}`, {
+  allowedTools: ['lookup_client'],
+});
+ok('a tool can be approved', r.status === 200);
+
+r = await call(member, 'GET', '/api/connectors');
+ok(
+  'and the connector then appears in the picker',
+  (r.json ?? []).some((c) => c.id === connectorId && c.toolCount === 1),
+  JSON.stringify(r.json ?? []),
+);
+ok(
+  'the picker never carries the URL or the credential',
+  (r.json ?? []).every((c) => c.url === undefined && c.authValue === undefined),
+);
+
+// The credential must survive an edit that does not mention it, or renaming a
+// connector would quietly break it.
+r = await call(admin, 'PATCH', `/api/admin/connectors/${connectorId}`, { name: 'Practice records ' });
+r = await call(admin, 'GET', `/api/admin/connectors/${connectorId}`);
+ok('editing the name leaves the stored secret alone', r.json?.hasSecret === true);
+
+r = await call(admin, 'POST', `/api/admin/connectors/${connectorId}/refresh`);
+ok('and it still authenticates afterwards', !r.json?.error, r.json?.error ?? 'ok');
+
+/* --------------------------------------------- switching one on per thread */
+
+r = await call(admin, 'POST', '/api/conversations');
+const connConv = r.json?.id;
+
+r = await call(admin, 'GET', `/api/conversations/${connConv}`);
+ok('a new chat has no connectors switched on', (r.json?.settings?.connectors ?? []).length === 0);
+
+r = await call(admin, 'PATCH', `/api/conversations/${connConv}`, { connectors: [connectorId] });
+r = await call(admin, 'GET', `/api/conversations/${connConv}`);
+ok('one can be switched on for a thread', (r.json?.settings?.connectors ?? []).includes(connectorId));
+
+r = await call(admin, 'PATCH', `/api/conversations/${connConv}`, { connectors: ['made-up-id'] });
+r = await call(admin, 'GET', `/api/conversations/${connConv}`);
+ok('an unknown connector id is discarded, not stored', (r.json?.settings?.connectors ?? []).length === 0);
+
+r = await call(admin, 'PATCH', `/api/conversations/${connConv}`, { connectors: [connectorId] });
+r = await call(admin, 'PATCH', `/api/admin/connectors/${connectorId}`, { enabled: false });
+r = await call(admin, 'GET', `/api/conversations/${connConv}`);
+ok(
+  'disabling a connector drops it from threads already using it',
+  (r.json?.settings?.connectors ?? []).length === 0,
+);
+await call(admin, 'PATCH', `/api/admin/connectors/${connectorId}`, { enabled: true });
+
+r = await call(member, 'PATCH', `/api/admin/connectors/${connectorId}`, { enabled: false });
+ok('a member cannot disable a connector', r.status === 403, `HTTP ${r.status}`);
+
+r = await call(admin, 'GET', '/api/admin/audit?action=connector.tools');
+ok(
+  'approving a tool is written to the audit log',
+  (r.json?.entries ?? []).some((e) => e.detail?.includes('lookup_client')),
+  `${r.json?.entries?.length} entries`,
+);
+
+r = await call(admin, 'DELETE', `/api/admin/connectors/${connectorId}`);
+ok('a connector can be deleted', r.status === 200);
+
+r = await call(admin, 'GET', '/api/connectors');
+ok('and stops being offered', !(r.json ?? []).some((c) => c.id === connectorId));
+
+await stub.close();
+
+
+/* ────────────────────────── connected accounts ───────────────────────── */
+
+console.log('\n=== connected accounts ===');
+
+for (const [method, url] of [
+  ['GET', '/api/accounts'],
+  ['GET', '/api/accounts/drive/start'],
+  ['DELETE', '/api/accounts/drive'],
+]) {
+  r = await call(anon, method, url);
+  ok(`${method} ${url} refuses an anonymous caller`, r.status === 401, `HTTP ${r.status}`);
+}
+
+r = await call(admin, 'GET', '/api/accounts');
+const providers = r.json ?? [];
+ok('Drive, Gmail and Box are all offered', ['drive', 'gmail', 'box'].every((id) => providers.some((p) => p.id === id)), providers.map((p) => p.id).join(','));
+ok('none is connected to begin with', providers.every((p) => !p.connected));
+ok(
+  'each says whether the server has credentials for it',
+  providers.every((p) => typeof p.configured === 'boolean'),
+);
+
+for (const p of providers.filter((x) => !x.configured)) {
+  ok(
+    `${p.id} explains what is missing and gives the exact redirect URI`,
+    Boolean(p.setupHint) && String(p.redirectUri ?? '').endsWith(`/api/accounts/${p.id}/callback`),
+    p.redirectUri ?? 'no redirect uri',
+  );
+}
+
+for (const p of providers.filter((x) => x.configured)) {
+  r = await call(admin, 'GET', `/api/accounts/${p.id}/start`);
+  const location = r.headers.get('location') ?? '';
+  ok(`${p.id} sends the browser to the provider`, r.status === 302 && location.startsWith('http'), `HTTP ${r.status}`);
+
+  const url = new URL(location || 'http://x/');
+  ok(`${p.id} asks for a code with PKCE`, url.searchParams.get('response_type') === 'code' && url.searchParams.get('code_challenge_method') === 'S256', url.searchParams.get('code_challenge_method') ?? 'none');
+  ok(`${p.id} sends a state`, (url.searchParams.get('state') ?? '').length > 20);
+  ok(
+    `${p.id} asks for read-only scopes only`,
+    !/\bdrive\b(?!\.readonly)|gmail\.(send|modify|compose)|drive\.file/.test(url.searchParams.get('scope') ?? ''),
+    url.searchParams.get('scope') ?? '(set on the app)',
+  );
+}
+
+for (const p of providers.filter((x) => !x.configured)) {
+  r = await call(admin, 'GET', `/api/accounts/${p.id}/start`);
+  ok(`${p.id} says so rather than sending you nowhere`, r.status === 400, `HTTP ${r.status}`);
+}
+
+r = await call(admin, 'GET', '/api/accounts/not-a-provider/start');
+ok('an unknown account type is refused', r.status === 400, `HTTP ${r.status}`);
+
+// A callback is reached by a human in a browser, so every outcome has to end in
+// a redirect back into the app rather than in a JSON error nobody can act on.
+r = await call(admin, 'GET', '/api/accounts/drive/callback?code=nope&state=nope');
+ok(
+  'a bad callback sends you back with a message, not a dead end',
+  r.status === 302 && (r.headers.get('location') ?? '').includes('account_error'),
+  `HTTP ${r.status} ${r.headers.get('location') ?? ''}`,
+);
+
+r = await call(admin, 'GET', '/api/accounts/drive/callback?error=access_denied');
+ok(
+  'declining at the provider comes back cleanly too',
+  r.status === 302 && (r.headers.get('location') ?? '').includes('account_error=access_denied'),
+  r.headers.get('location') ?? '',
+);
+
+r = await call(admin, 'GET', '/api/connectors');
+ok(
+  'an unconnected account is not offered in the composer',
+  !(r.json ?? []).some((c) => c.kind === 'account'),
+  JSON.stringify(r.json ?? []),
+);
+
+r = await call(admin, 'POST', '/api/conversations');
+const acctConv = r.json?.id;
+r = await call(admin, 'PATCH', `/api/conversations/${acctConv}`, { connectors: ['account:drive'] });
+r = await call(admin, 'GET', `/api/conversations/${acctConv}`);
+ok(
+  'an account nobody connected cannot be switched on',
+  (r.json?.settings?.connectors ?? []).length === 0,
+  JSON.stringify(r.json?.settings?.connectors ?? []),
+);
+
+r = await call(admin, 'DELETE', '/api/accounts/drive');
+ok('disconnecting an account that is not connected is harmless', r.status === 200, `HTTP ${r.status}`);
+
+{
+  // White-box: a refresh token is a standing grant to read somebody mailbox,
+  // so nothing may write one to the database in the clear.
+  const rows = await db`SELECT access_token, refresh_token FROM oauth_accounts`;
+  ok(
+    'no account token is stored in plaintext',
+    rows.every((row) => /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(row.access_token)),
+    `${rows.length} row(s)`,
+  );
+}
 
 await db.end();
 console.log(`

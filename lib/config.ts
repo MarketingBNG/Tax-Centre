@@ -65,20 +65,18 @@ export const ADMIN_EMAILS: string[] = (process.env.ADMIN_EMAILS || '')
  * anything reachable beyond localhost.
  */
 export const DISABLE_AUTH = process.env.DISABLE_AUTH === 'true';
-export const APP_NAME = 'Tax Review Center';
+export { APP_NAME } from './app';
 
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
 
-export type ModelRole = 'reviewer' | 'extractor' | 'chat';
+export type ModelRole = 'chat';
 
 export const MODELS: Record<ModelRole, string> = {
-  reviewer: process.env.OPENAI_REVIEW_MODEL || 'gpt-5.6-luna',
-  extractor: process.env.OPENAI_EXTRACT_MODEL || 'gpt-5.6-luna',
   chat: process.env.OPENAI_CHAT_MODEL || 'gpt-5.6-luna',
 };
 
-export const EFFORT = process.env.REVIEW_EFFORT || 'high';
+export const EFFORT = process.env.MODEL_EFFORT || process.env.REVIEW_EFFORT || 'medium';
 
 /** USD per million tokens. Cached input is a flat discount, no write premium. */
 export const PRICING: Record<string, { in: number; out: number; cachedIn: number }> = {
@@ -103,3 +101,31 @@ export const PII_MODE: PiiMode = process.env.PII_MODE === 'off' ? 'off' : 'token
 /** Days to keep uploaded originals. 0 disables the sweeper. */
 export const RETENTION_ORIGINALS_DAYS = Number(process.env.RETENTION_ORIGINALS_DAYS || 90);
 
+
+/** Ceiling on a single answer. A cut-off answer is offered a Continue button. */
+export const MAX_OUTPUT_TOKENS = Number(process.env.MAX_OUTPUT_TOKENS || 16000);
+
+/**
+ * How many times the model may call tools and be asked again within one turn.
+ * The whole turn shares one 300s request budget on Vercel, so this is a real
+ * ceiling rather than a formality.
+ */
+export const MAX_TOOL_ROUNDS = Number(process.env.MAX_TOOL_ROUNDS || 4);
+
+/** Wall-clock ceiling on one analysis script. Synchronous code only. */
+export const ANALYSIS_TIMEOUT_MS = Number(process.env.ANALYSIS_TIMEOUT_MS || 5000);
+
+/** Most remembered facts to carry into a conversation, newest first. */
+export const MEMORY_LIMIT = Number(process.env.MEMORY_LIMIT || 60);
+
+/** Set false to remove the analysis and memory tools everywhere. */
+export const TOOLS_ENABLED = process.env.TOOLS_ENABLED !== 'false';
+
+/** How long one connector request may take before it is abandoned. */
+export const MCP_TIMEOUT_MS = Number(process.env.MCP_TIMEOUT_MS || 30000);
+
+/**
+ * Set false to remove every connector from every conversation without
+ * deleting the configuration — the switch to reach for if one misbehaves.
+ */
+export const CONNECTORS_ENABLED = process.env.CONNECTORS_ENABLED !== 'false';

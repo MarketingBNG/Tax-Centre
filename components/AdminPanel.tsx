@@ -3,19 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Mark } from './Mark';
+import { ConnectorsTab } from './ConnectorsTab';
 
-type Tab = 'skills' | 'costs' | 'people';
+type Tab = 'prompt' | 'costs' | 'people' | 'connectors' | 'audit';
 
-interface Skill {
-  id: string;
-  title: string;
-  description: string;
-  jurisdiction: string;
-  body: string;
-  source_filename: string | null;
-  version: number;
-  enabled: number;
-  token_estimate: number;
+interface PromptSettings {
+  basePrompt: string;
+  customPrompt: string;
+  tokenEstimate: number;
 }
 
 interface Costs {
@@ -25,10 +20,9 @@ interface Costs {
   recent: {
     id: string;
     created_at: number;
-    status: string;
-    extraction_ok: number;
     email: string;
-    findings: number;
+    purpose: string;
+    tokens: number;
     usd: number;
   }[];
   cacheHitRate: number;
@@ -65,26 +59,28 @@ const usd = (n: number) => `$${Number(n || 0).toFixed(2)}`;
 const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
 
 export function AdminPanel() {
-  const [tab, setTab] = useState<Tab>('skills');
+  const [tab, setTab] = useState<Tab>('prompt');
 
   return (
     <div className="mx-auto max-w-[1000px] px-6 pt-7 pb-16">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2.5 text-[21px] font-medium">
           <Mark size={20} />
-          Skills &amp; admin
+          Admin
         </h1>
         <Link href="/" className={btn}>
-          ← Back to reviews
+          ← Back to chat
         </Link>
       </div>
 
       <div className="mb-5 flex gap-1 border-b border-line-soft">
         {(
           [
-            ['skills', 'Review skills'],
+            ['prompt', 'Instructions'],
             ['costs', 'Usage & cost'],
             ['people', 'People'],
+            ['connectors', 'Connectors'],
+            ['audit', 'Audit log'],
           ] as [Tab, string][]
         ).map(([key, text]) => (
           <button
@@ -99,63 +95,47 @@ export function AdminPanel() {
         ))}
       </div>
 
-      {tab === 'skills' ? <SkillsTab /> : null}
+      {tab === 'prompt' ? <PromptTab /> : null}
       {tab === 'costs' ? <CostsTab /> : null}
       {tab === 'people' ? <PeopleTab /> : null}
+      {tab === 'connectors' ? <ConnectorsTab /> : null}
+      {tab === 'audit' ? <AuditTab /> : null}
     </div>
   );
 }
 
-/* --------------------------------------------------------------- skills */
+/* --------------------------------------------------------- instructions */
 
-function SkillsTab() {
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [bundleTokens, setBundleTokens] = useState(0);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [jurisdiction, setJurisdiction] = useState('generic');
-  const [body, setBody] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+function PromptTab() {
+  const [data, setData] = useState<PromptSettings | null>(null);
+  const [draft, setDraft] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/admin/skills');
+    const res = await fetch('/api/admin/prompt');
     if (!res.ok) return;
-    const data = await res.json();
-    setSkills(data.skills);
-    setBundleTokens(data.bundleTokens);
+    const body: PromptSettings = await res.json();
+    setData(body);
+    setDraft(body.customPrompt);
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function publish(e: React.FormEvent) {
-    e.preventDefault();
-    setMessage('');
-    if (!file && !body.trim()) {
-      setMessage('Upload a document or paste some text.');
-      return;
-    }
+  async function save() {
     setBusy(true);
+    setMessage('');
     try {
-      const form = new FormData();
-      form.append('title', title.trim() || file?.name || 'Untitled skill');
-      form.append('description', description.trim());
-      form.append('jurisdiction', jurisdiction);
-      if (body.trim()) form.append('body', body.trim());
-      if (file) form.append('file', file);
-
-      const res = await fetch('/api/admin/skills', { method: 'POST', body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Could not publish');
-
-      setTitle('');
-      setDescription('');
-      setBody('');
-      setFile(null);
-      setMessage('Published — it is now loaded into every review.');
+      const res = await fetch('/api/admin/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customPrompt: draft }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? 'Could not save');
+      setMessage('Saved — every new message uses this.');
       load();
     } catch (err) {
       setMessage((err as Error).message);
@@ -164,164 +144,50 @@ function SkillsTab() {
     }
   }
 
-  const enabledCount = skills.filter((s) => s.enabled).length;
-
   return (
     <>
       <div className={panel}>
-        <h2 className="mb-1 text-[15px] font-semibold">Add a review skill</h2>
+        <h2 className="mb-1 text-[15px] font-semibold">House instructions</h2>
         <p className="mb-3 text-[13px] text-ink-dim">
-          Upload your checklist, SOP or methodology, or paste it in. Every enabled skill is
-          loaded into <em>every</em> review your team runs — they just attach files. Upload
-          accepts DOCX, XLSX, CSV or TXT; a scanned PDF has no text layer to read.
+          Added to <em>every</em> conversation, for everyone. Good for house style, the
+          names of your systems, or what to do when someone asks about a client. It is
+          sent on every message, so keep it to what genuinely applies every time.
         </p>
 
-        <form onSubmit={publish}>
-          <div className="flex flex-wrap gap-3">
-            <div className="min-w-[200px] flex-1">
-              <label className={label}>Title</label>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. 1120-S review checklist"
-                className={field}
-              />
-            </div>
-            <div className="min-w-[160px] flex-1">
-              <label className={label}>Applies to</label>
-              <select
-                value={jurisdiction}
-                onChange={(e) => setJurisdiction(e.target.value)}
-                className={field}
-              >
-                <option value="generic">All reviews</option>
-                <option value="us-federal">US federal</option>
-                <option value="us-state">US state</option>
-                <option value="india">India</option>
-              </select>
-            </div>
-          </div>
+        <textarea
+          className={`${field} min-h-[220px] font-mono text-[13px]`}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="e.g. We are a US-India accounting firm. Prefer plain English over jargon. Never put client names in examples."
+        />
 
-          <label className={label}>Short description (optional)</label>
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="What this skill covers"
-            className={field}
-          />
-
-          <label className={label}>Upload a document</label>
-          <input
-            type="file"
-            accept=".docx,.xlsx,.xlsm,.csv,.txt,.md"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="text-[13px]"
-          />
-
-          <label className={label}>…or paste the text</label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder={
-              'Review the return in this order:\n1. Tie Schedule K to the K-1s\n2. Confirm officer compensation is reasonable relative to distributions'
-            }
-            className={`${field} min-h-[130px] resize-y font-mono text-[12.5px]`}
-          />
-
-          <div className="mt-4 flex items-center gap-3">
-            <button type="submit" disabled={busy} className={btnPrimary}>
-              {busy ? 'Publishing…' : 'Publish skill'}
-            </button>
-            {message ? <span className="text-[13px] text-ink-dim">{message}</span> : null}
-          </div>
-        </form>
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            className={btnPrimary}
+            disabled={busy || draft === data?.customPrompt}
+            onClick={save}
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+          {data ? (
+            <span className="text-[12.5px] text-ink-faint">
+              ~{data.tokenEstimate.toLocaleString()} tokens on every message
+            </span>
+          ) : null}
+          {message ? <span className="text-[13px] text-ink-dim">{message}</span> : null}
+        </div>
       </div>
 
       <div className={panel}>
-        <h2 className="mb-1 text-[15px] font-semibold">Published skills</h2>
-        <p className="mb-4 text-[13px] text-ink-dim">
-          {skills.length
-            ? `${enabledCount} of ${skills.length} enabled · roughly ${bundleTokens.toLocaleString()} tokens loaded into every review.`
-            : 'Nothing published yet — reviews fall back to general professional judgement.'}
+        <h2 className="mb-1 text-[15px] font-semibold">Built-in rules</h2>
+        <p className="mb-3 text-[13px] text-ink-dim">
+          Always applied, before your text. Shown so you know what not to repeat.
         </p>
-
-        {skills.map((s) => (
-          <SkillCard key={s.id} skill={s} onChange={load} />
-        ))}
+        <pre className="max-h-[280px] overflow-auto rounded-[9px] border border-line bg-raised p-3 text-[12.5px] whitespace-pre-wrap text-ink-dim">
+          {data?.basePrompt ?? ''}
+        </pre>
       </div>
     </>
-  );
-}
-
-function SkillCard({ skill, onChange }: { skill: Skill; onChange: () => void }) {
-  const [draft, setDraft] = useState(skill.body);
-  const [busy, setBusy] = useState(false);
-
-  async function patch(payload: Record<string, unknown>) {
-    setBusy(true);
-    await fetch(`/api/admin/skills/${skill.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    setBusy(false);
-    onChange();
-  }
-
-  return (
-    <div className="mb-3 rounded-[10px] border border-line px-4 py-3">
-      <div className="mb-1.5 flex items-center gap-2.5">
-        <b className="flex-1">{skill.title}</b>
-        <span className="text-[12px] text-ink-faint">
-          v{skill.version} · {skill.jurisdiction} · ~{skill.token_estimate.toLocaleString()} tok
-        </span>
-      </div>
-
-      {skill.description ? (
-        <div className="mb-2 text-[13px] text-ink-dim">{skill.description}</div>
-      ) : null}
-      {skill.source_filename ? (
-        <div className="mb-2 text-[12px] text-ink-faint">from {skill.source_filename}</div>
-      ) : null}
-
-      <textarea
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        className={`${field} min-h-[100px] resize-y font-mono text-[12.5px]`}
-      />
-
-      <div className="mt-2.5 flex items-center gap-2">
-        <button
-          onClick={() => patch({ enabled: !skill.enabled })}
-          disabled={busy}
-          className={
-            skill.enabled
-              ? 'rounded-md bg-accent px-2.5 py-1 text-[12.5px] font-medium text-accent-ink'
-              : btnSm
-          }
-        >
-          {skill.enabled ? 'Enabled' : 'Disabled'}
-        </button>
-        <button
-          onClick={() => patch({ body: draft })}
-          disabled={busy || draft === skill.body}
-          className={btnSm}
-        >
-          {busy ? 'Saving…' : 'Save changes'}
-        </button>
-        <button
-          onClick={async () => {
-            if (!confirm(`Delete "${skill.title}"? Reviews already run keep their record of it.`))
-              return;
-            await fetch(`/api/admin/skills/${skill.id}`, { method: 'DELETE' });
-            onChange();
-          }}
-          className={`${btnSm} text-sev-blocking`}
-        >
-          Delete
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -432,8 +298,8 @@ function CostsTab() {
         <div className={panel}>
           <h2 className="mb-1 text-[15px] font-semibold">Document retention</h2>
           <p className="mb-3 text-[13px] text-ink-dim">
-            Uploaded originals expire after {retention.retentionDays} days; findings and the
-            audit trail are kept. This app is a review assistant, not your document
+            Uploaded originals expire after {retention.retentionDays} days; conversations
+            and the audit trail are kept. This app is an assistant, not your document
             management system — a second copy of every client PDF is liability without
             benefit. <b>{retention.dueFiles}</b> file(s) ({mb(retention.dueBytes)}) are past
             retention now.
@@ -478,21 +344,21 @@ function CostsTab() {
       </div>
 
       <div className={panel}>
-        <h2 className="mb-3 text-[15px] font-semibold">Recent reviews</h2>
+        <h2 className="mb-3 text-[15px] font-semibold">Recent activity</h2>
         {data.recent.length ? (
           <Table
-            head={['When', 'Person', 'Status', 'Findings', 'Cost']}
+            head={['When', 'Person', 'Kind', 'Tokens', 'Cost']}
             rows={data.recent.map((r) => [
               new Date(r.created_at).toLocaleString(),
               r.email,
-              r.status === 'complete' && !r.extraction_ok ? 'complete (prose only)' : r.status,
-              String(r.findings),
+              r.purpose,
+              r.tokens.toLocaleString(),
               usd(r.usd),
             ])}
             numeric={[3, 4]}
           />
         ) : (
-          <div className="py-6 text-center text-ink-faint">No reviews yet.</div>
+          <div className="py-6 text-center text-ink-faint">Nothing yet.</div>
         )}
       </div>
     </>
@@ -503,7 +369,7 @@ function CostsTab() {
 
 function PeopleTab() {
   const [people, setPeople] = useState<Person[]>([]);
-  const [form, setForm] = useState({ displayName: '', email: '', role: 'reviewer' });
+  const [form, setForm] = useState({ displayName: '', email: '', role: 'member' });
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -523,7 +389,7 @@ function PeopleTab() {
         <p className="mb-3 text-[13px] text-ink-dim">
           Everyone signs in with Google — there are no passwords. Adding someone here puts
           their work email on the access list; until then Google sign-in is refused.
-          Reviewers see only their own reviews. Admins also publish skills and see costs.
+          Members see only their own chats. Admins also set the house instructions and see costs.
         </p>
 
         <form
@@ -539,7 +405,7 @@ function PeopleTab() {
               });
               const data = await res.json();
               if (!res.ok) throw new Error(data.error ?? 'Could not create');
-              setForm({ displayName: '', email: '', role: 'reviewer' });
+              setForm({ displayName: '', email: '', role: 'member' });
               setMessage('Added — they can now sign in with that Google account.');
               load();
             } catch (err) {
@@ -577,7 +443,7 @@ function PeopleTab() {
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
                 className={field}
               >
-                <option value="reviewer">Reviewer</option>
+                <option value="member">Member</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
@@ -599,7 +465,7 @@ function PeopleTab() {
           rows={people.map((u) => [
             u.display_name,
             u.email,
-            u.role === 'admin' ? 'Admin' : 'Reviewer',
+            u.role === 'admin' ? 'Admin' : 'Member',
             u.is_active ? 'Active' : 'Deactivated',
             <button
               key="a"
@@ -673,6 +539,106 @@ function Table({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- audit log */
+
+interface AuditEntry {
+  id: string;
+  at: number;
+  action: string;
+  actor: string | null;
+  target: string | null;
+  detail: string | null;
+}
+
+function AuditTab() {
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [actions, setActions] = useState<{ action: string; count: number }[]>([]);
+  const [filter, setFilter] = useState('');
+  const [hasMore, setHasMore] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async (action: string, before = 0, append = false) => {
+    setBusy(true);
+    const params = new URLSearchParams();
+    if (action) params.set('action', action);
+    if (before) params.set('before', String(before));
+    const res = await fetch(`/api/admin/audit?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      setEntries((prev) => (append ? [...prev, ...data.entries] : data.entries));
+      setActions(data.actions);
+      setHasMore(data.hasMore);
+    }
+    setBusy(false);
+  }, []);
+
+  useEffect(() => {
+    load(filter);
+  }, [load, filter]);
+
+  return (
+    <div>
+      <div className={panel}>
+        <h2 className="mb-1 text-[15px] font-semibold">Audit log</h2>
+        <p className="mb-3 text-[13px] text-ink-dim">
+          Who did what, and when. Append-only: nothing in this app edits or deletes a
+          row here, which is what makes it worth having. Uploads, deletions, access
+          changes and instruction edits are all recorded.
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setFilter('')}
+            className={`${btnSm} ${filter === '' ? 'border-accent text-ink' : 'text-ink-dim'}`}
+          >
+            Everything
+          </button>
+          {actions.map((a) => (
+            <button
+              key={a.action}
+              onClick={() => setFilter(a.action)}
+              className={`${btnSm} ${filter === a.action ? 'border-accent text-ink' : 'text-ink-dim'}`}
+            >
+              {a.action}
+              <span className="ml-1.5 text-ink-faint">{a.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={panel}>
+        <Table
+          head={['When', 'Who', 'Action', 'Target', 'Detail']}
+          rows={entries.map((e) => [
+            new Date(e.at).toLocaleString(),
+            e.actor ?? <span className="text-ink-faint">system</span>,
+            <code key="a" className="font-mono text-[12px]">
+              {e.action}
+            </code>,
+            <span key="t" className="text-ink-dim">
+              {e.target ?? '—'}
+            </span>,
+            <span key="d" className="text-[12px] text-ink-faint">
+              {e.detail ?? ''}
+            </span>,
+          ])}
+        />
+        {entries.length === 0 && !busy ? (
+          <div className="py-6 text-center text-[13px] text-ink-faint">Nothing logged yet</div>
+        ) : null}
+        {hasMore ? (
+          <button
+            disabled={busy}
+            onClick={() => load(filter, entries[entries.length - 1]?.at ?? 0, true)}
+            className={`${btn} mt-3`}
+          >
+            {busy ? 'Loading…' : 'Load more'}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

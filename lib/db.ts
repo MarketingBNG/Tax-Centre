@@ -51,7 +51,7 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id           TEXT PRIMARY KEY,
   email        TEXT NOT NULL UNIQUE,
-  role         TEXT NOT NULL CHECK (role IN ('admin','reviewer')),
+  role         TEXT NOT NULL CHECK (role IN ('admin','member')),
   display_name TEXT NOT NULL,
   is_active    INTEGER NOT NULL DEFAULT 1,
   created_at   BIGINT NOT NULL
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS conversations (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title      TEXT NOT NULL DEFAULT 'New review',
+  title      TEXT NOT NULL DEFAULT 'New chat',
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
@@ -71,7 +71,6 @@ CREATE TABLE IF NOT EXISTS messages (
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   role            TEXT NOT NULL CHECK (role IN ('user','assistant')),
   content         TEXT NOT NULL DEFAULT '',
-  review_id       TEXT,
   created_at      BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, created_at);
@@ -97,95 +96,8 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id);
 CREATE INDEX IF NOT EXISTS idx_files_hash ON files(user_id, sha256);
 
-CREATE TABLE IF NOT EXISTS skills (
-  id              TEXT PRIMARY KEY,
-  title           TEXT NOT NULL,
-  description     TEXT NOT NULL DEFAULT '',
-  jurisdiction    TEXT NOT NULL DEFAULT 'generic',
-  body            TEXT NOT NULL,
-  source_filename TEXT,
-  version         INTEGER NOT NULL DEFAULT 1,
-  enabled         INTEGER NOT NULL DEFAULT 1,
-  sort_order      INTEGER NOT NULL DEFAULT 100,
-  token_estimate  INTEGER NOT NULL DEFAULT 0,
-  created_by      TEXT REFERENCES users(id) ON DELETE SET NULL,
-  created_at      BIGINT NOT NULL,
-  updated_at      BIGINT NOT NULL
-);
-
--- abort_requested replaces the in-process registry the single-server build
--- used: on serverless a Stop request almost never lands on the instance running
--- the review, so the signal has to travel through shared storage.
-CREATE TABLE IF NOT EXISTS reviews (
-  id               TEXT PRIMARY KEY,
-  conversation_id  TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status           TEXT NOT NULL,
-  model            TEXT NOT NULL,
-  skill_ids        TEXT NOT NULL DEFAULT '[]',
-  pass_a_text      TEXT,
-  summary          TEXT,
-  error_text       TEXT,
-  extraction_ok    INTEGER NOT NULL DEFAULT 0,
-  cost_micros      BIGINT NOT NULL DEFAULT 0,
-  abort_requested  INTEGER NOT NULL DEFAULT 0,
-  heartbeat_at     BIGINT,
-  created_at       BIGINT NOT NULL,
-  finished_at      BIGINT
-);
-CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
-
-CREATE TABLE IF NOT EXISTS review_files (
-  review_id      TEXT NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-  file_id        TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-  document_index INTEGER NOT NULL,
-  PRIMARY KEY (review_id, file_id)
-);
-CREATE INDEX IF NOT EXISTS idx_review_files_file ON review_files(file_id);
-
-CREATE TABLE IF NOT EXISTS stream_events (
-  id         BIGSERIAL PRIMARY KEY,
-  review_id  TEXT NOT NULL,
-  payload    TEXT NOT NULL,
-  created_at BIGINT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_stream_review ON stream_events(review_id, id);
-
-CREATE TABLE IF NOT EXISTS citations (
-  id             TEXT PRIMARY KEY,
-  review_id      TEXT NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-  marker         TEXT NOT NULL,
-  document_index INTEGER NOT NULL,
-  document_title TEXT,
-  file_id        TEXT,
-  cited_text     TEXT NOT NULL DEFAULT '',
-  start_page     INTEGER,
-  end_page       INTEGER
-);
-CREATE INDEX IF NOT EXISTS idx_cit_review ON citations(review_id);
-
-CREATE TABLE IF NOT EXISTS findings (
-  id                 TEXT PRIMARY KEY,
-  review_id          TEXT NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-  ordinal            INTEGER NOT NULL,
-  severity           TEXT NOT NULL,
-  category           TEXT NOT NULL DEFAULT '',
-  form_code          TEXT,
-  line_ref           TEXT,
-  title              TEXT NOT NULL,
-  detail             TEXT NOT NULL DEFAULT '',
-  recommended_action TEXT NOT NULL DEFAULT '',
-  confidence         TEXT NOT NULL DEFAULT 'medium',
-  pages              TEXT NOT NULL DEFAULT '[]',
-  status             TEXT NOT NULL DEFAULT 'open',
-  created_at         BIGINT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_find_review ON findings(review_id, ordinal);
-
 CREATE TABLE IF NOT EXISTS usage_records (
   id                 TEXT PRIMARY KEY,
-  review_id          TEXT,
   user_id            TEXT,
   purpose            TEXT NOT NULL,
   model              TEXT NOT NULL,
@@ -215,25 +127,207 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
 
--- A skill is firm methodology, not personal property: it must outlive whoever
--- published it. Without ON DELETE SET NULL the reference blocks deleting that
--- account entirely. Guarded so the lock is only taken when the constraint is
--- actually wrong (confdeltype 'n' means SET NULL).
+-- The 'reviewer' role predates this being a general assistant. Rename it in
+-- place: the CHECK constraint is part of the table, so CREATE TABLE IF NOT
+-- EXISTS above never revises it on a database that already has rows.
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1
     FROM pg_constraint c
     JOIN pg_class t ON t.oid = c.conrelid
-    WHERE t.relname = 'skills'
-      AND c.conname = 'skills_created_by_fkey'
-      AND c.confdeltype = 'n'
+    WHERE t.relname = 'users'
+      AND c.contype = 'c'
+      AND pg_get_constraintdef(c.oid) LIKE '%reviewer%'
   ) THEN
-    ALTER TABLE skills DROP CONSTRAINT IF EXISTS skills_created_by_fkey;
-    ALTER TABLE skills ADD CONSTRAINT skills_created_by_fkey
-      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+    UPDATE users SET role = 'member' WHERE role = 'reviewer';
+    ALTER TABLE users ADD CONSTRAINT users_role_check
+      CHECK (role IN ('admin','member'));
   END IF;
 END $$;
+
+/* ================================================================ v3 =====
+   Threads become a tree, and conversations gain the settings that used to be
+   global. Every statement here is additive and idempotent, so it runs on a
+   populated database on a cold start exactly like the block above.
+   ======================================================================== */
+
+-- A message points at the one it answers. Siblings under the same parent are
+-- alternative versions — an edited question, or a retried answer — which is
+-- what makes "‹ 2/3 ›" possible without duplicating the thread.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS parent_id TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS thinking  TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS model     TEXT;
+-- 'stop' | 'length' | 'aborted' — 'length' is what earns a Continue button.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS finish    TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_log  TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS vote      INTEGER;
+CREATE INDEX IF NOT EXISTS idx_msg_parent ON messages(conversation_id, parent_id);
+
+-- head_id is the leaf the reader is currently looking at. The visible thread is
+-- the walk from it back to the root, so switching branches is one UPDATE.
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS head_id     TEXT;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS project_id  TEXT;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS model       TEXT;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS style       TEXT;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS thinking    TEXT;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS starred     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS archived_at BIGINT;
+CREATE INDEX IF NOT EXISTS idx_conv_project ON conversations(project_id, updated_at DESC);
+
+-- A project is a folder with its own instructions and its own shelf of
+-- documents, both of which apply to every conversation inside it.
+CREATE TABLE IF NOT EXISTS projects (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name         TEXT NOT NULL,
+  instructions TEXT NOT NULL DEFAULT '',
+  created_at   BIGINT NOT NULL,
+  updated_at   BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id, updated_at DESC);
+
+-- A file belongs to a conversation, or to a project, or to neither while it is
+-- still sitting in the composer. Never to both.
+ALTER TABLE files ADD COLUMN IF NOT EXISTS project_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_files_project ON files(project_id);
+
+-- Custom writing styles. The built-in four live in lib/models.ts; only the
+-- ones someone wrote themselves need a row.
+CREATE TABLE IF NOT EXISTS styles (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name         TEXT NOT NULL,
+  instructions TEXT NOT NULL,
+  created_at   BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_styles_user ON styles(user_id, created_at);
+
+-- Facts carried between conversations. Written by the model through the
+-- remember tool, always visible to the person they belong to, always deletable.
+CREATE TABLE IF NOT EXISTS memories (
+  id                     TEXT PRIMARY KEY,
+  user_id                TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text                   TEXT NOT NULL,
+  source_conversation_id TEXT,
+  created_at             BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_memories_user ON memories(user_id, created_at DESC);
+
+-- Per-person defaults and personal instructions, on top of the admin's house
+-- text rather than instead of it.
+CREATE TABLE IF NOT EXISTS user_prefs (
+  user_id        TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  instructions   TEXT NOT NULL DEFAULT '',
+  model          TEXT,
+  style          TEXT,
+  thinking       TEXT,
+  memory_enabled INTEGER NOT NULL DEFAULT 1,
+  updated_at     BIGINT NOT NULL
+);
+
+-- Existing threads are flat lists. Chain them into the tree shape once, then
+-- record that it happened: the root of every conversation legitimately has a
+-- NULL parent, so the column itself cannot tell us whether this has run.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM settings WHERE key = 'migrated_message_tree') THEN
+    WITH ordered AS (
+      SELECT id,
+             LAG(id) OVER (PARTITION BY conversation_id ORDER BY created_at, id) AS prev
+        FROM messages
+    )
+    UPDATE messages m
+       SET parent_id = o.prev
+      FROM ordered o
+     WHERE m.id = o.id AND o.prev IS NOT NULL;
+
+    UPDATE conversations c
+       SET head_id = (SELECT m.id FROM messages m
+                       WHERE m.conversation_id = c.id
+                       ORDER BY m.created_at DESC, m.id DESC LIMIT 1)
+     WHERE c.head_id IS NULL;
+
+    INSERT INTO settings (key, value) VALUES ('migrated_message_tree', '1')
+      ON CONFLICT (key) DO NOTHING;
+  END IF;
+END $$;
+
+/* ================================================================ v4 =====
+   Connectors: remote MCP servers whose tools the model may call.
+
+   Firm-wide and admin-owned, like the house instructions, because a connector
+   is a standing grant of access to a system rather than a personal setting.
+   Nothing is exposed to the model until an admin ticks the individual tools,
+   and no conversation uses one until it is switched on for that thread.
+   ======================================================================== */
+
+CREATE TABLE IF NOT EXISTS connectors (
+  id             TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  url            TEXT NOT NULL,
+  -- Header name and value for a static credential, e.g. Authorization /
+  -- "Bearer xyz". Never sent to the browser: the admin screen reports whether
+  -- a secret is set, never what it is.
+  auth_header    TEXT,
+  auth_value     TEXT,
+  enabled        INTEGER NOT NULL DEFAULT 1,
+  -- JSON array of tool names the admin has approved. Empty or absent means the
+  -- connector contributes nothing, which is the safe reading of "not set up
+  -- yet" rather than "everything".
+  allowed_tools  TEXT,
+  -- Cached tools/list result, refreshed from the admin screen. Discovering on
+  -- every turn would add a round trip to the server before every answer.
+  tools_json     TEXT,
+  tools_fetched_at BIGINT,
+  last_error     TEXT,
+  created_by     TEXT,
+  created_at     BIGINT NOT NULL,
+  updated_at     BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_connectors_enabled ON connectors(enabled);
+
+-- Which connectors this thread may use. JSON array of ids; absent means none,
+-- so a connector is never in play just because it exists.
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS connectors TEXT;
+
+/* ================================================================ v5 =====
+   Connected accounts: Drive, Gmail, Box and anything else reached by signing
+   in as the person rather than with a shared key.
+
+   Per person, never shared. Two people in the same firm see their own Drive
+   and nobody else's, because the token is theirs and the row is keyed by their
+   user id.
+   ======================================================================== */
+
+CREATE TABLE IF NOT EXISTS oauth_accounts (
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider      TEXT NOT NULL,
+  -- Both tokens are stored encrypted; see lib/secrets.ts. A refresh token is a
+  -- standing grant to read somebody mailbox, so it is the one thing in this
+  -- database that must not be readable from a stolen backup alone.
+  access_token  TEXT NOT NULL,
+  refresh_token TEXT,
+  expires_at    BIGINT,
+  scope         TEXT NOT NULL DEFAULT '',
+  account_label TEXT,
+  created_at    BIGINT NOT NULL,
+  updated_at    BIGINT NOT NULL,
+  PRIMARY KEY (user_id, provider)
+);
+
+-- Short-lived state for an authorisation in flight: the PKCE verifier cannot
+-- live in a cookie the browser can read, and the callback needs it back.
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state         TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider      TEXT NOT NULL,
+  code_verifier TEXT NOT NULL,
+  redirect_to   TEXT,
+  created_at    BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oauth_states_created ON oauth_states(created_at);
 `;
 
 /**

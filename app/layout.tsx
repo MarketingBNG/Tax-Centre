@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { APP_NAME, APP_TAGLINE } from '@/lib/app';
 
 export const metadata: Metadata = {
-  title: 'Tax Review Center',
-  description: 'Internal AI tax review workbench',
+  title: APP_NAME,
+  description: APP_TAGLINE,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

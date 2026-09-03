@@ -1,7 +1,7 @@
 import { currentUser, unauthorized } from '@/lib/auth';
 import { all } from '@/lib/db';
 
-/** Search a reviewer's own conversations by title and by message text. */
+/** Search a person's own conversations by title and by message text. */
 export async function GET(req: Request) {
   const q = (new URL(req.url).searchParams.get('q') ?? '').trim();
 

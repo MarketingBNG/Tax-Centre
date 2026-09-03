@@ -4,6 +4,7 @@ import { one } from '@/lib/db';
 import { ALLOWED_EMAIL_DOMAIN, ADMIN_EMAILS, DISABLE_AUTH } from '@/lib/config';
 import { googleSignIn } from '../actions';
 import { Mark } from '@/components/Mark';
+import { APP_NAME } from '@/lib/app';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,10 +44,10 @@ export default async function LoginPage({
       <div className="w-full max-w-[400px] rounded-2xl border border-line bg-panel p-6">
         <h1 className="mb-1 flex items-center gap-2.5 text-[21px] font-medium">
           <Mark size={20} />
-          Tax Review Center
+          {APP_NAME}
         </h1>
         <p className="mb-5 text-[13.5px] text-ink-dim">
-          Sign in with your work Google account to run a review.
+          Sign in with your work Google account to start.
         </p>
 
         {!databaseReachable ? (

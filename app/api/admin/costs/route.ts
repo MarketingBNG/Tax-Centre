@@ -30,15 +30,14 @@ export async function GET() {
     id: string;
     created_at: number;
     cost_micros: number;
-    status: string;
-    extraction_ok: number;
+    purpose: string;
     email: string;
-    findings: number;
+    tokens: number;
   }>(
-    `SELECT r.id, r.created_at, r.cost_micros, r.status, r.extraction_ok, u.email,
-            (SELECT COUNT(*) FROM findings f WHERE f.review_id = r.id) AS findings
-     FROM reviews r JOIN users u ON u.id = r.user_id
-     ORDER BY r.created_at DESC LIMIT 30`,
+    `SELECT ur.id, ur.created_at, ur.cost_micros, ur.purpose, u.email,
+            (ur.input_tokens + ur.output_tokens) AS tokens
+     FROM usage_records ur JOIN users u ON u.id = ur.user_id
+     ORDER BY ur.created_at DESC LIMIT 30`,
   );
 
   // The one metric that catches the expensive silent failure: caching works,
@@ -56,8 +55,15 @@ export async function GET() {
   return Response.json({
     monthToDateUsd: microsToUsd(total),
     capUsd: Number(await getSetting('monthly_cap_usd', '200')),
-    byUser: byUser.map((r) => ({ ...r, usd: microsToUsd(r.cost) })),
-    recent: recent.map((r) => ({ ...r, usd: microsToUsd(r.cost_micros) })),
+    byUser: byUser.map((r) => ({ ...r, calls: Number(r.calls), usd: microsToUsd(r.cost) })),
+    // BIGINT columns arrive as strings from the driver, and `new Date(string)`
+    // on epoch millis yields Invalid Date. Coerce before they reach the client.
+    recent: recent.map((r) => ({
+      ...r,
+      created_at: Number(r.created_at),
+      tokens: Number(r.tokens),
+      usd: microsToUsd(r.cost_micros),
+    })),
     cacheHitRate: denom ? (cache?.reads ?? 0) / denom : 0,
   });
 }

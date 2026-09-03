@@ -21,13 +21,15 @@ export async function GET() {
   );
   const purged = await one<{ n: number }>(`SELECT COUNT(*) AS n FROM files WHERE deleted_at IS NOT NULL`);
 
+  // COUNT and SUM come back from the driver as strings; the client types them
+  // as numbers and formats them arithmetically, so coerce here.
   return Response.json({
     retentionDays: RETENTION_ORIGINALS_DAYS,
-    liveFiles: live?.n ?? 0,
-    liveBytes: live?.bytes ?? 0,
-    dueFiles: due?.n ?? 0,
-    dueBytes: due?.bytes ?? 0,
-    purgedFiles: purged?.n ?? 0,
+    liveFiles: Number(live?.n ?? 0),
+    liveBytes: Number(live?.bytes ?? 0),
+    dueFiles: Number(due?.n ?? 0),
+    dueBytes: Number(due?.bytes ?? 0),
+    purgedFiles: Number(purged?.n ?? 0),
   });
 }
 

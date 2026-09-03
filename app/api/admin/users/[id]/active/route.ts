@@ -25,8 +25,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { active } = await req.json().catch(() => ({}));
   const makeActive = Boolean(active);
 
-  // Deactivating the last active admin would lock the whole firm out of skills,
-  // costs and user management with no way back in through the UI.
+  // Deactivating the last active admin would lock the whole firm out of costs
+  // and user management with no way back in through the UI.
   if (!makeActive && target.role === 'admin' && target.is_active) {
     const remaining =
       (await one<{ c: number }>(
@@ -36,7 +36,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     if (remaining === 0) {
       return badRequest(
         'That is the only active admin. Promote someone else to admin first, ' +
-          'otherwise nobody could manage skills or users.',
+          'otherwise nobody could manage instructions or users.',
       );
     }
   }

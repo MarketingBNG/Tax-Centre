@@ -20,7 +20,7 @@ export async function POST(req: Request) {
 
   if (!email) return badRequest('Email is required');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email))) return badRequest('Enter a valid email');
-  if (!['admin', 'reviewer'].includes(role)) return badRequest('Bad role');
+  if (!['admin', 'member'].includes(role)) return badRequest('Bad role');
   if (await getUserByEmail(email)) {
     return Response.json({ error: 'That email already exists' }, { status: 409 });
   }

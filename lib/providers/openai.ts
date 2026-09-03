@@ -1,16 +1,15 @@
 import 'server-only';
 import OpenAI from 'openai';
-import { OPENAI_API_KEY, MODELS, EFFORT } from '../config';
-import { priceMicros } from './shared';
-import type { NormalisedUsage } from '../types';
+import { OPENAI_API_KEY, MODELS, EFFORT, MAX_OUTPUT_TOKENS, MAX_TOOL_ROUNDS } from '../config';
+import { isKnownModel } from '../models';
+import { priceMicros, emptyUsage, addUsage } from './shared';
+import type { NormalisedUsage, ToolRun } from '../types';
 import type {
   AiProvider,
   ChatResult,
   Part,
-  JsonTool,
   ProviderCapabilities,
-  ReviewResult,
-  StructuredResult,
+  StreamChatInput,
   Turn,
 } from './types';
 
@@ -25,7 +24,19 @@ function api(): OpenAI {
 
 /** Our effort scale maps 1:1 onto the Responses API reasoning effort. */
 const EFFORT_VALUES = ['none', 'low', 'medium', 'high', 'xhigh', 'max'];
-const effort = () => (EFFORT_VALUES.includes(EFFORT) ? EFFORT : 'medium');
+const configuredEffort = () => (EFFORT_VALUES.includes(EFFORT) ? EFFORT : 'medium');
+
+/**
+ * "Off" is the provider's floor rather than a true zero: these models always
+ * reason a little, and asking for none on a model that refuses it is an error
+ * rather than a faster answer.
+ */
+function effortFor(thinking: StreamChatInput['thinking']): string {
+  if (thinking === 'off') return 'none';
+  if (thinking === 'extended') return 'high';
+  if (thinking === 'standard') return 'medium';
+  return configuredEffort();
+}
 
 function usageOf(raw: Record<string, unknown> = {}): NormalisedUsage {
   const n = (v: unknown) => (typeof v === 'number' ? v : 0);
@@ -70,26 +81,64 @@ function toContent(parts: Part[]): Record<string, unknown>[] {
   return content;
 }
 
-/** Collects text deltas from the Responses event stream. */
+const turnToInput = (t: Turn): Record<string, unknown> =>
+  // Assistant turns cannot carry input_* content parts; a plain string is the
+  // accepted shape for prior model output.
+  t.role === 'assistant'
+    ? {
+        role: 'assistant',
+        content: t.parts
+          .map((p) => (p.kind === 'text' ? p.text : ''))
+          .join('')
+          .trim(),
+      }
+    : { role: 'user', content: toContent(t.parts) };
+
+interface RoundResult {
+  text: string;
+  usage: NormalisedUsage;
+  /** Raw output items, echoed back verbatim when a tool round follows. */
+  output: Record<string, unknown>[];
+  truncated: boolean;
+}
+
+/**
+ * One request. Collects text and reasoning deltas as they arrive and keeps the
+ * final output items, which are what a following tool round has to replay.
+ */
 async function runStream(
   request: Record<string, unknown>,
-  onText?: (delta: string) => void,
+  handlers: { onText?: (d: string) => void; onThinking?: (d: string) => void },
   signal?: AbortSignal,
-): Promise<{ text: string; usage: NormalisedUsage }> {
+): Promise<RoundResult> {
   const stream = await api().responses.create({ ...request, stream: true } as never, { signal });
 
   let text = '';
   let finalUsage: Record<string, unknown> = {};
+  let output: Record<string, unknown>[] = [];
+  let truncated = false;
 
   for await (const event of stream as unknown as AsyncIterable<Record<string, unknown>>) {
     const type = String(event.type ?? '');
+
     if (type === 'response.output_text.delta') {
       const delta = String(event.delta ?? '');
       text += delta;
-      onText?.(delta);
+      handlers.onText?.(delta);
+    } else if (
+      type === 'response.reasoning_summary_text.delta' ||
+      type === 'response.reasoning_text.delta'
+    ) {
+      handlers.onThinking?.(String(event.delta ?? ''));
+    } else if (type === 'response.reasoning_summary_part.done') {
+      // Blank line between summary sections so they do not run together.
+      handlers.onThinking?.('\n\n');
     } else if (type === 'response.completed' || type === 'response.incomplete') {
       const response = (event.response ?? {}) as Record<string, unknown>;
       finalUsage = (response.usage ?? {}) as Record<string, unknown>;
+      output = (response.output ?? []) as Record<string, unknown>[];
+      const incomplete = (response.incomplete_details ?? {}) as Record<string, unknown>;
+      truncated = incomplete.reason === 'max_output_tokens';
       // output_text is the assembled convenience field; prefer it if the
       // deltas were missed for any reason.
       if (!text && typeof response.output_text === 'string') text = response.output_text;
@@ -99,7 +148,24 @@ async function runStream(
     }
   }
 
-  return { text, usage: usageOf(finalUsage) };
+  return { text, usage: usageOf(finalUsage), output, truncated };
+}
+
+/** Trimmed for the collapsed one-line header above a tool panel. */
+function summarise(name: string, args: Record<string, unknown>): string {
+  if (name === 'run_analysis') {
+    const why = String(args.explanation ?? '').trim();
+    return why || 'Ran a calculation';
+  }
+  if (name === 'remember') return `Remembered: ${String(args.fact ?? '').slice(0, 80)}`;
+  if (name === 'forget') return 'Forgot a remembered fact';
+
+  // mcp__<connector>__<tool> reads badly in a header; show the two halves.
+  const parts = name.split('__');
+  if (parts[0] === 'mcp' && parts.length >= 3) {
+    return `${parts[1].replace(/_/g, ' ')} · ${parts.slice(2).join('__').replace(/_/g, ' ')}`;
+  }
+  return name;
 }
 
 export const openaiProvider: AiProvider = {
@@ -108,107 +174,156 @@ export const openaiProvider: AiProvider = {
   capabilities(): ProviderCapabilities {
     return {
       nativePdf: true,
-      // No server-computed page locations. Findings therefore carry no page
-      // anchors on this provider — see the note in providers/types.ts.
-      citations: false,
       promptCaching: 'automatic',
       maxRequestBytes: 50 * 1024 * 1024,
       maxPdfPages: null,
+      tools: true,
+      thinking: true,
     };
   },
 
   isConfigured: () => Boolean(OPENAI_API_KEY),
-  reviewModel: () => MODELS.reviewer,
+  chatModel: () => MODELS.chat,
 
-  async streamReview({ system, parts, onText, signal }): Promise<ReviewResult> {
-    const model = MODELS.reviewer;
-    const { text, usage } = await runStream(
-      {
-        model,
-        instructions: system.join('\n\n'),
-        input: [{ role: 'user', content: toContent(parts) }],
-        reasoning: { effort: effort() },
-        max_output_tokens: 32000,
+  async streamChat(input: StreamChatInput): Promise<ChatResult> {
+    const { system, turns, tools, runTool, prefill, onText, onThinking, onToolRun, signal } =
+      input;
+
+    const model = input.model && isKnownModel(input.model) ? input.model : MODELS.chat;
+    const conversation: Record<string, unknown>[] = turns.map(turnToInput);
+
+    // Continuing a cut-off answer: hand back what was written and ask for the
+    // remainder. There is no assistant prefill on this API, so the instruction
+    // has to carry the "do not restart" requirement itself.
+    if (prefill?.trim()) {
+      conversation.push({ role: 'assistant', content: prefill });
+      conversation.push({
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text:
+              'That answer was cut off. Continue it from exactly where it stops. ' +
+              'Do not repeat any of it, do not re-introduce the topic, and do not ' +
+              'apologise — write only the remaining text, starting mid-sentence if ' +
+              'that is where it ended.',
+          },
+        ],
+      });
+    }
+
+    const request: Record<string, unknown> = {
+      model,
+      instructions: system.join('\n\n'),
+      reasoning:
+        input.thinking === 'off'
+          ? { effort: effortFor(input.thinking) }
+          : { effort: effortFor(input.thinking), summary: 'auto' },
+      max_output_tokens: MAX_OUTPUT_TOKENS,
+      store: false,
+    };
+
+    if (tools?.length) {
+      request.tools = tools.map((t) => ({
+        type: 'function',
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters,
+      }));
+      // Reasoning items have to survive between tool rounds, and nothing is
+      // stored server-side, so the encrypted blob has to come back to us.
+      request.include = ['reasoning.encrypted_content'];
+    }
+
+    let usage = emptyUsage();
+    let text = '';
+    let thinking = '';
+    const toolRuns: ToolRun[] = [];
+    let truncated = false;
+
+    const handlers = {
+      onText: (d: string) => {
+        text += d;
+        onText?.(d);
       },
-      onText,
-      signal,
-    );
+      onThinking: (d: string) => {
+        thinking += d;
+        onThinking?.(d);
+      },
+    };
+
+    for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+      const result = await runStream({ ...request, input: conversation }, handlers, signal);
+      usage = addUsage(usage, result.usage);
+      truncated = result.truncated;
+
+      const calls = result.output.filter((o) => o.type === 'function_call');
+      if (!calls.length || !runTool) break;
+
+      // Everything the model emitted has to be replayed, reasoning included,
+      // or the API rejects the follow-up as missing its antecedent.
+      conversation.push(...result.output);
+
+      for (const call of calls) {
+        const name = String(call.name ?? '');
+        const rawArgs = String(call.arguments ?? '{}');
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(rawArgs) as Record<string, unknown>;
+        } catch {
+          args = {};
+        }
+
+        const started = Date.now();
+        let output: string;
+        let ok = true;
+        try {
+          output = await runTool({ name, args });
+        } catch (err) {
+          ok = false;
+          // Handed back rather than thrown: a bad call is something the model
+          // can see and correct on the next round.
+          output = `Error: ${(err as Error).message}`;
+        }
+
+        const run: ToolRun = {
+          name,
+          summary: summarise(name, args),
+          input: rawArgs,
+          output: output.slice(0, 20_000),
+          ok,
+          ms: Date.now() - started,
+        };
+        toolRuns.push(run);
+        onToolRun?.(run);
+
+        conversation.push({
+          type: 'function_call_output',
+          call_id: String(call.call_id ?? ''),
+          output: run.output,
+        });
+      }
+
+      if (round === MAX_TOOL_ROUNDS) {
+        // Out of rounds. Ask once more with no tools so the turn still ends in
+        // an answer rather than in silence.
+        delete request.tools;
+        delete request.include;
+        const last = await runStream({ ...request, input: conversation }, handlers, signal);
+        usage = addUsage(usage, last.usage);
+        truncated = last.truncated;
+        break;
+      }
+    }
 
     return {
-      // One block, no citations: this provider cannot anchor to a page.
-      blocks: [{ text, citations: [] }],
+      text,
+      thinking: thinking.trim(),
       model,
       usage,
       costMicros: priceMicros(model, usage),
+      finish: truncated ? 'length' : 'stop',
+      toolRuns,
     };
-  },
-
-  async extract<T>({
-    system,
-    userText,
-    tool,
-  }: {
-    system: string;
-    userText: string;
-    tool: JsonTool;
-  }): Promise<StructuredResult<T>> {
-    const model = MODELS.extractor;
-
-    const response = (await api().responses.create({
-      model,
-      instructions: system,
-      input: [{ role: 'user', content: [{ type: 'input_text', text: userText }] }],
-      text: {
-        format: {
-          type: 'json_schema',
-          name: tool.name,
-          schema: tool.schema,
-          strict: true,
-        },
-      },
-      max_output_tokens: 16000,
-    } as never)) as unknown as {
-      output_text?: string;
-      usage?: Record<string, unknown>;
-    };
-
-    const usage = usageOf(response.usage ?? {});
-    let data: T | null = null;
-    try {
-      data = response.output_text ? (JSON.parse(response.output_text) as T) : null;
-    } catch {
-      data = null; // caller falls back to the prose report
-    }
-
-    return { data, model, usage, costMicros: priceMicros(model, usage) };
-  },
-
-  async streamChat({ system, turns, onText, signal }): Promise<ChatResult> {
-    const model = MODELS.chat;
-    const { text, usage } = await runStream(
-      {
-        model,
-        instructions: system.join('\n\n'),
-        input: turns.map((t: Turn) =>
-          // Assistant turns cannot carry input_* content parts; a plain string
-          // is the accepted shape for prior model output.
-          t.role === 'assistant'
-            ? {
-                role: 'assistant',
-                content: t.parts
-                  .map((p) => (p.kind === 'text' ? p.text : ''))
-                  .join('')
-                  .trim(),
-              }
-            : { role: 'user', content: toContent(t.parts) },
-        ),
-        reasoning: { effort: effort() },
-        max_output_tokens: 16000,
-      },
-      onText,
-      signal,
-    );
-
-    return { text, model, usage, costMicros: priceMicros(model, usage) };
   },
 };

@@ -5,11 +5,11 @@ import { deleteBlob } from './storage';
 import type { FileRow } from './types';
 
 /**
- * This app is a review assistant, not the firm's document management system.
+ * This app is an assistant, not the firm's document management system.
  * The client's source documents live in the DMS; holding a second, less
  * governed copy of every SSN-bearing PDF indefinitely is liability with no
  * offsetting benefit. So originals expire while the work product — what was
- * reviewed, what was found, by whom, under which skill version — is kept.
+ * was asked, what was answered, and by whom — is kept.
  */
 export async function sweepExpiredOriginals(): Promise<{ deleted: number; freedBytes: number }> {
   if (!RETENTION_ORIGINALS_DAYS) return { deleted: 0, freedBytes: 0 };

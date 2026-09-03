@@ -7,13 +7,13 @@ import { getSetting, setSetting } from './db';
  *
  * Two deliberate design choices:
  *
- * 1. Tokenise, do not mask. Blanking an EIN to XX-XXXXXXX destroys the reviewer's
+ * 1. Tokenise, do not mask. Blanking an EIN to XX-XXXXXXX destroys the reader's
  *    ability to match a 1099 to its payer. A stable pseudonym keeps every
- *    relationship the review depends on — same payer across two forms, same
+ *    relationship the answer depends on — same payer across two forms, same
  *    account across two statements — while the identifier itself stays local.
  *
  * 2. Tokens are derived by HMAC of the value, so the same EIN maps to the same
- *    token across every document and every review with no mapping table to leak.
+ *    token across every document and every conversation with no mapping table to leak.
  *
  * Hard limitation, stated plainly: this cannot touch native PDFs or images. We
  * send those as bytes and pixels, and the model reads the number off the scan
@@ -70,7 +70,7 @@ function passesLuhn(digits: string): boolean {
 
 /**
  * Conservative by design. A false positive silently corrupts a number the
- * review depends on, which is worse than a miss — so every rule either has a
+ * answer depends on, which is worse than a miss — so every rule either has a
  * checksum, a punctuation shape, or an adjacent label.
  */
 export async function tokenizeText(

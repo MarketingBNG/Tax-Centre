@@ -3,6 +3,7 @@ import { one } from '@/lib/db';
 import { ingestFile } from '@/lib/ingest';
 import { describeCounts } from '@/lib/pii';
 import { MAX_UPLOAD_BYTES } from '@/lib/config';
+import { getProject } from '@/lib/prefs';
 import type { ConversationRow } from '@/lib/types';
 
 const MAX_FILES_PER_REQUEST = 20;
@@ -36,6 +37,15 @@ export async function POST(req: Request) {
     if (!conv) return notFound();
   }
 
+  // A project shelf upload. Exclusive with a conversation: a file belongs to
+  // one or the other, never both, or removing it from one leaves a live
+  // reference behind in the other.
+  const projectId = (form.get('projectId') as string) || null;
+  if (projectId) {
+    if (conversationId) return badRequest('Upload to a chat or to a project, not both');
+    if (!(await getProject(user.id, projectId))) return notFound();
+  }
+
   const uploads = form.getAll('files').filter((f): f is File => f instanceof File);
   const files: unknown[] = [];
   const errors: { filename: string; error: string }[] = [];
@@ -56,6 +66,7 @@ export async function POST(req: Request) {
       const stored = await ingestFile({
         userId: user.id,
         conversationId,
+        projectId,
         filename: upload.name,
         buffer,
       });

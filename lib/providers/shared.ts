@@ -33,3 +33,11 @@ export const emptyUsage = (): NormalisedUsage => ({
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
 });
+
+/** Sums usage across the rounds of a single turn. */
+export const addUsage = (a: NormalisedUsage, b: NormalisedUsage): NormalisedUsage => ({
+  inputTokens: a.inputTokens + b.inputTokens,
+  outputTokens: a.outputTokens + b.outputTokens,
+  cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens,
+  cacheWriteTokens: a.cacheWriteTokens + b.cacheWriteTokens,
+});
