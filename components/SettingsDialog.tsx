@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { SkillsManager } from './SkillsManager';
 
 interface PickerModel {
   id: string;
@@ -45,12 +46,13 @@ interface Memory {
   createdAt: number;
 }
 
-type Tab = 'instructions' | 'defaults' | 'styles' | 'accounts' | 'memory' | 'data';
+type Tab = 'instructions' | 'defaults' | 'styles' | 'skills' | 'accounts' | 'memory' | 'data';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'instructions', label: 'Instructions' },
   { id: 'defaults', label: 'Defaults' },
   { id: 'styles', label: 'Styles' },
+  { id: 'skills', label: 'Skills' },
   { id: 'accounts', label: 'Accounts' },
   { id: 'memory', label: 'Memory' },
   { id: 'data', label: 'Your data' },
@@ -312,6 +314,19 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                   Add style
                 </button>
               </div>
+            </section>
+          ) : null}
+
+          {tab === 'skills' ? (
+            <section>
+              <h2 className="mb-1 text-[15px] font-semibold">Your skills</h2>
+              <p className="mb-3 text-[13px] text-ink-dim">
+                A folder of instructions the assistant follows when it applies — your
+                own checklist, your own format, your own procedure. Only you see the
+                ones you install here. Firm-wide skills are set by an admin and are
+                already available to you.
+              </p>
+              <SkillsManager scope="personal" />
             </section>
           ) : null}
 

@@ -25,6 +25,8 @@ export interface ConversationRow {
   archived_at: number | null;
   /** JSON array of connector ids this thread may use. */
   connectors: string | null;
+  /** JSON array of skill ids pinned to this thread. */
+  skills: string | null;
 }
 
 export type FinishReason = 'stop' | 'length' | 'aborted';

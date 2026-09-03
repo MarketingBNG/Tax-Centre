@@ -212,7 +212,7 @@ The suite talks to the same Postgres as the app, so `DATABASE_URL` must be set. 
 seeds its own users and cleans up after itself; point it at a scratch database
 rather than one holding real conversations.
 
-183 checks against a real HTTP server: the anonymous-access matrix, that an
+209 checks against a real HTTP server: the anonymous-access matrix, that an
 authenticated-but-not-invited Google account is still refused, immediate effect of
 deactivation, the last-admin lockout guard, magic-byte rejection, dedupe (including
 that a re-upload neither steals a file from another conversation nor leaves the new
@@ -232,6 +232,12 @@ trip — that it asks for a code with PKCE and read-only scopes only, that a fai
 callback redirects back into the app with a message rather than dead-ending on a JSON
 error, that an account nobody connected cannot be switched on, and that no token is
 ever written to the database in the clear.
+
+Skills are checked end to end without a model: that frontmatter with no
+`description` is refused and says why, that a folder with no `SKILL.md` is refused,
+that a binary asset is skipped rather than stored as text, that re-installing
+replaces in place and drops a reference file that has gone, that a path outside the
+skill matches nothing, and that disabling a skill unpins it from the chats using it.
 
 Every new surface is checked for ownership as well as for behaviour — one person
 cannot read, rename or delete another's project, style, memory or answer, and a member
@@ -284,11 +290,46 @@ A choice made here applies to that thread only. Defaults live in **Settings**.
   variance. The code and its exact output are shown under the answer, collapsed, so
   the working can be checked rather than taken on trust.
 - **`remember` / `forget`** write to the memory described below.
+- **`load_skill` / `read_skill_file`** pull in a firm procedure — see below.
 - **Connector tools**, when a connector is switched on for that thread — see below.
 
 **Citations.** When an answer states a figure from an attached document it carries a
 numbered chip linking to that document. A citation naming a file the conversation
 cannot see is dropped rather than rendered as a dead link.
+
+**Skills** are the firm’s procedures, written down. A skill is a folder with a
+`SKILL.md` at its root — YAML frontmatter giving a `name` and a `description`, then
+the procedure itself — plus whatever reference files it wants beside it.
+
+The arrangement is what makes a large procedure affordable. Only each skill’s name
+and description travel in the prompt on every message; the body is pulled through
+`load_skill` once the model decides it applies, and a reference file through
+`read_skill_file` when it reaches the step that needs it. The 100KB tax-return-review
+skill costs about 400 tokens a message until it fires.
+
+**The description is the entire trigger.** It is the only part the model sees before
+deciding, so it has to say when the skill applies and in what words people will ask —
+not what the skill contains. A vague description means a skill that never fires,
+however good its body is.
+
+Two ways to use one:
+
+- **Automatically.** The model matches the question against the descriptions and
+  loads what fits. This is the normal path and needs nothing from the reader.
+- **Pinned.** `＋ → Skills` in the composer, tick one. Its full text goes into the
+  prompt up front and it applies to that conversation whatever is asked — the
+  override for when you want a specific procedure followed regardless.
+
+Admins install firm-wide skills under **Admin → Skills**; anyone installs their own
+under **Settings → Skills**. Both take a folder: pick the directory holding
+`SKILL.md`, not the one above it. Re-uploading a folder with the same skill name
+replaces it rather than making a second copy, and a reference file deleted from the
+folder stops being readable. A personal skill is invisible to everybody else,
+admins included. There is also a script for installing from disk:
+
+```bash
+node tests/install-skill.mjs "skills/Tax-Review-Skills/tax-return-review" firm
+```
 
 **Connectors** are remote MCP servers whose tools the model may call — a document
 store, a practice system, an internal API. Three separate acts stand between adding
@@ -378,10 +419,12 @@ survived a refresh went with the review pipeline.
 ```
 app/                 pages + route handlers
   api/               auth, chat, conversations, messages, files, projects, prefs,
-                     memories, styles, connectors, accounts, search, export, admin
+                     memories, styles, connectors, accounts, skills, search,
+                     export, admin
   page.tsx           chat  ·  login/  admin/
-components/          Chat, Markdown, Thinking, ToolPanel, SettingsDialog,
-                     ProjectPanel, Mermaid, AdminPanel, ConnectorsTab, Mark
+components/          Chat, ComposerMenu, Markdown, Thinking, ToolPanel,
+                     SettingsDialog, ProjectPanel, Mermaid, AdminPanel,
+                     ConnectorsTab, SkillsManager, Mark
 lib/
   app.ts             branding constants — the only lib file safe to import client-side
   models.ts          model + style catalogue; the other file the browser may import
@@ -396,6 +439,7 @@ lib/
   prefs.ts           per-person defaults, custom styles, memories, projects
   mcp.ts             a small MCP client: initialize, tools/list, tools/call
   connectors.ts      connector store, the approved-tool list, and the call path
+  skills.ts          skill store, frontmatter parsing, and the two loading tools
   secrets.ts         AES-256-GCM for stored account tokens
   accounts/          Drive, Gmail and Box: the OAuth flow, the token store,
                      and the read-only tools each one contributes
@@ -417,6 +461,16 @@ attached to this conversation.
 A cached prefix survives only up to the first byte that changed. Putting the memories
 above the house text, or merging the blocks into one string, costs nothing visible and
 quietly destroys the cache for everybody. Watch the cache hit rate after touching it.
+
+### The skills table that is not the skills table
+
+The new tables are `agent_skills` and `agent_skill_files`, not `skills`. A dead
+`skills` table survives from the review era with an entirely different shape, and
+`CREATE TABLE IF NOT EXISTS skills` against it does nothing at all — silently, while
+every index and query written for the new shape fails and takes the whole migration
+down with it. Since migration runs before everything, the symptom is that every
+request 401s and nobody can sign in. Worth knowing before naming another table after
+something in the list below.
 
 ### Left in the database
 

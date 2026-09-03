@@ -97,6 +97,10 @@ export interface PromptContext {
   files?: FileRow[];
   toolsAvailable?: boolean;
   connectorsAvailable?: boolean;
+  /** Name and description of every skill in play, as one block. */
+  skillCatalogue?: string;
+  /** Full text of the skills pinned to this conversation. */
+  pinnedSkills?: string[];
 }
 
 /**
@@ -114,6 +118,10 @@ export function assembleSystemBlocks(ctx: PromptContext): string[] {
   if (ctx.files?.length) blocks.push(CITATION_PROMPT);
   if (ctx.toolsAvailable) blocks.push(TOOL_PROMPT);
   if (ctx.connectorsAvailable) blocks.push(CONNECTOR_PROMPT);
+
+  // The catalogue is stable for the whole firm, so it sits with the frozen
+  // rules rather than behind anything that varies per person.
+  if (ctx.skillCatalogue) blocks.push(ctx.skillCatalogue);
 
   const admin = (ctx.admin ?? '').trim();
   if (admin) blocks.push(admin);
@@ -144,6 +152,9 @@ export function assembleSystemBlocks(ctx: PromptContext): string[] {
         `brackets is what forget takes.\n\n${lines}`,
     );
   }
+
+  // Pinned skills are per conversation, so they go behind everything stable.
+  for (const block of ctx.pinnedSkills ?? []) blocks.push(block);
 
   if (ctx.files?.length) {
     const lines = ctx.files

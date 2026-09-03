@@ -4,6 +4,7 @@ import { attachFiles, generateTitle, runTurn } from '@/lib/chat';
 import { getMessage, insertMessage } from '@/lib/thread';
 import { isKnownModel, isThinkingLevel } from '@/lib/models';
 import { validSelection } from '@/lib/connectors';
+import { activeSkills } from '@/lib/skills';
 import type { ConversationRow, StreamEvent } from '@/lib/types';
 
 export const maxDuration = 300;
@@ -63,6 +64,18 @@ export async function POST(req: Request) {
     const stored = live.length ? JSON.stringify(live) : null;
     await run(`UPDATE conversations SET connectors = ? WHERE id = ?`, stored, conversation.id);
     conversation = { ...conversation, connectors: stored };
+  }
+
+  // Pinned skills, sent with the message for the same reason connectors are:
+  // a conversation created by this very request has no row to patch first.
+  if (Array.isArray(body.skills)) {
+    const wanted = (body.skills as unknown[]).map(String);
+    const live = (await activeSkills(user.id))
+      .filter((s) => wanted.includes(s.id))
+      .map((s) => s.id);
+    const stored = live.length ? JSON.stringify(live) : null;
+    await run(`UPDATE conversations SET skills = ? WHERE id = ?`, stored, conversation.id);
+    conversation = { ...conversation, skills: stored };
   }
 
   if (attached.length) await attachFiles(user.id, conversation.id, attached);

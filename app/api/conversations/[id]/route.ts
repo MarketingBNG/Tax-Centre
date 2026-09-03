@@ -5,6 +5,7 @@ import { getMessage, leafUnder, loadThread, parseToolLog, setHead } from '@/lib/
 import { getPrefs, getProject, resolveModel, resolveStyle, resolveThinking } from '@/lib/prefs';
 import { isKnownModel, isThinkingLevel } from '@/lib/models';
 import { ACCOUNT_PREFIX, connectorsFor, parseSelection, validSelection } from '@/lib/connectors';
+import { activeSkills, parseSelectedSkills } from '@/lib/skills';
 import type { ConversationRow } from '@/lib/types';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -58,6 +59,11 @@ export async function GET(_req: Request, ctx: Ctx) {
           parseSelection(conversation.connectors).accountIds.map((a) => `${ACCOUNT_PREFIX}${a}`),
         )),
       ],
+      // Resolved against what is still enabled, so a skill an admin removed
+      // stops showing as pinned on an old thread.
+      skills: (await activeSkills(user.id))
+        .filter((s) => parseSelectedSkills(conversation.skills).includes(s.id))
+        .map((s) => s.id),
     },
     messages: thread.map((m) => ({
       id: m.id,
@@ -140,6 +146,18 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const live = await validSelection(user.id, body.connectors);
     await run(
       `UPDATE conversations SET connectors = ? WHERE id = ?`,
+      live.length ? JSON.stringify(live) : null,
+      id,
+    );
+  }
+
+  if (body.skills !== undefined) {
+    const wanted = Array.isArray(body.skills) ? body.skills.map(String) : [];
+    const live = (await activeSkills(user.id))
+      .filter((s) => wanted.includes(s.id))
+      .map((s) => s.id);
+    await run(
+      `UPDATE conversations SET skills = ? WHERE id = ?`,
       live.length ? JSON.stringify(live) : null,
       id,
     );

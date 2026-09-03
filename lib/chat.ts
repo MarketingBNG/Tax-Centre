@@ -8,6 +8,7 @@ import { getPrefs, getProject, listMemories, resolveModel, resolveStyle, resolve
 import { runTool, toolsFor, type ToolContext } from './tools';
 import { connectorsFor, connectorTools, parseSelection } from './connectors';
 import { accountTools } from './accounts';
+import { activeSkills, pinnedSkillBlocks, skillCatalogue } from './skills';
 import { appendToMessage, insertMessage, loadThread } from './thread';
 import type { Turn } from './providers/types';
 import type {
@@ -164,6 +165,9 @@ export async function runTurn(input: RunTurnInput): Promise<void> {
     parseSelection(conversation.connectors).accountIds,
   );
 
+  const skills = await activeSkills(user.id);
+  const pinned = await pinnedSkillBlocks(user.id, conversation.skills);
+
   const toolContext: ToolContext = {
     user,
     conversationId: conversation.id,
@@ -171,6 +175,7 @@ export async function runTurn(input: RunTurnInput): Promise<void> {
     memoryEnabled: prefs.memory_enabled === 1,
     connectorTools: connectorMap,
     accountTools: accountMap,
+    skillsAvailable: skills.length > 0,
     signal,
   };
   const tools = toolsFor(toolContext);
@@ -185,6 +190,8 @@ export async function runTurn(input: RunTurnInput): Promise<void> {
     files,
     toolsAvailable: tools.length > 0,
     connectorsAvailable: connectorMap.size + accountMap.size > 0,
+    skillCatalogue: skillCatalogue(skills),
+    pinnedSkills: pinned,
   });
 
   const history = await loadThread(conversation.id, parentId);

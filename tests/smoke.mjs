@@ -1072,6 +1072,167 @@ ok('disconnecting an account that is not connected is harmless', r.status === 20
   );
 }
 
+
+/* ─────────────────────────────── skills ──────────────────────────────── */
+
+console.log('\n=== skills ===');
+
+/** Posts a set of {path, content} as if a browser had picked the folder. */
+async function installSkillAs(who, scope, files, stem = 'demo-skill') {
+  const form = new FormData();
+  form.append('scope', scope);
+  form.append('paths', JSON.stringify(files.map((f) => `${stem}/${f.path}`)));
+  for (const f of files) {
+    form.append('files', new Blob([f.content], { type: 'text/markdown' }), f.path.split('/').pop());
+  }
+  return call(who, 'POST', '/api/skills', form, true);
+}
+
+const goodSkill = [
+  {
+    path: 'SKILL.md',
+    content: [
+      '---',
+      'name: invoice-check',
+      'description: Check a supplier invoice against the purchase order. Use whenever an invoice is uploaded or somebody asks whether an invoice can be paid.',
+      '---',
+      '',
+      '# Invoice check',
+      '',
+      'Compare the invoice to the PO, then read references/tolerances.md.',
+    ].join('\n'),
+  },
+  { path: 'references/tolerances.md', content: '# Tolerances\n\nUnder 2% is within tolerance.' },
+  { path: 'assets/logo.png', content: 'not really a png' },
+];
+
+for (const [method, url] of [
+  ['GET', '/api/skills'],
+  ['POST', '/api/skills'],
+]) {
+  r = await call(anon, method, url);
+  ok(`${method} ${url} refuses an anonymous caller`, r.status === 401, `HTTP ${r.status}`);
+}
+
+r = await installSkillAs(member, 'firm', goodSkill);
+ok('a member cannot install a firm skill', r.status === 403, `HTTP ${r.status}`);
+
+r = await installSkillAs(admin, 'firm', goodSkill);
+const skillId = r.json?.id;
+ok('an admin can install one', r.status === 200 && Boolean(skillId), JSON.stringify(r.json ?? {}));
+ok('the name comes from the frontmatter', r.json?.name === 'invoice-check', r.json?.name);
+ok('the supporting file came too', r.json?.files === 2, `${r.json?.files} file(s)`);
+ok(
+  'a binary asset is skipped rather than stored as text',
+  (r.json?.skipped ?? []).some((p) => p.endsWith('logo.png')),
+  JSON.stringify(r.json?.skipped ?? []),
+);
+
+r = await call(admin, 'GET', `/api/skills/${skillId}`);
+ok('the body is kept without the frontmatter', !String(r.json?.body ?? '').startsWith('---'), String(r.json?.body ?? '').slice(0, 30));
+ok(
+  'the reference file is addressable by its path inside the folder',
+  (r.json?.files ?? []).some((f) => f.path === 'references/tolerances.md'),
+  JSON.stringify((r.json?.files ?? []).map((f) => f.path)),
+);
+
+r = await call(admin, 'GET', `/api/skills/${skillId}?path=references/tolerances.md`);
+ok('and its content reads back', /within tolerance/.test(r.json?.content ?? ''), r.json?.content ?? '');
+
+r = await call(admin, 'GET', `/api/skills/${skillId}?path=../../../etc/passwd`);
+ok('a path outside the skill matches nothing', r.status === 404, `HTTP ${r.status}`);
+
+// Re-installing the same name replaces rather than duplicating, and a file that
+// has gone from the folder must not survive in the database.
+r = await installSkillAs(admin, 'firm', [goodSkill[0]]);
+ok('re-installing updates in place', r.json?.id === skillId, `${r.json?.id} vs ${skillId}`);
+r = await call(admin, 'GET', `/api/skills/${skillId}`);
+ok('a removed reference file is gone too', (r.json?.files ?? []).length === 0, `${r.json?.files?.length} left`);
+
+/* -------------------------------------------------------- bad frontmatter */
+
+r = await installSkillAs(admin, 'firm', [{ path: 'SKILL.md', content: '# No frontmatter here' }]);
+ok('a SKILL.md with no frontmatter is refused', r.status === 400, r.json?.error ?? `HTTP ${r.status}`);
+
+r = await installSkillAs(admin, 'firm', [
+  { path: 'SKILL.md', content: '---\nname: nameless\n---\n\nbody' },
+]);
+ok(
+  'a skill with no description is refused, and says why',
+  r.status === 400 && /description/i.test(r.json?.error ?? ''),
+  r.json?.error ?? `HTTP ${r.status}`,
+);
+
+r = await installSkillAs(admin, 'firm', [{ path: 'readme.md', content: 'nothing' }]);
+ok('a folder with no SKILL.md is refused', r.status === 400, r.json?.error ?? `HTTP ${r.status}`);
+
+/* ------------------------------------------------------------- ownership */
+
+const personalSkill = [
+  {
+    path: 'SKILL.md',
+    content:
+      '---\nname: my-private-checklist\ndescription: A checklist only this person uses, for testing that scopes are respected.\n---\n\nMine alone.',
+  },
+];
+
+r = await installSkillAs(member, 'personal', personalSkill);
+const personalId = r.json?.id;
+ok('anybody can install one for themselves', r.status === 200 && Boolean(personalId), JSON.stringify(r.json ?? {}));
+
+r = await call(admin, 'GET', '/api/skills');
+ok(
+  'a personal skill is invisible to everybody else, admins included',
+  !(r.json?.skills ?? []).some((s) => s.id === personalId),
+  (r.json?.skills ?? []).map((s) => s.name).join(','),
+);
+ok(
+  'the firm skill is visible to everybody',
+  (r.json?.skills ?? []).some((s) => s.id === skillId),
+);
+
+r = await call(admin, 'DELETE', `/api/skills/${personalId}`);
+ok("an admin cannot delete somebody else's personal skill", r.status === 404, `HTTP ${r.status}`);
+
+r = await call(member, 'DELETE', `/api/skills/${skillId}`);
+ok('a member cannot delete a firm skill', r.status === 403, `HTTP ${r.status}`);
+
+/* --------------------------------------------------------------- pinning */
+
+r = await call(admin, 'POST', '/api/conversations');
+const skillConv = r.json?.id;
+
+r = await call(admin, 'GET', `/api/conversations/${skillConv}`);
+ok('a new chat pins nothing', (r.json?.settings?.skills ?? []).length === 0);
+
+r = await call(admin, 'PATCH', `/api/conversations/${skillConv}`, { skills: [skillId] });
+r = await call(admin, 'GET', `/api/conversations/${skillConv}`);
+ok('a skill can be pinned to a chat', (r.json?.settings?.skills ?? []).includes(skillId));
+
+r = await call(admin, 'PATCH', `/api/conversations/${skillConv}`, { skills: ['not-a-skill'] });
+r = await call(admin, 'GET', `/api/conversations/${skillConv}`);
+ok('an unknown skill id is discarded, not stored', (r.json?.settings?.skills ?? []).length === 0);
+
+r = await call(admin, 'PATCH', `/api/conversations/${skillConv}`, { skills: [skillId] });
+await call(admin, 'PATCH', `/api/skills/${skillId}`, { enabled: false });
+r = await call(admin, 'GET', `/api/conversations/${skillConv}`);
+ok(
+  'disabling a skill unpins it from the chats using it',
+  (r.json?.settings?.skills ?? []).length === 0,
+);
+
+/* --------------------------------------------------------------- cleanup */
+
+await call(admin, 'DELETE', `/api/skills/${skillId}`);
+await call(member, 'DELETE', `/api/skills/${personalId}`);
+r = await call(admin, 'GET', '/api/skills');
+ok(
+  'the test skills are cleaned up',
+  !(r.json?.skills ?? []).some((s) => s.id === skillId || s.id === personalId),
+);
+
+await call(admin, 'DELETE', `/api/conversations/${skillConv}`);
+
 await db.end();
 console.log(`
 ${pass} passed, ${fail} failed

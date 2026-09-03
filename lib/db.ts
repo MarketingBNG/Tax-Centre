@@ -328,6 +328,56 @@ CREATE TABLE IF NOT EXISTS oauth_states (
   created_at    BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_oauth_states_created ON oauth_states(created_at);
+
+/* ================================================================ v6 =====
+   Skills: a folder of instructions the model loads only when it applies.
+
+   Stored here rather than read from the repo so a skill can be added or
+   corrected without a deploy, and so somebody who is not a developer can add
+   one at all. A firm skill belongs to everybody and is uploaded by an admin;
+   a personal one belongs to the person who uploaded it and nobody else sees it.
+   ======================================================================== */
+
+-- Named agent_skills, not skills: a dead skills table survives from the
+-- review era with an entirely different shape, and CREATE TABLE IF NOT EXISTS
+-- would quietly do nothing while every index and query against it failed.
+-- The old table is left alone; dropping it is a decision to make deliberately.
+CREATE TABLE IF NOT EXISTS agent_skills (
+  id          TEXT PRIMARY KEY,
+  -- From the SKILL.md frontmatter. The description is the whole trigger
+  -- mechanism: it is the only part in the prompt every message, and it is what
+  -- the model matches a question against.
+  name        TEXT NOT NULL,
+  description TEXT NOT NULL,
+  body        TEXT NOT NULL,
+  -- 'firm' applies to everybody and only an admin may add one; 'personal'
+  -- belongs to user_id and is invisible to everybody else.
+  scope       TEXT NOT NULL CHECK (scope IN ('firm','personal')),
+  user_id     TEXT REFERENCES users(id) ON DELETE CASCADE,
+  enabled     INTEGER NOT NULL DEFAULT 1,
+  folder      TEXT,
+  created_by  TEXT,
+  created_at  BIGINT NOT NULL,
+  updated_at  BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_skills_scope ON agent_skills(scope, enabled);
+CREATE INDEX IF NOT EXISTS idx_skills_user ON agent_skills(user_id);
+
+-- The supporting files, keyed by their path inside the skill folder. Looked up
+-- by exact match, which is also what makes path traversal impossible: there is
+-- no filesystem to escape from.
+CREATE TABLE IF NOT EXISTS agent_skill_files (
+  skill_id   TEXT NOT NULL REFERENCES agent_skills(id) ON DELETE CASCADE,
+  path       TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  bytes      BIGINT NOT NULL,
+  PRIMARY KEY (skill_id, path)
+);
+
+-- Skills pinned to a conversation: loaded in full up front rather than left for
+-- the model to notice. JSON array of skill ids; absent means none pinned, and
+-- the automatic route still applies.
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS skills TEXT;
 `;
 
 /**

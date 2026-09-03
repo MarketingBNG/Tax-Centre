@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Mark } from './Mark';
 import { ConnectorsTab } from './ConnectorsTab';
+import { SkillsManager } from './SkillsManager';
 
-type Tab = 'prompt' | 'costs' | 'people' | 'connectors' | 'audit';
+type Tab = 'prompt' | 'costs' | 'people' | 'skills' | 'connectors' | 'audit';
 
 interface PromptSettings {
   basePrompt: string;
@@ -79,6 +80,7 @@ export function AdminPanel() {
             ['prompt', 'Instructions'],
             ['costs', 'Usage & cost'],
             ['people', 'People'],
+            ['skills', 'Skills'],
             ['connectors', 'Connectors'],
             ['audit', 'Audit log'],
           ] as [Tab, string][]
@@ -98,6 +100,18 @@ export function AdminPanel() {
       {tab === 'prompt' ? <PromptTab /> : null}
       {tab === 'costs' ? <CostsTab /> : null}
       {tab === 'people' ? <PeopleTab /> : null}
+      {tab === 'skills' ? (
+        <div className={panel}>
+          <h2 className="mb-1 text-[15px] font-semibold">Firm skills</h2>
+          <p className="mb-3 text-[13px] text-ink-dim">
+            A skill is a folder of instructions the assistant loads when it applies.
+            Only the name and description of each one travel in every prompt, so a
+            large procedure costs almost nothing until it fires. These apply to
+            everybody; people can also install their own under Settings.
+          </p>
+          <SkillsManager scope="firm" />
+        </div>
+      ) : null}
       {tab === 'connectors' ? <ConnectorsTab /> : null}
       {tab === 'audit' ? <AuditTab /> : null}
     </div>

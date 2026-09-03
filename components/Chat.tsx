@@ -8,6 +8,7 @@ import { Thinking } from './Thinking';
 import { ToolPanel } from './ToolPanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ProjectPanel } from './ProjectPanel';
+import { ComposerMenu } from './ComposerMenu';
 import { doSignOut } from '../app/actions';
 import { APP_NAME } from '../lib/app';
 import type { ToolRun } from '../lib/types';
@@ -80,6 +81,7 @@ interface Settings {
   style: string;
   styleLabel: string;
   connectors: string[];
+  skills: string[];
 }
 
 interface ConnectorOption {
@@ -122,6 +124,9 @@ export function Chat({ me }: { me: Me }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [pickers, setPickers] = useState<Pickers | null>(null);
   const [availableConnectors, setAvailableConnectors] = useState<ConnectorOption[]>([]);
+  const [availableSkills, setAvailableSkills] = useState<
+    { id: string; name: string; scope: string }[]
+  >([]);
 
   const [draft, setDraft] = useState('');
   const [streamText, setStreamText] = useState<string | null>(null);
@@ -141,10 +146,11 @@ export function Chat({ me }: { me: Me }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
-  const [menu, setMenu] = useState<'model' | 'thinking' | 'style' | 'connectors' | null>(null);
+  const [menu, setMenu] = useState<'model' | 'thinking' | 'style' | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [openProject, setOpenProject] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
 
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -176,6 +182,21 @@ export function Chat({ me }: { me: Me }) {
     if (res.ok) setAvailableConnectors(await res.json());
   }, []);
 
+  const loadSkills = useCallback(async () => {
+    const res = await fetch('/api/skills');
+    if (!res.ok) return;
+    const data = await res.json();
+    setAvailableSkills(
+      (data.skills ?? [])
+        .filter((sk: { enabled: boolean }) => sk.enabled)
+        .map((sk: { id: string; name: string; scope: string }) => ({
+          id: sk.id,
+          name: sk.name,
+          scope: sk.scope,
+        })),
+    );
+  }, []);
+
   const loadPickers = useCallback(async () => {
     const res = await fetch('/api/prefs');
     if (!res.ok) return;
@@ -198,6 +219,8 @@ export function Chat({ me }: { me: Me }) {
       })),
     });
 
+    setMemoryEnabled(data.memoryEnabled !== false);
+
     // A chat that does not exist yet still needs the pickers to show something,
     // so seed them from this person's defaults until a real thread is opened.
     setSettings((prev) =>
@@ -207,6 +230,7 @@ export function Chat({ me }: { me: Me }) {
         style: data.style ?? data.defaults.style,
         styleLabel: '',
         connectors: [],
+        skills: [],
       },
     );
   }, []);
@@ -239,6 +263,7 @@ export function Chat({ me }: { me: Me }) {
     loadProjects();
     loadPickers();
     loadConnectors();
+    loadSkills();
     // The OAuth round trip lands back here with a query string; say how it
     // went, then clear it so a refresh does not repeat the message.
     const params = new URLSearchParams(window.location.search);
@@ -269,7 +294,7 @@ export function Chat({ me }: { me: Me }) {
         kind: 'error',
       });
     }
-  }, [loadConversations, loadProjects, loadPickers, loadConnectors, me]);
+  }, [loadConversations, loadProjects, loadPickers, loadConnectors, loadSkills, me]);
 
   useEffect(scrollDown, [messages, streamText, scrollDown]);
 
@@ -300,6 +325,9 @@ export function Chat({ me }: { me: Me }) {
       if (meta && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         searchRef.current?.focus();
+      } else if (meta && e.key.toLowerCase() === 'u') {
+        e.preventDefault();
+        fileRef.current?.click();
       } else if (meta && e.shiftKey && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         startNew();
@@ -407,6 +435,7 @@ export function Chat({ me }: { me: Me }) {
           style: settings?.style,
           thinking: settings?.thinking,
           connectors: settings?.connectors ?? [],
+          skills: settings?.skills ?? [],
         }),
         signal: controller.signal,
       });
@@ -558,6 +587,96 @@ export function Chat({ me }: { me: Me }) {
     }
   }
 
+  async function toggleMemory() {
+    const next = !memoryEnabled;
+    setMemoryEnabled(next);
+    await fetch('/api/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memoryEnabled: next }),
+    });
+  }
+
+  /** Move this conversation into a project, or back out of one. */
+  async function setConversationProject(id: string | null) {
+    setProjectId(id);
+    if (!conversationId) return;
+    await fetch(`/api/conversations/${conversationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId: id }),
+    });
+    await Promise.all([loadConversation(conversationId), loadProjects()]);
+  }
+
+  /**
+   * Capture a screen or window and attach it.
+   *
+   * The browser puts up its own picker and its own permission prompt, so
+   * nothing is captured that the person did not choose frame by frame. One
+   * still is taken and the track is stopped immediately — there is no reason
+   * to keep a live screen share open after the shutter.
+   */
+  async function takeScreenshot() {
+    const media = navigator.mediaDevices as MediaDevices | undefined;
+    if (!media?.getDisplayMedia) {
+      setBanner({ text: 'This browser cannot capture the screen.', kind: 'warn' });
+      return;
+    }
+
+    let stream: MediaStream | null = null;
+    try {
+      stream = await media.getDisplayMedia({ video: true, audio: false });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      await video.play();
+      // One frame has to have arrived before the canvas has anything to draw.
+      await new Promise((done) => requestAnimationFrame(() => done(null)));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d')?.drawImage(video, 0, 0);
+      video.pause();
+
+      const blob = await new Promise<Blob | null>((done) =>
+        canvas.toBlob(done, 'image/png'),
+      );
+      if (!blob) throw new Error('The capture came back empty.');
+
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      await uploadFiles([new File([blob], `screenshot-${stamp}.png`, { type: 'image/png' })]);
+    } catch (err) {
+      // Cancelling the browser picker is a decision, not a failure.
+      if ((err as Error).name !== 'NotAllowedError') {
+        setBanner({ text: `Could not take the screenshot: ${(err as Error).message}`, kind: 'error' });
+      }
+    } finally {
+      stream?.getTracks().forEach((t) => t.stop());
+    }
+  }
+
+  /**
+   * Pin or unpin a skill for this thread.
+   *
+   * Unpinned does not mean unavailable: a skill still fires on its own when
+   * its description matches. Pinning is for when you want it to run whatever
+   * you happen to ask.
+   */
+  async function toggleSkill(id: string) {
+    const pinned = settings?.skills ?? [];
+    const next = pinned.includes(id) ? pinned.filter((x) => x !== id) : [...pinned, id];
+    setSettings((prev) => (prev ? { ...prev, skills: next } : prev));
+    if (conversationId) {
+      await fetch(`/api/conversations/${conversationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skills: next }),
+      });
+    }
+  }
+
   async function copyMessage(m: ThreadMessage) {
     try {
       await navigator.clipboard.writeText(m.content.replace(/\[\[cite:[^\]]*\]\]/g, ''));
@@ -623,7 +742,6 @@ export function Chat({ me }: { me: Me }) {
   const listed = results ?? conversations;
   const sources = files.map((f) => ({ id: f.id, filename: f.filename }));
   const currentProject = projects.find((p) => p.id === projectId) ?? null;
-  const activeConnectorCount = (settings?.connectors ?? []).length;
 
   const optionLabel = (options: Option[] | undefined, id: string | undefined) =>
     options?.find((o) => o.id === id)?.label ?? id ?? '';
@@ -1191,102 +1309,76 @@ export function Chat({ me }: { me: Me }) {
               className="max-h-[220px] min-h-[26px] w-full resize-none bg-transparent outline-none placeholder:text-ink-faint"
             />
 
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => fileRef.current?.click()}
-                title="Attach files"
-                className="grid h-7.5 w-7.5 place-items-center rounded-lg border border-line text-[16px] leading-none text-ink-dim hover:bg-raised hover:text-ink"
-              >
-                ＋
-              </button>
-              <button
-                onClick={toggleDictation}
-                title="Dictate"
-                className={`grid h-7.5 w-7.5 place-items-center rounded-lg border text-[13px] leading-none hover:bg-raised ${
-                  listening ? 'border-accent text-accent' : 'border-line text-ink-dim hover:text-ink'
-                }`}
-              >
-                ●
-              </button>
-
-              {pickers && settings ? (
-                <>
-                  {picker('model', pickers.models, settings.model)}
-                  {picker('thinking', pickers.thinkingLevels, settings.thinking)}
-                  {picker('style', pickers.styles, settings.style)}
-                </>
-              ) : null}
-
-              {availableConnectors.length ? (
-                <div className="relative">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenu(menu === 'connectors' ? null : 'connectors');
-                    }}
-                    className={`rounded-[7px] border px-2 py-1 text-[12px] hover:bg-raised ${
-                      activeConnectorCount
-                        ? 'border-accent text-accent'
-                        : 'border-line text-ink-dim hover:text-ink'
-                    }`}
-                  >
-                    ⚯ {activeConnectorCount ? `${activeConnectorCount} connected` : 'Connectors'} ⌄
-                  </button>
-                  {menu === 'connectors' ? (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute bottom-full left-0 z-20 mb-1.5 w-72 overflow-hidden rounded-xl border border-line bg-panel shadow-xl"
-                    >
-                      {availableConnectors.map((c) => {
-                        const on = settings?.connectors?.includes(c.id) ?? false;
-                        return (
-                          <label
-                            key={c.id}
-                            className="flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-raised"
-                          >
-                            <input type="checkbox" checked={on} onChange={() => toggleConnector(c.id)} />
-                            <span className="flex-1">
-                              <span className="block text-[13px] font-medium">{c.name}</span>
-                              <span className="block text-[11.5px] text-ink-faint">
-                                {c.detail ? c.detail + ' · ' : ''}
-                                {c.toolCount} tool{c.toolCount === 1 ? '' : 's'}
-                              </span>
-                            </span>
-                          </label>
-                        );
-                      })}
-                      {files.length && activeConnectorCount ? (
-                        <div className="border-t border-line-soft bg-sev-math/10 px-3 py-2 text-[11.5px] text-[#dcc79a]">
-                          This chat has documents in it and can reach an outside system.
-                          The assistant will not send their contents anywhere unless you
-                          ask it to, and every call is logged.
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+            <div className="mt-2 flex items-center gap-2">
+              <ComposerMenu
+                onAddFiles={() => fileRef.current?.click()}
+                onScreenshot={takeScreenshot}
+                projects={projects}
+                projectId={projectId}
+                onSetProject={setConversationProject}
+                connectors={availableConnectors.map((c) => ({
+                  id: c.id,
+                  label: c.name,
+                  detail: c.detail ?? `${c.toolCount} tool${c.toolCount === 1 ? '' : 's'}`,
+                }))}
+                activeConnectors={settings?.connectors ?? []}
+                onToggleConnector={toggleConnector}
+                hasDocuments={files.length > 0}
+                skills={availableSkills.map((sk) => ({
+                  id: sk.id,
+                  label: sk.name,
+                  detail: sk.scope === 'firm' ? 'firm' : 'yours',
+                }))}
+                pinnedSkills={settings?.skills ?? []}
+                onToggleSkill={toggleSkill}
+                styles={(pickers?.styles ?? []).map((s) => ({ id: s.id, label: s.label }))}
+                styleId={settings?.style ?? 'normal'}
+                onSetStyle={(id) => applySetting('style', id)}
+                memoryEnabled={memoryEnabled}
+                onToggleMemory={toggleMemory}
+                onOpenSettings={() => setShowSettings(true)}
+              />
 
               <span className="text-[12px] text-ink-faint">
                 {uploading ? `Uploading ${uploading} file(s)…` : ''}
               </span>
 
-              {busy ? (
+              <div className="ml-auto flex items-center gap-2">
+                {/* What changes an answer every time stays outside the menu. */}
+                {pickers && settings ? (
+                  <>
+                    {picker('model', pickers.models, settings.model)}
+                    {picker('thinking', pickers.thinkingLevels, settings.thinking)}
+                  </>
+                ) : null}
+
                 <button
-                  onClick={() => chatAbort.current?.abort()}
-                  className="ml-auto rounded-[9px] border border-line bg-raised px-3.5 py-1.5 font-medium hover:bg-raised-hover"
+                  onClick={toggleDictation}
+                  title="Dictate"
+                  className={`grid h-7.5 w-7.5 place-items-center rounded-lg border text-[13px] leading-none hover:bg-raised ${
+                    listening ? 'border-accent text-accent' : 'border-line text-ink-dim hover:text-ink'
+                  }`}
                 >
-                  ■ Stop
+                  ●
                 </button>
-              ) : (
-                <button
-                  onClick={send}
-                  disabled={!canSend}
-                  className="ml-auto rounded-[9px] bg-accent px-3.5 py-1.5 font-semibold text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Send
-                </button>
-              )}
+
+                {busy ? (
+                  <button
+                    onClick={() => chatAbort.current?.abort()}
+                    className="rounded-[9px] border border-line bg-raised px-3.5 py-1.5 font-medium hover:bg-raised-hover"
+                  >
+                    ■ Stop
+                  </button>
+                ) : (
+                  <button
+                    onClick={send}
+                    disabled={!canSend}
+                    className="rounded-[9px] bg-accent px-3.5 py-1.5 font-semibold text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Send
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

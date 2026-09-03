@@ -5,6 +5,7 @@ import { ANALYSIS_TIMEOUT_MS, TOOLS_ENABLED } from './config';
 import { audit, run } from './db';
 import { runConnectorTool, type ResolvedConnectorTool } from './connectors';
 import { runAccountTool, type ResolvedAccountTool } from './accounts';
+import { LOAD_SKILL_TOOL, READ_SKILL_FILE_TOOL, runSkillTool } from './skills';
 import type { FileRow, UserRow } from './types';
 import type { ToolInvocation, ToolSpec } from './providers/types';
 
@@ -210,6 +211,8 @@ export interface ToolContext {
   connectorTools?: Map<string, ResolvedConnectorTool>;
   /** Tools reaching this person own connected accounts, by function name. */
   accountTools?: Map<string, ResolvedAccountTool>;
+  /** True when any skill is available to be loaded on demand. */
+  skillsAvailable?: boolean;
   signal?: AbortSignal;
   /** Called when the model saves or deletes a fact, so the UI can refresh. */
   onMemoryChanged?: () => void;
@@ -223,6 +226,7 @@ export function toolsFor(ctx: ToolContext): ToolSpec[] {
     specs.push(ANALYSIS_TOOL);
   }
   if (ctx.memoryEnabled) specs.push(REMEMBER_TOOL, FORGET_TOOL);
+  if (ctx.skillsAvailable) specs.push(LOAD_SKILL_TOOL, READ_SKILL_FILE_TOOL);
   for (const entry of ctx.connectorTools?.values() ?? []) specs.push(entry.spec);
   for (const entry of ctx.accountTools?.values() ?? []) specs.push(entry.spec);
   return specs;
@@ -270,6 +274,10 @@ export async function runTool(ctx: ToolContext, call: ToolInvocation): Promise<s
       args: JSON.stringify(args).slice(0, 500),
     });
     return runAccountTool(ctx.user.id, accountTool, args);
+  }
+
+  if (name === 'load_skill' || name === 'read_skill_file') {
+    return runSkillTool(ctx.user.id, name, args);
   }
 
   if (name === 'run_analysis') {
