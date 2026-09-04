@@ -88,6 +88,8 @@ function buildStore() {
     ['lib/review-types.ts', 'review-types.js'],
     ['lib/review-engine/store.ts', 'store.js'],
     ['lib/review-engine/corpus.ts', 'corpus.js'],
+    ['lib/review-engine/chart-of-accounts.ts', 'chart-of-accounts.js'],
+    ['lib/review-engine/books.ts', 'books.js'],
   ]) {
     const { outputText } = ts.transpileModule(readFileSync(path.join(ROOT, src), 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -98,7 +100,12 @@ function buildStore() {
       outputText
         .replace(/^import ['"]server-only['"];?$/m, '')
         .replace(/from ['"]@\/lib\/db['"]/g, "from './db-shim.js'")
-        .replace(/from ['"]@\/lib\/review-types['"]/g, "from './review-types.js'"),
+        .replace(/from ['"]@\/lib\/review-types['"]/g, "from './review-types.js'")
+        // TypeScript emits relative imports without an extension; Node's
+        // loader requires one.
+        .replace(/from ['"](\.\.?\/[^'"]*)['"]/g, (whole, spec) =>
+          spec.endsWith('.js') ? whole : `from '${spec}.js'`,
+        ),
     );
   }
   return dir;
@@ -128,6 +135,8 @@ const dir = buildStore();
 const shim = await import(pathToFileURL(path.join(dir, 'db-shim.js')).href);
 const store = await import(pathToFileURL(path.join(dir, 'store.js')).href);
 const corpus = await import(pathToFileURL(path.join(dir, 'corpus.js')).href);
+const coa = await import(pathToFileURL(path.join(dir, 'chart-of-accounts.js')).href);
+const booksStore = await import(pathToFileURL(path.join(dir, 'books.js')).href);
 const sql = postgres(DATABASE_URL, { prepare: false, max: 1, onnotice: () => {} });
 
 try {
@@ -645,6 +654,82 @@ try {
         'a source with no effective date cannot be loaded at all',
         undated !== null && /date it took effect/.test(undated),
         undated?.slice(0, 50),
+      );
+
+      /* ------------------------------------------------- books, normalised */
+
+      const TB = [
+        'Account,Description,Debit,Credit',
+        '1010,Operating cash,41930.00,',
+        '1200,Sundry Debtors,88400.00,',
+        '3200,Owner draws,72000.00,',
+        '4000,Revenue,,202330.00',
+        '9100,Zylkon reserve movement,,0.00',
+      ].join('\n');
+
+      const source = {
+        id: 'spreadsheet',
+        label: 'Uploaded trial balance',
+        async fetch() {
+          return { accounts: coa.parseTrialBalanceText(TB).accounts, extractedAt: 1_760_000_000_000 };
+        },
+      };
+
+      const imported = await booksStore.recordImport(USER, {
+        engagementId: eng.id,
+        source,
+        ref: 'file-1',
+        periodStart: '2025-01-01',
+        periodEnd: '2025-12-31',
+      });
+      check(
+        'an import records how many accounts it read and how many it could not place',
+        imported.import.row_count === 5 && imported.unmapped === 1,
+        `${imported.mapped} mapped, ${imported.unmapped} unmapped`,
+      );
+      check(
+        'the extraction date comes from the source, not from when it was imported',
+        Number(imported.import.extracted_at) === 1_760_000_000_000 &&
+          Number(imported.import.created_at) !== 1_760_000_000_000,
+      );
+      check(
+        'and the period it covers is recorded separately from both',
+        imported.import.period_start === '2025-01-01' && imported.import.period_end === '2025-12-31',
+      );
+
+      const stored = await booksStore.importAccounts(imported.import.id);
+      const draws = stored.find((a) => a.source_code === '3200');
+      check(
+        'the client\'s own code and name survive beside the standard key',
+        draws.source_name === 'Owner draws' && draws.mapped_key === 'distributions',
+        `${draws.source_code} ${draws.source_name} → ${draws.mapped_key}`,
+      );
+      check(
+        'an account nothing recognised is stored unmapped, with the reason',
+        (() => {
+          const unknown = stored.find((a) => a.source_code === '9100');
+          return unknown.mapped_key === null && /does not match/.test(unknown.mapping_reason);
+        })(),
+      );
+
+      const again = await booksStore.recordImport(USER, {
+        engagementId: eng.id,
+        source,
+        ref: 'file-1',
+      });
+      check(
+        'importing the same books twice does not create a second version to disagree with the first',
+        again.duplicate === true && again.import.id === imported.import.id,
+      );
+
+      const block = await booksStore.normalisedBooksBlock(eng.id);
+      check(
+        'the stage is given the mapped accounts and told what could not be mapped',
+        block.includes('distributions') && block.includes('could not be mapped'),
+      );
+      check(
+        'and is told to quote the client\'s own account rather than the standard key',
+        /preparer/i.test(block),
       );
 
       throw new Error('__rollback__');

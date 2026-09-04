@@ -751,6 +751,61 @@ CREATE TABLE IF NOT EXISTS corpus_passages (
 );
 CREATE INDEX IF NOT EXISTS idx_corpuspassages_key ON corpus_passages(citation_key);
 
+/* ================================================================ v9 =====
+   Books imports, normalised.
+
+   Item 3 of the guidance: every Stage 1 check is written once against the
+   firm-standard keys in lib/review-engine/chart-of-accounts.ts rather than once
+   per source system. Item 4: an import is version-stamped, because a finding
+   questioned six months later has to be answerable with "this is exactly the
+   data the review saw".
+
+   The source line is kept beside the mapped key on purpose. A preparer cannot
+   act on "the trade receivables key is wrong" when their screen says
+   1200 Sundry Debtors, so a finding quotes the client's own account and the
+   platform keeps the translation to itself.
+
+   Where an account could not be mapped, mapped_key is null and mapping_reason
+   says why. Nothing is forced into the nearest key: a receivable quietly filed
+   as revenue is worse than a line somebody has to look at.
+*/
+
+CREATE TABLE IF NOT EXISTS books_imports (
+  id            TEXT PRIMARY KEY,
+  engagement_id TEXT NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  -- spreadsheet | tally | quickbooks | zoho | xero
+  source_system TEXT NOT NULL,
+  -- The file id, or the connector's own identifier for what was pulled.
+  source_ref    TEXT,
+  period_start  TEXT,
+  period_end    TEXT,
+  -- When the data was taken out of the source system, which is not when it was
+  -- imported here and not the period it covers. All three are needed to say
+  -- what the review saw.
+  extracted_at  BIGINT NOT NULL,
+  row_count     INTEGER NOT NULL,
+  unmapped_count INTEGER NOT NULL DEFAULT 0,
+  content_hash  TEXT NOT NULL,
+  imported_by   TEXT,
+  created_at    BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_booksimports_engagement
+  ON books_imports(engagement_id, extracted_at DESC);
+
+CREATE TABLE IF NOT EXISTS books_accounts (
+  id               TEXT PRIMARY KEY,
+  import_id        TEXT NOT NULL REFERENCES books_imports(id) ON DELETE CASCADE,
+  -- Exactly as it arrived, so a finding can quote the client's own books.
+  source_code      TEXT,
+  source_name      TEXT NOT NULL,
+  balance_cents    BIGINT,
+  -- Null where nothing matched; mapping_reason then explains it.
+  mapped_key       TEXT,
+  mapped_confidence DOUBLE PRECISION,
+  mapping_reason   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_booksaccounts_import ON books_accounts(import_id);
+
 -- Which state of the corpus a run read against, so the run is reproducible.
 -- Added rather than folded into the v7 block above, because review_runs may
 -- already exist wherever this has been deployed.

@@ -102,6 +102,13 @@ export interface StagePromptInput {
   priorSummary?: string;
   /** True when there is loaded, in-force text a citation could be grounded in. */
   corpusAvailable?: boolean;
+  /**
+   * The books mapped into the firm's chart of accounts, where an import exists.
+   *
+   * Given to the books and financial stages so a check reads one set of
+   * standard keys rather than whatever this client's ledger calls things.
+   */
+  normalisedBooks?: string | null;
 }
 
 export interface StagePrompt {
@@ -203,6 +210,13 @@ export async function buildStagePrompt(input: StagePromptInput): Promise<StagePr
           `content was unavailable.)`,
       );
     }
+  }
+
+  // Before the stage instructions and after the reference material: it is
+  // input, not guidance, and it belongs where the documents are in the
+  // reviewer's mind rather than mixed into the rules.
+  if (input.normalisedBooks && (input.stageKey === 'S1' || input.stageKey === 'S2')) {
+    sections.push(input.normalisedBooks);
   }
 
   if (input.priorSummary) {

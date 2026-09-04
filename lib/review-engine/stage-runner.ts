@@ -21,6 +21,7 @@ import * as store from './store';
 import { buildNumberIndex, checkAmounts, type NumberIndex } from './amounts';
 import { gateAuthority } from './authority';
 import { corpusHasContent, lookupCitation, verifyCitation } from './corpus';
+import { normalisedBooksBlock } from './books';
 import { classify, categoryFor, haltsRun } from './severity';
 import { buildStagePrompt } from './prompts';
 import { ModelVisualParser } from './return-data';
@@ -146,6 +147,10 @@ export async function runStage(input: {
   const priorFindings = await store.listFindings(runId);
   const prompt = await buildStagePrompt({
     corpusAvailable,
+    normalisedBooks:
+      stageKey === 'S1' || stageKey === 'S2'
+        ? await normalisedBooksBlock(engagement.id)
+        : null,
     stageKey,
     engagement,
     facts,

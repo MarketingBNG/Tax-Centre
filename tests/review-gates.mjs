@@ -86,6 +86,7 @@ function build() {
             'prompts.ts',
             'skills-source.ts',
             'input-gate.ts',
+            'books.ts',
           ].includes(name),
       )
       .map((name) => [`lib/review-engine/${name}`, name.replace(/\.ts$/, '.js')]),
@@ -126,6 +127,7 @@ try {
   const verdict = await load('verdict.js');
   const india = await load('india.js');
   const corpus = await load('corpus.js');
+  const coa = await load('chart-of-accounts.js');
   const stages = await load('stage-defs.js');
   const config = await load('config-stub.js');
 
@@ -470,6 +472,99 @@ try {
         obligations.FORM_RULES.some((rule) => rule.when({ [fact.key]: true }, '1040')) ||
         fact.indiaSide,
     ),
+  );
+
+  /* ------------------------------------------- the chart of accounts */
+
+  const map = (name, code) => coa.normaliseAccount({ name, code });
+
+  check(
+    'the same account under four different names lands on one key',
+    new Set(
+      [
+        ['Accounts Receivable', '1200'],
+        ['A/R - trade', '1210'],
+        ['Sundry Debtors', '0'],
+        ['Trade receivables', ''],
+      ].map(([name, code]) => map(name, code).key),
+    ).size === 1,
+    map('Sundry Debtors', '0').key ?? 'null',
+  );
+  check(
+    'owner draws are their own key, not an expense',
+    map('Owner draws', '6300').key === 'distributions',
+    map('Owner draws', '6300').key ?? 'null',
+  );
+  check(
+    'a related-party balance is distinguished from an ordinary one',
+    map('Due to shareholder', '2500').key === 'due_to_related_party' &&
+      map('Accounts payable', '2000').key === 'trade_payables',
+  );
+  check(
+    'accounts with a statutory disallowance are separated out',
+    map('Meals and entertainment', '6800').key === 'meals_entertainment' &&
+      map('Lobbying expense', '6910').key === 'non_deductible',
+  );
+  check(
+    'a name nothing recognises is left unmapped and says why',
+    (() => {
+      const m = map('Zylkon reserve movement', '9999');
+      return m.key === null && m.confidence === 0 && /does not match/.test(m.reason);
+    })(),
+  );
+  check(
+    'a code-only match is accepted but flagged as weak, not trusted',
+    (() => {
+      const m = map('Item 7', '1010');
+      return m.key === 'cash' && m.confidence < coa.WEAK_MAPPING_BELOW;
+    })(),
+    `${map('Item 7', '1010').confidence}`,
+  );
+  check(
+    'an ambiguous name the code cannot settle is refused rather than guessed',
+    map('Interest', '').key === null,
+    map('Interest', '').reason.slice(0, 60),
+  );
+  check(
+    'the source code and name survive the mapping',
+    (() => {
+      const m = map('Sundry Debtors', '1200');
+      return m.name === 'Sundry Debtors' && m.code === '1200';
+    })(),
+    'a preparer cannot act on a finding about a key their screen does not show',
+  );
+
+  const parsed = coa.parseTrialBalanceText(
+    [
+      'Account,Description,Debit,Credit',
+      '1010,Operating cash,41930.00,',
+      '3200,Distributions to shareholder,180000.00,',
+      '4000,Revenue,,310000.00',
+      'total,,221930.00,310000.00',
+    ].join('\n'),
+  );
+  check(
+    'a credit-only row is read as a credit, not as a positive balance',
+    parsed.accounts.length === 3 &&
+      parsed.accounts[0].balance === 41930 &&
+      parsed.accounts[2].balance === -310000,
+    parsed.accounts.map((a) => `${a.code}:${a.balance}`).join(' '),
+  );
+  check(
+    'the header and the totals row are both skipped, not read as accounts',
+    parsed.skipped === 2 &&
+      !parsed.accounts.some((a) => /description|^total/i.test(a.name)),
+    `${parsed.skipped} skipped`,
+  );
+
+  const books = coa.normaliseBooks(parsed.accounts);
+  check(
+    'the normalised view totals by standard key',
+    books.totals.cash === 41930 && books.totals.distributions === 180000,
+  );
+  check(
+    'and reports what it could not place instead of dropping it',
+    Array.isArray(books.unmapped) && books.unmapped.every((a) => a.key === null),
   );
 
   /* ---------------------------------------------------------- verdict */
