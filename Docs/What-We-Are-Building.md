@@ -127,6 +127,33 @@ progress bar but never written onto the summary itself, so the printed page was
 silent about them. Same for a document you chose to proceed without. Both now
 appear as "not checked, and here's why", which was the whole point of that rule.
 
+## Against the original brief
+
+Akshay's build guidance lists 24 items in four phases. Twelve are done — the
+whole review engine and summary phase, items 9 to 12 and 17 to 22. All five
+guardrails hold, and the rule that client emails stay human-written is kept by
+there being nowhere in the system to draft one.
+
+Five are partly done, and it is worth being precise about which half:
+
+- **The international forms grid** covers 5472, state returns and the India
+  trigger. 5471, 8858, 8865, 8621, FBAR and 3520 are not in it yet. It is
+  re-decided every run, never carried forward — which was the point of the item.
+- **The citation check** was asked for as "verify against the corpus, reject
+  what does not match". There is no corpus yet, so nothing can be verified and
+  everything is refused instead. Safe, but not the feature.
+- **The India pass** is genuinely separate and the register cannot close without
+  a line from it. It does not yet match each foreign fact to a specific Indian
+  filing.
+- **Parser confidence** is recorded per document, not per figure, and low
+  confidence flags an item rather than routing it to manual entry.
+- **The fabrication and arithmetic probes** exist and pass, but as unit tests
+  rather than inside the thirty-return test set the brief asks for.
+
+Seven are not started: the four books connectors and the chart-of-accounts
+mapping, the structured Drake and ProConnect parsers, the dated library of tax
+law, and the thirty-return test set. They are the list below.
+
 ## What is left
 
 **Before anyone uses it — three things, and they all need a decision from you.**
