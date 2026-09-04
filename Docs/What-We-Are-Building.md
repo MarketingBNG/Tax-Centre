@@ -1,0 +1,92 @@
+# What we are building
+
+## The problem
+
+Today the Tax Return Center is a chat assistant. Ask it about a return and you
+get a wall of text. Nothing is saved as a checklist, nothing is graded, and
+nothing tracks whether an issue ever got fixed.
+
+A senior CPA's review isn't a conversation. It's a sequence that ends in a short,
+signed-off document.
+
+## What we are building
+
+Give it a prepared return and the books, and it produces a **one-page summary**:
+a verdict, issues grouped by type, the top five to fix, and 5–10 questions for
+the preparer. Each issue says what's wrong, where to look in Drake, what to
+change, and why.
+
+## How a review runs
+
+Always in this order:
+
+1. **Scope** — right entity, period, return type?
+2. **Books** — are the underlying numbers right?
+3. **Financials** — do they make sense for this business?
+4. **The return** — is it correct and complete?
+5. **Fixes** — what to do, and what to ask.
+
+Books come first because most return errors are bookkeeping errors copied onto
+the form accurately. Fix the form only, and the error returns next year.
+
+## How issues are graded
+
+Software decides the grade, not the AI. The AI says what it found; fixed rules
+decide how serious it is — so the same fact gets the same grade every time.
+
+| Grade | Meaning | Effect |
+|---|---|---|
+| **Critical** | Wrong figure, wrong classification, missing form, wrong entity type | Hold |
+| **High** | Unsupported position, or a tie-out failing for unknown reasons | Hold until answered |
+| **Medium** | Figure right, paperwork missing | Release with an owner and a date |
+| **Low** | Wording, rounding, presentation | Fix if there's time |
+
+Verdicts: **Hold**, **Release with conditions**, or **Clear**. Nothing softer.
+
+## The safety rules
+
+Each is enforced by software, not by asking the AI nicely.
+
+- **No invented numbers.** Every figure must point at a document or a
+  calculation the system ran. Unsourced figures are rejected. A confident,
+  well-formatted wrong number looks exactly like a right one.
+- **No invented citations.** There's no verified library of tax law yet, so the
+  system may not cite any. It states the principle in plain English and marks it
+  "needs verifying".
+- **An answer isn't proof.** Type an explanation with no document attached and
+  the issue stays open. It should be hard to clear something serious with a
+  sentence.
+- **Nothing is "fine" silently.** Every stage writes at least one line, even
+  "checked, no problem" — a blank section could mean clean or skipped.
+- **A person signs off.** The AI's verdict is a first pass. Approval records who,
+  when, and which version they saw. If anything changes after, the approval stops
+  counting.
+- **Client emails stay human-written.**
+
+## Every run is kept
+
+Runs are never edited — corrections create a new run. Put run 2 beside run 1 and
+see what closed, what's new, and whether the verdict moved. That answers the real
+question: did the fix work?
+
+## Where we are
+
+**Done** — the database, the grading and safety rules (84 automated tests,
+including deliberate attempts to smuggle in a fake citation and an unsourced
+number, both refused), the document checklist, and the setup screens.
+
+**Next** — the engine that runs the five stages, the summary page, answering
+questions and re-running, comparing runs, sign-off.
+
+**Later** — Tally / QuickBooks / Zoho / Xero connections, reading Drake exports
+as data rather than page images, a verified library of tax law.
+
+## One open question
+
+**Can we get structured exports from Drake and ProConnect, or only PDFs?**
+
+Today the system reads returns by looking at the pages, like a person. Nothing
+can independently check a figure read that way, so those are marked unverified.
+Excel trial balances *are* checked properly. A structured export would turn the
+tie-outs from "the AI says these agree" into "the software confirmed it" — the
+single biggest improvement available to how much this can be trusted.
