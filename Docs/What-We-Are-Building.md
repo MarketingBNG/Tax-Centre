@@ -83,7 +83,7 @@ question: did the fix work?
 **Done**
 
 - The database and record-keeping behind runs, issues, questions and sign-offs
-- The grading and safety rules, with 272 automated tests — including deliberate
+- The grading and safety rules, with 290 automated tests — including deliberate
   attempts to smuggle in a fake citation and three kinds of unsourced number,
   all refused
 - The document checklist that stops a review before it starts if something
@@ -193,6 +193,51 @@ model, for five cents. Every safety rule held throughout.
 None of that would have been visible from watching it run. A demo would have
 looked fine on the first version and fine on the second, and the difference
 between them is the whole review.
+
+Three more returns have since been added, for problems that had rules and code
+but had never once been run through the platform: a return filed as an S
+corporation when one of its shareholders is a non-resident alien, which no S
+corporation may have — so the whole return is on the wrong form, and the
+sequence is meant to stop dead at the identity check rather than review on; a
+partnership paying its Indian affiliate at a rate nothing in the file supports,
+with the Indian side of the same transaction unaddressed; and a US company
+owning an Indian subsidiary with no Form 5471, where the penalty runs per year
+per entity whether or not any tax was due.
+
+The first of those needed the test harness taught what a halt is. It had been
+asserting that every stage finishes, which is false on purpose for a halted
+run — so a halt working exactly as intended would have been reported as a
+failure.
+
+**The citation check now runs for real.** Every test until now ran with an
+empty library, which meant the only outcome any of them could observe was a
+citation being turned down. That is the right answer today, and it also meant
+the path where a citation is *accepted* had never once executed — it would have
+run for the first time on the day the firm loaded real content. It is now
+tested end to end: a section quoted word for word is recorded as authority; the
+same section attached to words it does not contain is refused; a section that
+was not yet in force for the year under review is refused; a citation with
+nothing quoted is refused. The finding survives in every case, with what it
+claimed kept on the record.
+
+**The smoke suite can no longer delete real accounts.** It clears a handful of
+addresses to keep its own runs repeatable, and a user delete takes that person's
+conversations and files with it — against the firm's own database those are
+exactly the addresses a real firm would be using, and the only thing preventing
+it was remembering not to run it. It now refuses any database it cannot see is
+local unless that database is named on purpose, and checks that each account it
+is about to remove was one it created.
+
+Reading it turned up a real bug: it deleted the firm's house instructions at the
+start, which quietly defeated the careful save-and-restore further down — the
+value it put back was always the empty string it had just made. Running it wiped
+the house prompt and reported that it had restored it.
+
+**What a review cost is now visible**, on the summary, in the printed workpaper
+footer and per return in admin. Runs recorded their spend and nothing showed it.
+A review is the most expensive thing here and the cost is per return, so the
+number belongs with the people running them rather than in a monthly total
+nobody can attribute.
 
 The **chart-of-accounts mapping** is now done too, which was the half of the
 connector work that did not need anyone's credentials. Every books check is
