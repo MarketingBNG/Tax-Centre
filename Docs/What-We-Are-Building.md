@@ -250,13 +250,31 @@ firm's identity rather than to the code.
 
 1. **It has never run on the live site.** Everything so far ran locally, or in a
    database transaction that was thrown away afterwards. The new tables have to
-   be created for real before a single review can be started. That is a one-time
-   thing, and it is your call whether they go into the live database or a
-   separate one first.
+   be created for real before a single review can be started — checked, and
+   they are not there yet. That is a one-time thing, and it is your call whether
+   they go into the live database or a separate one first.
 2. **Nobody has clicked through it.** The screens are built and tested, but no
-   person has done the full loop by hand — start a review, watch it run, read
-   the summary, answer a question, sign off, print. That is where the awkward
-   parts show up.
+   person has done the full loop by hand — start a review, read the summary,
+   answer a question, look at the mapped books, compare last year. That is where
+   the awkward parts show up.
+
+   There is now a demo to walk. One command creates two years of a fictional
+   client, with a trial balance normalised into the chart of accounts, an
+   account nothing could place, a failed cash tie-out, a finding that was fixed
+   in 2024 and came back in 2025, and five questions for the preparer. It goes
+   in through the shipping code, so the finding codes, the grades and the
+   verdict are the real ones. One command removes it again.
+
+   The findings themselves are hand-written rather than model output, and are
+   labelled DEMO throughout for that reason: the demo shows what the screens do,
+   and nothing at all about how well the engine reviews. The eval suite is what
+   measures that, and it is the honest place to look.
+
+   It is also how the first table creation can be done deliberately rather than
+   as a side effect of somebody opening a page: run it against whichever
+   database you choose, and it creates what is missing. There is a rehearsal
+   mode that does the whole thing in a throwaway schema and rolls it back, which
+   is how it was tested against the live database without writing to it.
 3. **One real client return.** A test file is small and tidy. A real Drake PDF
    is neither, and figures read off a page are the weakest input the system has.
 

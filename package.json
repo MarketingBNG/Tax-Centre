@@ -14,7 +14,9 @@
     "test:review:live": "node tests/review-live.mjs",
     "test:golden": "node tests/review-golden.mjs",
     "test:golden:real": "node tests/review-golden.mjs --real",
-    "test:live": "node tests/live.mjs"
+    "test:live": "node tests/live.mjs",
+    "seed:demo": "node tests/seed-demo.mjs",
+    "seed:demo:rehearse": "node tests/seed-demo.mjs --rehearse"
   },
   "engines": {
     "node": ">=22.5.0"
