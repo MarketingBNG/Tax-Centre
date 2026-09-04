@@ -314,6 +314,22 @@ try {
       );
       check('the lapsed approval is still on the record', (await store.listApprovals(run.id)).length === 1);
 
+      /* ---------------------------------------- what the approve route checks */
+
+      // The route refuses a stale version and refuses to approve a Hold. Both
+      // decisions are made from these two values, so this asserts the values
+      // the route reads rather than restating the route.
+      const liveVersion = await store.registerVersion(run.id);
+      check(
+        'a version read before the last change no longer matches the live one',
+        seen !== liveVersion,
+        `read ${seen}, now ${liveVersion}`,
+      );
+      check(
+        'the run still records the verdict the register computed',
+        (await store.getRun(run.id))?.verdict === 'hold',
+      );
+
       /* ---------------------------------------------------------- summary */
 
       const mine = (await store.listEngagementSummaries()).find((s) => s.id === eng.id);

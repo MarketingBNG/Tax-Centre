@@ -87,8 +87,11 @@ question: did the fix work?
   a written answer alone leaves a serious issue open
 - Re-running after fixes, redoing only the stages an answer could have
   affected, and putting run 2 beside run 1 to see what actually closed
+- Sign-off, recording who approved, when, and exactly which version they read —
+  and refusing if the register changed while they had it open
 
-**Next** — sign-off, and the printable summary.
+**Next** — the printable summary for the workpaper file, and a machine-readable
+export of the whole register.
 
 **Later** — Tally / QuickBooks / Zoho / Xero connections, reading Drake exports
 as data rather than page images, a verified library of tax law.

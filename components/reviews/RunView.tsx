@@ -7,6 +7,7 @@ import { FindingDetail } from './FindingDetail';
 import { FindingsTable } from './FindingsTable';
 import { QuestionsPanel } from './QuestionsPanel';
 import { RunCompare } from './RunCompare';
+import { ApprovalBar } from './ApprovalBar';
 import { useRunAdvance } from './useRunAdvance';
 import type { FindingView, RunDetail } from './types';
 
@@ -251,6 +252,12 @@ export function RunView({ runId }: { runId: string }) {
             onOpen={setOpenFinding}
             initialCategory={categoryFilter}
           />
+        </div>
+      )}
+
+      {finished && (
+        <div className="mt-3">
+          <ApprovalBar detail={detail} runId={runId} onApproved={load} />
         </div>
       )}
 
