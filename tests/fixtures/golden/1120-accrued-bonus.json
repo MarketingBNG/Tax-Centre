@@ -1,0 +1,74 @@
+{
+  "id": "1120-accrued-bonus",
+  "returnType": "1120",
+  "taxYear": 2025,
+  "facts": {
+    "jurisdictions": [
+      "US-FED",
+      "US-NJ"
+    ]
+  },
+  "documents": [
+    {
+      "filename": "tb-2025.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Account,Description,Debit,Credit\n1010,Cash,204500.00,\n2200,Accrued bonus - officer,,150000.00\n6100,Officer compensation,150000.00,\n6800,Meals and entertainment,18400.00,\n7000,Federal income tax expense,42000.00,\n4000,Revenue,,890000.00"
+    },
+    {
+      "filename": "tb-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Account,Description,Debit,Credit\n2200,Accrued bonus - officer,,0.00"
+    },
+    {
+      "filename": "payroll-detail.xlsx",
+      "docRole": "gl_detail",
+      "text": "Officer bonus accrued 31 Dec 2025,150000.00\nDate actually paid to officer,2026-06-30"
+    },
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    }
+  ],
+  "planted": [
+    {
+      "id": "related-party-accrual",
+      "what": "Officer bonus accrued at year end and paid more than two and a half months later — not deductible in the accrual year for a related party.",
+      "defectKinds": [
+        "wrong_amount",
+        "wrong_classification",
+        "unsupported_position"
+      ],
+      "minSeverity": "High",
+      "stage": "S1",
+      "mustMention": [
+        "2200"
+      ]
+    },
+    {
+      "id": "meals-fully-deducted",
+      "what": "Meals and entertainment of 18,400 taken in full with no disallowance.",
+      "defectKinds": [
+        "wrong_amount",
+        "wrong_classification",
+        "missing_evidence"
+      ],
+      "minSeverity": "Medium",
+      "stage": "S1",
+      "mustMention": [
+        "6800"
+      ]
+    },
+    {
+      "id": "state-return-missing",
+      "what": "US-NJ is in scope and no state return is present.",
+      "defectKinds": null,
+      "minSeverity": null,
+      "stage": "S3-STATE",
+      "mustMention": []
+    }
+  ],
+  "expect": {
+    "verdict": "hold"
+  }
+}

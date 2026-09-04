@@ -1,0 +1,67 @@
+{
+  "id": "1040-pfic-and-fbar",
+  "returnType": "1040",
+  "taxYear": 2025,
+  "facts": {
+    "foreign_accounts": true,
+    "pfic_holdings": true,
+    "india_link": true,
+    "jurisdictions": [
+      "US-FED"
+    ]
+  },
+  "documents": [
+    {
+      "filename": "assets.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Holding,Value USD,Country\nHDFC equity mutual fund,86400.00,India\nICICI savings account,54200.00,India\nUS brokerage,120000.00,US"
+    },
+    {
+      "filename": "assets-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Holding,Value USD\nHDFC equity mutual fund,71000.00"
+    },
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    }
+  ],
+  "planted": [
+    {
+      "id": "pfic-not-reported",
+      "what": "An Indian mutual fund is a PFIC and needs an 8621 per fund per year.",
+      "defectKinds": [
+        "missing_form",
+        "unsupported_position",
+        "missing_evidence"
+      ],
+      "minSeverity": "High",
+      "stage": "S3-INTL",
+      "mustMention": [
+        "8621"
+      ]
+    },
+    {
+      "id": "fbar-and-8938",
+      "what": "Indian accounts of 140,600 in aggregate reach both the FBAR and the 8938 tests.",
+      "defectKinds": [
+        "missing_form",
+        "missing_evidence"
+      ],
+      "minSeverity": "High",
+      "stage": "S3-INTL",
+      "mustMention": [
+        "FBAR"
+      ]
+    }
+  ],
+  "expect": {
+    "verdict": "hold",
+    "requiredForms": [
+      "8621",
+      "FBAR (FinCEN 114)",
+      "8938"
+    ]
+  }
+}

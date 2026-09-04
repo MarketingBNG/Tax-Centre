@@ -1,0 +1,66 @@
+{
+  "id": "1120s-basis-distribution",
+  "returnType": "1120-S",
+  "taxYear": 2025,
+  "facts": {
+    "jurisdictions": [
+      "US-FED"
+    ]
+  },
+  "documents": [
+    {
+      "filename": "tb-2025.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Account,Description,Debit,Credit\n1010,Cash,12300.00,\n3200,Distributions to shareholder,180000.00,\n3300,Retained earnings,,40000.00\n2500,Shareholder loan payable,,90000.00\n4000,Revenue,,310000.00\n6000,Operating expenses,247700.00,"
+    },
+    {
+      "filename": "tb-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Account,Description,Debit,Credit\n3300,Retained earnings,,40000.00"
+    },
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    },
+    {
+      "filename": "ownership.xlsx",
+      "docRole": "ownership_schedule",
+      "text": "Shareholder,Interest\nSole shareholder,100%"
+    }
+  ],
+  "planted": [
+    {
+      "id": "distribution-exceeds-basis",
+      "what": "Distributions of 180,000 against retained earnings of 40,000 — basis exposure unaddressed.",
+      "defectKinds": [
+        "wrong_amount",
+        "wrong_classification",
+        "unsupported_position"
+      ],
+      "minSeverity": "High",
+      "stage": "S1",
+      "mustMention": [
+        "3200"
+      ]
+    },
+    {
+      "id": "no-officer-wages",
+      "what": "A sole shareholder taking 180,000 out with no officer compensation on the books at all.",
+      "defectKinds": [
+        "wrong_classification",
+        "missing_evidence",
+        "unsupported_position"
+      ],
+      "minSeverity": "Medium",
+      "stage": "S1",
+      "mustMention": [
+        "compensation"
+      ],
+      "absence": true
+    }
+  ],
+  "expect": {
+    "verdict": "hold"
+  }
+}

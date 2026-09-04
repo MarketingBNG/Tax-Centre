@@ -1,0 +1,51 @@
+{
+  "id": "1040nr-treaty-undisclosed",
+  "returnType": "1040-NR",
+  "taxYear": 2025,
+  "facts": {
+    "treaty_position": true,
+    "india_link": true,
+    "jurisdictions": [
+      "US-FED"
+    ]
+  },
+  "documents": [
+    {
+      "filename": "income.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Source,Amount USD,Withheld,Treaty rate claimed\nUS consulting income,64000.00,0.00,exempt under treaty\nUS dividend,3200.00,480.00,15%"
+    },
+    {
+      "filename": "income-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Source,Amount USD\nUS consulting income,0.00"
+    },
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    }
+  ],
+  "planted": [
+    {
+      "id": "treaty-not-disclosed",
+      "what": "A treaty position taken with no 8833 disclosure, and no TRC or Form 10F evidenced.",
+      "defectKinds": [
+        "missing_form",
+        "unsupported_position",
+        "missing_evidence"
+      ],
+      "minSeverity": "High",
+      "stage": "S3-INTL",
+      "mustMention": [
+        "8833"
+      ]
+    }
+  ],
+  "expect": {
+    "verdict": "hold",
+    "requiredForms": [
+      "8833"
+    ]
+  }
+}

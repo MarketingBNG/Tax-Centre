@@ -82,7 +82,7 @@ question: did the fix work?
 **Done**
 
 - The database and record-keeping behind runs, issues, questions and sign-offs
-- The grading and safety rules, with 190 automated tests — including deliberate
+- The grading and safety rules, with 235 automated tests — including deliberate
   attempts to smuggle in a fake citation and three kinds of unsourced number,
   all refused
 - The document checklist that stops a review before it starts if something
@@ -134,25 +134,56 @@ whole review engine and summary phase, items 9 to 12 and 17 to 22. All five
 guardrails hold, and the rule that client emails stay human-written is kept by
 there being nowhere in the system to draft one.
 
-Five are partly done, and it is worth being precise about which half:
+Four more have since been finished:
 
-- **The international forms grid** covers 5472, state returns and the India
-  trigger. 5471, 8858, 8865, 8621, FBAR and 3520 are not in it yet. It is
-  re-decided every run, never carried forward — which was the point of the item.
-- **The citation check** was asked for as "verify against the corpus, reject
-  what does not match". There is no corpus yet, so nothing can be verified and
-  everything is refused instead. Safe, but not the feature.
-- **The India pass** is genuinely separate and the register cannot close without
-  a line from it. It does not yet match each foreign fact to a specific Indian
-  filing.
-- **Parser confidence** is recorded per document, not per figure, and low
-  confidence flags an item rather than routing it to manual entry.
-- **The fabrication and arithmetic probes** exist and pass, but as unit tests
-  rather than inside the thirty-return test set the brief asks for.
+- **The information-return grid** now covers 5471 and its Schedule M, 5472 and
+  the pro-forma 1120, 8858, 8865, 8621, 3520, 3520-A, 926, 8833, FBAR, 8938,
+  state returns and the Indian 3CEB — one row per fact, so a partner can check
+  it against the instructions without reading code. Where a threshold is not
+  visible to the platform, it raises the form and says what to test rather than
+  deciding.
+- **India symmetry** now has to answer for *each* cross-border fact, not just
+  say something. The stage is told which facts to mirror from the same list the
+  verdict checks, so what the AI is asked for and what the platform enforces
+  cannot drift apart. "Nothing is due in India for this, and here is why"
+  answers a fact; silence does not, and the summary will not settle while a
+  fact is unanswered.
+- **Confidence per figure.** Each number now carries what its source is worth:
+  computed is certain, quoted from readable text nearly so, read off a page
+  image not checkable at all. Where a serious finding rests on an unreadable
+  figure, it goes to a queue and a person confirms it against the page by name.
+  The record still says the figure was read visually — that is why it needed
+  confirming.
+- **The citation library.** There are now tables for dated authority the firm
+  loads — form instructions, IRS publications, its own SOPs, statutory text it
+  holds the rights to — and the AI can only cite what it retrieved from them,
+  quoting the words it relies on. The platform checks both halves: that the
+  citation is in the library and was in force for that year, and that the quoted
+  words are really in the passage. A real section attached to words it does not
+  contain is refused too. Nothing is loaded yet, so nothing grounds — which is
+  the correct answer, not a broken one. Loading it is a firm decision about
+  licensed content, not a build task.
 
-Seven are not started: the four books connectors and the chart-of-accounts
-mapping, the structured Drake and ProConnect parsers, the dated library of tax
-law, and the thirty-return test set. They are the list below.
+One is still part-done: **the thirty-return test set**. There is now a real
+harness with nine synthetic returns, each carrying known defects, plus a clean
+return — a reviewer that finds three problems where there are none is as wrong
+as one that misses three — and two bait returns that invite an invented citation
+and a made-up figure. It scores what was found and refuses vague credit: a
+finding only counts if it names the account or form. The set is nine, not
+thirty, and all of it is synthetic, so it catches regressions rather than
+proving readiness. The rest have to be real returns with known answers.
+
+The first real-model run against it is worth reporting honestly: on the
+partnership return with three planted book problems, the AI found one of the
+three before the spending cap stopped the run. Every safety rule held — 19
+figures, all sourced, no citation stored as authority — but one in three is not
+a review. That is what a test set is for, and it is the reason to have built it
+before pointing this at a client file rather than after.
+
+Two are not started, and both are blocked on something outside the code: the
+four books connectors with their chart-of-accounts mapping (needs app
+credentials for QuickBooks, Zoho and Xero), and the structured Drake and
+ProConnect parsers (needs one real export file to read).
 
 ## What is left
 
@@ -169,6 +200,15 @@ law, and the thirty-return test set. They are the list below.
    parts show up.
 3. **One real client return.** A test file is small and tidy. A real Drake PDF
    is neither, and figures read off a page are the weakest input the system has.
+
+**Two need something from outside the code**
+
+- **Books connectors** need app credentials — a QuickBooks, Zoho and Xero
+  developer app each, and confirmation that the firm's existing Tally connector
+  is the one to reuse rather than building a second.
+- **Structured return parsers** need one real Drake export and one ProConnect
+  export to read. The format cannot be guessed, and guessing it would produce a
+  parser that works on nothing.
 
 **After that, in rough order of value**
 

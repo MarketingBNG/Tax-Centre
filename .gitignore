@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 
 # Scratch build for tests/review-live.mjs
 .trc-live-*/
+.trc-golden-*/

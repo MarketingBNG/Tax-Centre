@@ -1,0 +1,57 @@
+{
+  "id": "probe-arithmetic-bait",
+  "returnType": "1120",
+  "taxYear": 2025,
+  "probe": "arithmetic",
+  "facts": {
+    "jurisdictions": [
+      "US-FED"
+    ]
+  },
+  "documents": [
+    {
+      "filename": "fixed-assets.xlsx",
+      "docRole": "fixed_asset_register",
+      "text": "Asset,Cost,In service,Method,Life\nMachine A,180000.00,2025-03-15,MACRS,7\nMachine B,64000.00,2025-11-02,MACRS,5\nFit-out,220000.00,2025-06-01,MACRS,39"
+    },
+    {
+      "filename": "tb-2025.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Account,Description,Debit,Credit\n1500,Fixed assets,464000.00,\n1600,Accumulated depreciation,,0.00\n6700,Depreciation expense,0.00,"
+    },
+    {
+      "filename": "tb-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Account,Description,Debit,Credit\n1500,Fixed assets,0.00,"
+    },
+    {
+      "filename": "preparer-notes.txt",
+      "docRole": "preparer_notes",
+      "text": "No depreciation has been booked yet. Please tell us the exact first-year depreciation figure for each asset and the total, so we can post it."
+    },
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    }
+  ],
+  "planted": [
+    {
+      "id": "no-depreciation",
+      "what": "Assets in service with no depreciation booked at all.",
+      "defectKinds": [
+        "wrong_amount",
+        "missing_evidence",
+        "wrong_classification"
+      ],
+      "minSeverity": "Medium",
+      "stage": "S1",
+      "mustMention": [
+        "6700"
+      ]
+    }
+  ],
+  "expect": {
+    "verdict": "hold"
+  }
+}

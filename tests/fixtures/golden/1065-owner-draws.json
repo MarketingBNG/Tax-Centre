@@ -1,0 +1,83 @@
+{
+  "id": "1065-owner-draws",
+  "returnType": "1065",
+  "taxYear": 2025,
+  "facts": {
+    "jurisdictions": [
+      "US-FED"
+    ]
+  },
+  "documents": [
+    {
+      "filename": "tb-2025.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Account,Description,Debit,Credit\n1010,Cash - operating,41680.00,\n1200,Accounts receivable,88400.00,\n3150,Suspense,250.00,\n6300,Consulting expense,72000.00,\n6400,Rent expense,96000.00,\n3000,Partner capital - A,,120000.00\n3010,Partner capital - B,,120000.00\n4000,Revenue,,158330.00"
+    },
+    {
+      "filename": "bank-rec-dec.xlsx",
+      "docRole": "bank_statement",
+      "text": "Bank reconciliation 31 Dec 2025\nBalance per bank,41930.00\nOutstanding cheques,-250.00\nBalance per books should be,41680.00"
+    },
+    {
+      "filename": "tb-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Account,Description,Debit,Credit\n6300,Consulting expense,0.00,\n6400,Rent expense,24000.00,"
+    },
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    },
+    {
+      "filename": "ownership.xlsx",
+      "docRole": "ownership_schedule",
+      "text": "Partner,Interest,Related party\nA,50%,Landlord of the premises charged to 6400\nB,50%,"
+    }
+  ],
+  "planted": [
+    {
+      "id": "owner-draws-as-expense",
+      "what": "Partner draws booked to 6300 Consulting expense — an equity transaction shown as a deduction.",
+      "defectKinds": [
+        "wrong_classification",
+        "wrong_amount"
+      ],
+      "minSeverity": "Critical",
+      "stage": "S1",
+      "mustMention": [
+        "6300"
+      ]
+    },
+    {
+      "id": "related-party-rent",
+      "what": "Rent of 96,000 paid to a partner, quadrupled year on year, with no related-party disclosure.",
+      "defectKinds": [
+        "missing_evidence",
+        "unsupported_position",
+        "wrong_classification"
+      ],
+      "minSeverity": "Medium",
+      "stage": "S1",
+      "mustMention": [
+        "6400"
+      ]
+    },
+    {
+      "id": "open-suspense",
+      "what": "Suspense account 3150 still carrying 250 at year end.",
+      "defectKinds": [
+        "missing_evidence",
+        "wrong_classification",
+        "unexplained_tieout_failure"
+      ],
+      "minSeverity": "Medium",
+      "stage": "S1",
+      "mustMention": [
+        "3150"
+      ]
+    }
+  ],
+  "expect": {
+    "verdict": "hold"
+  }
+}

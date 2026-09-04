@@ -1,0 +1,68 @@
+{
+  "id": "1120dre-5472-missing",
+  "returnType": "1120-DRE-5472",
+  "taxYear": 2025,
+  "facts": {
+    "foreign_owner": true,
+    "foreign_owner_pct": 100,
+    "india_link": true,
+    "india_related_party": true,
+    "jurisdictions": [
+      "US-FED"
+    ]
+  },
+  "documents": [
+    {
+      "filename": "tb-2025.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Account,Description,Debit,Credit\n1010,Cash,58000.00,\n2900,Due to foreign parent,,240000.00\n6200,Management fee - parent,240000.00,"
+    },
+    {
+      "filename": "tb-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Account,Description,Debit,Credit\n2900,Due to foreign parent,,0.00"
+    },
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    },
+    {
+      "filename": "ownership.xlsx",
+      "docRole": "ownership_schedule",
+      "text": "Owner,Interest,Residence\nParent Pvt Ltd,100%,India"
+    }
+  ],
+  "planted": [
+    {
+      "id": "management-fee-no-tp",
+      "what": "Management fee of 240,000 to the Indian parent with no transfer-pricing support.",
+      "defectKinds": [
+        "unsupported_position",
+        "missing_evidence",
+        "wrong_amount"
+      ],
+      "minSeverity": "Medium",
+      "stage": "S1",
+      "mustMention": [
+        "6200"
+      ]
+    },
+    {
+      "id": "india-symmetry",
+      "what": "Every cross-border fact needs an India-side line, the related-party transaction included.",
+      "defectKinds": null,
+      "minSeverity": null,
+      "stage": "S3-INDIA",
+      "mustMention": []
+    }
+  ],
+  "expect": {
+    "verdict": "hold",
+    "requiredForms": [
+      "5472",
+      "Pro-forma 1120",
+      "3CEB (India)"
+    ]
+  }
+}
