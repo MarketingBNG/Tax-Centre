@@ -19,6 +19,7 @@ import {
 } from '@/lib/review-engine/store';
 import { planStages } from '@/lib/review-engine/stage-defs';
 import { stagesToRerun } from '@/lib/review-engine/versioning';
+import { recordPlannedGaps } from '@/lib/review-engine/orchestrator';
 import type { StageKey } from '@/lib/review-types';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -136,6 +137,15 @@ export async function POST(req: Request, ctx: Ctx) {
             : 'carried_forward',
     })),
   );
+
+  // Applicability is re-decided from the current facts, so the not-applicable
+  // lines are written fresh rather than carried over — an answer may have made
+  // a module apply that did not before, or the reverse.
+  await recordPlannedGaps(run.id, {
+    notApplicable: plan
+      .filter((stage) => stage.status === 'not_applicable')
+      .map((stage) => ({ stageKey: stage.stageKey, reason: stage.reason })),
+  });
 
   // Copy the findings of every stage that is not re-running, so the new
   // register is whole. Statuses come across as they stood, including the

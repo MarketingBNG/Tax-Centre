@@ -82,7 +82,7 @@ question: did the fix work?
 **Done**
 
 - The database and record-keeping behind runs, issues, questions and sign-offs
-- The grading and safety rules, with 155 automated tests — including deliberate
+- The grading and safety rules, with 190 automated tests — including deliberate
   attempts to smuggle in a fake citation and three kinds of unsourced number,
   all refused
 - The document checklist that stops a review before it starts if something
@@ -117,6 +117,15 @@ Two things that run taught us:
 - It is honest about coverage. Nine of the thirteen lines it wrote were "this
   was not tested, and here is why" — which is the point of the rule that
   nothing may be silently fine.
+
+**Walked end to end.** The full sequence a reviewer actually goes through is now
+tested in one go: set up an engagement, run all five stages, answer the
+questions, watch the verdict move, sign off, change something and watch the
+sign-off lapse, then re-run and compare. It found one real gap while doing so —
+sections the engine skipped as *not needed for this client* were shown on the
+progress bar but never written onto the summary itself, so the printed page was
+silent about them. Same for a document you chose to proceed without. Both now
+appear as "not checked, and here's why", which was the whole point of that rule.
 
 **Next** — a real client return, which is larger and messier than a test
 fixture in ways that will matter.

@@ -23,6 +23,60 @@ import type { StageKey } from '@/lib/review-types';
  * it up.
  */
 
+/**
+ * Writes the register lines for everything decided before a stage ever runs:
+ * modules the engagement does not need, and documents the gate let the run
+ * proceed without.
+ *
+ * A stage planned as not_applicable is never claimed, so the runner's own
+ * not-applicable branch never sees it — without this, "not needed" would exist
+ * only as a stage status and the register would simply be silent about it.
+ * Rule 3 is that a reader must be able to tell that apart from "not looked at",
+ * and a status on a progress rail is not the workpaper.
+ */
+export async function recordPlannedGaps(
+  runId: string,
+  input: {
+    notApplicable: { stageKey: StageKey; reason?: string }[];
+    missingInputs?: { label: string; neededFor: string; consequence: string }[];
+  },
+): Promise<void> {
+  for (const stage of input.notApplicable) {
+    const def = stageDef(stage.stageKey);
+    await store.insertFindings(runId, stage.stageKey, [
+      {
+        kind: 'coverage',
+        defectKind: null,
+        severity: null,
+        category: def.category,
+        title: `${def.label} — not applicable`,
+        whatIsWrong: stage.reason ?? 'This module does not apply to this engagement.',
+        status: 'closed',
+        owner: null,
+        confidence: 1,
+      },
+    ]);
+  }
+
+  for (const input_ of input.missingInputs ?? []) {
+    await store.insertFindings(runId, 'S0', [
+      {
+        kind: 'coverage',
+        defectKind: null,
+        severity: null,
+        category: 'bookkeeping',
+        title: `${input_.label} was not provided`,
+        whatIsWrong:
+          `Needed for: ${input_.neededFor}. ${input_.consequence} ` +
+          'Recorded here so the review does not read as though it was checked.',
+        status: 'open',
+        owner: 'preparer',
+        confidence: 1,
+      },
+    ]);
+  }
+}
+
 export interface AdvanceResult {
   /** What happened to the stage that ran, if one did. */
   outcome: 'ran' | 'nothing_to_do' | 'aborted' | 'blocked';
