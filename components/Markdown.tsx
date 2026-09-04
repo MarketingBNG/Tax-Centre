@@ -44,10 +44,27 @@ interface Citation {
 }
 
 /**
+ * Escapes dollar signs that introduce a figure, so a pair like `$18,998` …
+ * `$39` is not read as a maths span by remark-math and swallowed. Money is the
+ * overwhelmingly common use of `$` in a tax thread; genuine LaTeX still works
+ * wherever the delimiter is not sitting against a digit, and fenced or inline
+ * code is left alone.
+ */
+function shieldCurrency(text: string): string {
+  return text
+    .split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/g)
+    .map((chunk, i) =>
+      i % 2 ? chunk : chunk.replace(/(?<![\\$])\$(?=\s?[\d.,])/g, '\\$'),
+    )
+    .join('');
+}
+
+/**
  * Pulls the citation markers out and leaves numbered placeholders behind.
  * Numbering is derived from the text itself, so it does not shift between
  * renders of the same message.
  */
+
 function extract(text: string): { body: string; citations: Citation[] } {
   const citations: Citation[] = [];
   const numbers = new Map<string, number>();
@@ -164,7 +181,7 @@ export function Markdown({
   streaming?: boolean;
   sources?: Source[];
 }) {
-  const { body, citations } = useMemo(() => extract(text), [text]);
+  const { body, citations } = useMemo(() => extract(shieldCurrency(text)), [text]);
   const byId = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources]);
 
   const cite = (node: ReactNode) => decorate(node, citations, byId);
