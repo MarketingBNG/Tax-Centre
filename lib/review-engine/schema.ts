@@ -202,6 +202,73 @@ export const RECORD_TIE_OUTS_TOOL: ToolSpec = {
   },
 };
 
+export const RECORD_QUESTIONS_TOOL: ToolSpec = {
+  name: 'record_questions',
+  description:
+    'Stage 4 only. Record the questions for the preparer. One per unresolved High or Critical ' +
+    'finding first, then Medium; never ask about a Low.\n\n' +
+    'Each has to be answerable with a fact, a document, or a yes/no — never "please explain". ' +
+    'Give the exact figure so the preparer does not have to hunt for it, and say what follows ' +
+    'from each possible answer so they can see the consequence before answering.\n\n' +
+    'Do not lead. "Is this a distribution?" invites yes; "What is this payment, and what ' +
+    'document shows it?" does not. Do not ask what the preparer\'s notes already answer.\n\n' +
+    'Nothing here is addressed to a client. Where only the client can supply a fact, mark the ' +
+    'owner as client so a partner can raise it — the partner writes to the client personally.',
+  parameters: {
+    type: 'object',
+    properties: {
+      questions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            finding_code: {
+              type: ['string', 'null'],
+              description: 'The finding this closes, e.g. S1-007.',
+            },
+            owner: { type: 'string', enum: ['preparer', 'client'] },
+            question: { type: 'string' },
+            figure: {
+              type: ['string', 'null'],
+              description: 'The amount and where it sits, e.g. "$250 difference, Schedule L line 1, GL 1010".',
+            },
+            answer_kind: { type: ['string', 'null'], enum: ['fact', 'document', 'yes_no', 'text', null] },
+            branches: {
+              type: 'array',
+              description: 'What follows from each answer. Usually two.',
+              items: {
+                type: 'object',
+                properties: {
+                  if: { type: 'string' },
+                  then: { type: 'string' },
+                },
+                required: ['if', 'then'],
+                additionalProperties: false,
+              },
+            },
+            evidence_needed: {
+              type: ['string', 'null'],
+              description: 'The document that would settle it.',
+            },
+          },
+          required: [
+            'finding_code',
+            'owner',
+            'question',
+            'figure',
+            'answer_kind',
+            'branches',
+            'evidence_needed',
+          ],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['questions'],
+    additionalProperties: false,
+  },
+};
+
 export const RECORD_SCOPE_TOOL: ToolSpec = {
   name: 'record_scope',
   description:

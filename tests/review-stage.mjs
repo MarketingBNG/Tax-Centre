@@ -136,6 +136,7 @@ function build() {
     ['lib/review-engine/obligations.ts', 'engine/obligations.js'],
     ['lib/review-engine/verdict.ts', 'engine/verdict.js'],
     ['lib/review-engine/schema.ts', 'engine/schema.js'],
+    ['lib/review-engine/questions.ts', 'engine/questions.js'],
     ['lib/review-engine/store.ts', 'engine/store.js'],
     ['lib/review-engine/stage-runner.ts', 'engine/stage-runner.js'],
     ['lib/tools.ts', 'engine/tools.js'],
@@ -433,6 +434,69 @@ try {
         'RULE 3: a silent stage still leaves a line, escalated for a human',
         s2.length === 1 && s2[0].kind === 'coverage' && s2[0].status === 'escalated',
         s2.length ? `${s2[0].kind}/${s2[0].status}` : 'nothing recorded',
+      );
+
+      /* ----------------------------------------- stage 4 asks the questions */
+
+      await store.createStages(run.id, [{ stageKey: 'S4', seq: 7, status: 'pending' }]);
+      const s4 = await store.claimNextStage(run.id);
+
+      const open = (await store.listFindings(run.id)).filter((f) => f.severity);
+      await runner.runStage({
+        runId: run.id,
+        stageId: s4.id,
+        stageKey: 'S4',
+        engagement,
+        facts: {},
+        actorId: USER,
+        model: 'stub',
+        onEvent: () => {},
+        provider: scriptedProvider([
+          {
+            name: 'record_questions',
+            args: {
+              questions: [
+                {
+                  finding_code: open[0].finding_code,
+                  owner: 'preparer',
+                  question: 'Which figure is right?',
+                  figure: '42,180 vs 41,930',
+                  answer_kind: 'fact',
+                  branches: [{ if: 'the bank rec is right', then: 'post the 250 difference' }],
+                  evidence_needed: 'updated bank reconciliation',
+                },
+                {
+                  finding_code: null,
+                  owner: 'client',
+                  question: 'Did the Singapore entity hold 25% at any point?',
+                  figure: 'ownership',
+                  answer_kind: 'yes_no',
+                  branches: [],
+                  evidence_needed: 'cap table',
+                },
+              ],
+            },
+          },
+        ]),
+      });
+
+      const asked = await store.listQuestions(run.id);
+      check('stage 4 records the questions', asked.length === 2, `${asked.length} asked`);
+      check(
+        'a question resolves the finding code it names to the real finding',
+        asked[0].finding_id === open[0].id,
+      );
+      check(
+        'and the finding points back at the question waiting on it',
+        (await store.getFinding(open[0].id))?.question_id === asked[0].id,
+      );
+      check(
+        'a client question is kept, marked for the partner to raise',
+        asked.some((q) => q.owner === 'client'),
+      );
+      check(
+        'branches survive as structured data, not prose',
+        JSON.parse(asked[0].branches_json)[0].then === 'post the 250 difference',
       );
 
       /* ------------------------------------------- a retry does not double up */

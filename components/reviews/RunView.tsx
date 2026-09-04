@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { SummaryPage } from './SummaryPage';
 import { FindingDetail } from './FindingDetail';
 import { FindingsTable } from './FindingsTable';
+import { QuestionsPanel } from './QuestionsPanel';
 import { useRunAdvance } from './useRunAdvance';
 import type { FindingView, RunDetail } from './types';
 
@@ -192,6 +193,12 @@ export function RunView({ runId }: { runId: string }) {
           categoryFilter={categoryFilter}
           onCategory={setCategoryFilter}
         />
+      )}
+
+      {detail.questions.length > 0 && (
+        <div className="mt-3">
+          <QuestionsPanel detail={detail} runId={runId} onAnswered={load} />
+        </div>
       )}
 
       {/* ------------------------------------------------- the full register */}

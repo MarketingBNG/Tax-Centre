@@ -20,11 +20,13 @@ import { buildStagePrompt } from './prompts';
 import { ModelVisualParser } from './return-data';
 import {
   RECORD_FINDINGS_TOOL,
+  RECORD_QUESTIONS_TOOL,
   RECORD_SCOPE_TOOL,
   RECORD_TIE_OUTS_TOOL,
   describeIssues,
   validateFinding,
 } from './schema';
+import { selectQuestions, type CandidateQuestion } from './questions';
 import type { FileRow } from '@/lib/types';
 import { all } from '@/lib/db';
 
@@ -148,6 +150,7 @@ export async function runStage(input: {
 
   const tools: ToolSpec[] = [ANALYSIS_TOOL, RECORD_FINDINGS_TOOL, RECORD_TIE_OUTS_TOOL];
   if (stageKey === 'S0') tools.push(RECORD_SCOPE_TOOL);
+  if (stageKey === 'S4') tools.push(RECORD_QUESTIONS_TOOL);
 
   async function handleTool(call: ToolInvocation): Promise<string> {
     const { name, args } = call;
@@ -204,6 +207,64 @@ export async function runStage(input: {
       }
       await onEvent({ type: 'progress', note: `Identified ${forms.length} forms in the return` });
       return `Recorded. ${forms.length} forms noted.`;
+    }
+
+    if (name === 'record_questions') {
+      const raw = Array.isArray(args.questions) ? args.questions : [];
+      if (!raw.length) return 'No questions were supplied.';
+
+      // Questions point at findings by code, which is what the model can see;
+      // the register keys on ids.
+      const register = await store.listFindings(runId);
+      const byCode = new Map(register.map((f) => [f.finding_code, f]));
+
+      const candidates: CandidateQuestion[] = raw.map((q) => {
+        const question = q as Record<string, unknown>;
+        const code = question.finding_code == null ? null : String(question.finding_code);
+        return {
+          findingId: code ? (byCode.get(code)?.id ?? null) : null,
+          owner: question.owner === 'client' ? 'client' : 'preparer',
+          question: String(question.question ?? ''),
+          figure: question.figure == null ? null : String(question.figure),
+          branches: Array.isArray(question.branches)
+            ? (question.branches as { if: string; then: string }[])
+            : [],
+          evidenceNeeded:
+            question.evidence_needed == null ? null : String(question.evidence_needed),
+          answerKind: (question.answer_kind ?? null) as CandidateQuestion['answerKind'],
+        };
+      });
+
+      // The cap and the ranking are ours, not the model's: a capped list is
+      // only useful if it is genuinely the top of the list.
+      const { selected, dropped, shortfall } = selectQuestions(
+        candidates.filter((c) => c.question.trim()),
+        register.map((f) => ({ id: f.id, severity: f.severity, status: f.status })),
+      );
+
+      const saved = await store.insertQuestions(runId, selected);
+
+      // Link each question back to its finding, so the register shows which
+      // ones are waiting on an answer.
+      for (const question of saved) {
+        if (question.finding_id) {
+          await store.updateFindingStatus(actorId, question.finding_id, {
+            questionId: question.id,
+          });
+        }
+      }
+
+      await onEvent({ type: 'progress', note: `${saved.length} questions for the preparer` });
+
+      const notes = [`Recorded ${saved.length} question${saved.length === 1 ? '' : 's'}.`];
+      if (dropped) notes.push(`${dropped} dropped: past the cap of 10, or attached to a Low finding.`);
+      if (shortfall) {
+        notes.push(
+          `${shortfall} more are expected — serious findings are open and fewer than five ` +
+            'questions were asked. Add questions for the open Critical and High items.',
+        );
+      }
+      return notes.join(' ');
     }
 
     if (name === 'record_tie_outs') {

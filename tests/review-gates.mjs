@@ -60,6 +60,7 @@ function build() {
     ['lib/review-engine/obligations.ts', 'obligations.js'],
     ['lib/review-engine/verdict.ts', 'verdict.js'],
     ['lib/review-engine/derive.ts', 'derive.js'],
+    ['lib/review-engine/questions.ts', 'questions.js'],
   ];
 
   for (const [src, out] of sources) {
@@ -496,6 +497,90 @@ try {
   check(
     'an agreed line with no severity is never in the top five',
     !summary.topFindingIds.includes('g'),
+  );
+
+  /* -------------------------------- the preparer's questions and answers */
+
+  const questions = await load('questions.js');
+
+  const findingsForQ = [
+    { id: 'crit', severity: 'Critical', status: 'open' },
+    { id: 'high', severity: 'High', status: 'open' },
+    { id: 'med', severity: 'Medium', status: 'open' },
+    { id: 'low', severity: 'Low', status: 'open' },
+  ];
+  const ask = (findingId, text = 'q') => ({ findingId, owner: 'preparer', question: text });
+
+  const picked = questions.selectQuestions(
+    [ask('low', 'about a Low'), ask('med'), ask('crit'), ask('high')],
+    findingsForQ,
+  );
+  check(
+    'questions about a Low finding are never asked',
+    !picked.selected.some((q) => q.question === 'about a Low'),
+  );
+  check(
+    'the worst findings are asked about first',
+    picked.selected[0].findingId === 'crit' && picked.selected[1].findingId === 'high',
+    picked.selected.map((q) => q.findingId).join(', '),
+  );
+
+  const many = questions.selectQuestions(
+    Array.from({ length: 16 }, () => ask('high')),
+    findingsForQ,
+  );
+  check(
+    'the list is capped at ten, and says how many it dropped',
+    many.selected.length === 10 && many.dropped === 6,
+    `${many.selected.length} kept, ${many.dropped} dropped`,
+  );
+
+  const thin = questions.selectQuestions([ask('crit')], findingsForQ);
+  check(
+    'too few questions while serious findings are open is reported, not padded',
+    thin.shortfall > 0 && thin.selected.length === 1,
+    `shortfall ${thin.shortfall}`,
+  );
+  check(
+    'nothing serious open means no shortfall',
+    questions.selectQuestions([ask('med')], [{ id: 'med', severity: 'Medium', status: 'open' }])
+      .shortfall === 0,
+  );
+
+  // The rule the whole answered_pending_evidence status exists for.
+  check(
+    'answering a High in words alone leaves it open',
+    questions.outcomeOfAnswer({ severity: 'High', hasEvidence: false }).status ===
+      'answered_pending_evidence',
+  );
+  check(
+    'and says why, rather than just refusing',
+    /does not close a High/.test(
+      questions.outcomeOfAnswer({ severity: 'High', hasEvidence: false }).note ?? '',
+    ),
+  );
+  check(
+    'the same answer with a document attached closes it',
+    questions.outcomeOfAnswer({ severity: 'High', hasEvidence: true }).status === 'closed',
+  );
+  check(
+    'a Critical needs a document too',
+    questions.outcomeOfAnswer({ severity: 'Critical', hasEvidence: false }).status ===
+      'answered_pending_evidence',
+  );
+  check(
+    'a Medium can be settled by explanation — the figure was never in doubt',
+    questions.outcomeOfAnswer({ severity: 'Medium', hasEvidence: false }).status === 'answered',
+  );
+  check(
+    'an answer needing judgement goes to a reviewer, not to closed',
+    questions.outcomeOfAnswer({ severity: 'High', hasEvidence: true, needsReviewer: true })
+      .status === 'escalated',
+  );
+  check(
+    'an answer that has to come from the client is marked as waiting on them',
+    questions.outcomeOfAnswer({ severity: 'High', hasEvidence: false, awaitingClient: true })
+      .status === 'client',
   );
 } catch (err) {
   failures.push(`threw: ${err.message}`);
