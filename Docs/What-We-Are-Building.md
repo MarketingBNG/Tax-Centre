@@ -83,7 +83,7 @@ question: did the fix work?
 **Done**
 
 - The database and record-keeping behind runs, issues, questions and sign-offs
-- The grading and safety rules, with 255 automated tests — including deliberate
+- The grading and safety rules, with 272 automated tests — including deliberate
   attempts to smuggle in a fake citation and three kinds of unsourced number,
   all refused
 - The document checklist that stops a review before it starts if something
@@ -204,11 +204,45 @@ standard one — a preparer cannot act on a note about a name their screen does
 not show. Imports are stamped with three separate dates: when the data left the
 source system, what period it covers, and when it came in here.
 
+**Both of those now have screens**, which they did not before. The trial
+balance import and the citation library were reachable only by posting JSON at
+the API, which in practice meant neither was ever going to be used. The books
+screen shows the mapping in full rather than a count, because a reviewer has to
+be able to see that "Sundry Debtors" was read as trade receivables — every
+downstream check reads the standard key, so a wrong mapping there is silent.
+Accounts that could not be placed are listed above the ones that could. The
+library screen takes pasted text with a heading line per citation, requires the
+date the source took effect, and says plainly when the grounding flag is off,
+since loaded content with the flag off otherwise looks like a silent failure.
+
+**Prior-year comparison is done.** Comparing two runs answers "did the fix
+work". This answers the more uncomfortable question: is this the third year
+running we have raised it? Years are joined on the EIN where there is one and
+on the exact client label only where there is not — a fuzzy match would quietly
+compare two different clients, which is worse than finding no history at all.
+Findings are matched on where the problem is and what kind it is, never on the
+wording.
+
+It changes nothing on its own, deliberately. Recurrence sets no severity and
+moves no verdict: an account misclassified three years running is exactly as
+wrong as one misclassified once, and promoting it would take grading out of the
+fixed rules. What it does separate is a finding that was settled in an earlier
+year and came back — the fix did not hold — from one that has simply stayed
+open, because those are different conversations.
+
 Two things are not started, and both wait on something from outside the code:
-the four books connectors themselves (a developer app each for QuickBooks, Zoho
-and Xero, and a decision to reuse the firm's existing Tally connector rather
-than build a second), and the structured Drake and ProConnect parsers, which
-need one real export file each to read.
+three of the four books connectors (a developer app each for QuickBooks, Zoho
+and Xero — Tally is settled, the firm's existing connector will be reused), and
+the structured Drake and ProConnect parsers, which need one real export file
+each to read.
+
+A "developer app" is not a build task. QuickBooks, Zoho and Xero only let
+software connect through OAuth, and OAuth requires the app to be registered in
+each vendor's own developer portal first: the firm signs up, registers "Tax
+Review Center", and the vendor issues a client ID, a secret and an approved
+redirect URL. Until those exist there is nothing to authenticate with, so the
+connector cannot be written or tested. It is a form to fill in, tied to the
+firm's identity rather than to the code.
 
 ## What is left
 
@@ -229,8 +263,8 @@ need one real export file each to read.
 **Two need something from outside the code**
 
 - **Books connectors** need app credentials — a QuickBooks, Zoho and Xero
-  developer app each, and confirmation that the firm's existing Tally connector
-  is the one to reuse rather than building a second.
+  developer app each. Tally is decided: the firm's existing connector will be
+  reused rather than a second one built.
 - **Structured return parsers** need one real Drake export and one ProConnect
   export to read. The format cannot be guessed, and guessing it would produce a
   parser that works on nothing.
@@ -245,8 +279,6 @@ need one real export file each to read.
   stating the principle and marking it "needs verifying".
 - **A wider test set** — around thirty returns with known answers, to measure
   whether it is getting better rather than just different.
-- **Prior-year comparison** — this year against last, to catch errors that
-  repeat.
 
 Client-facing anything stays off the list deliberately. Emails to clients are
 written by a person.
