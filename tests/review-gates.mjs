@@ -51,6 +51,16 @@ function build() {
      export const REVIEW_CONFIDENCE_THRESHOLD = 0.7;`,
   );
 
+  // corpus.ts is mostly database work, but its citation matching is pure and is
+  // where a refused-but-correct citation would come from. Compiled with a stub
+  // that throws, so a query reaching it here is a test failure rather than a
+  // silent connection attempt.
+  writeFileSync(
+    path.join(dir, 'db-stub.js'),
+    `const nope = () => { throw new Error('This suite covers the pure functions only.'); };
+     export const one = nope; export const all = nope; export const run = nope; export const audit = nope;`,
+  );
+
   /**
    * The pure modules, discovered rather than listed.
    *
@@ -93,6 +103,7 @@ function build() {
         .replace(/^import ['"]server-only['"];?$/m, '')
         .replace(/from ['"]@\/lib\/config['"]/g, "from './config-stub.js'")
         .replace(/from ['"]@\/lib\/review-types['"]/g, "from './review-types.js'")
+        .replace(/from ['"]@\/lib\/db['"]/g, "from './db-stub.js'")
         // Generic, not a list of known siblings: TypeScript emits relative
         // imports without an extension and Node's loader demands one, so every
         // sibling is fixed the same way whether or not this test knew about it.
@@ -114,6 +125,7 @@ try {
   const obligations = await load('obligations.js');
   const verdict = await load('verdict.js');
   const india = await load('india.js');
+  const corpus = await load('corpus.js');
   const stages = await load('stage-defs.js');
   const config = await load('config-stub.js');
 
@@ -303,13 +315,67 @@ try {
     authority.gateAuthority({ status: 'grounded', citation: 'IRC 162(a)' }).status === 'verify',
   );
   check(
-    'a citation with a span is granted once a corpus exists',
+    'a span the model wrote itself grounds nothing — grounding is what the lookup found',
     authority.gateAuthority({
       status: 'grounded',
       citation: 'IRC 162(a)',
       sourceSpan: 'corpus:irc/162#a',
-    }).status === 'grounded',
+    }).status === 'verify',
   );
+  check(
+    'a citation the corpus confirmed is granted, with the span the corpus gave',
+    (() => {
+      const granted = authority.gateAuthority({
+        status: 'grounded',
+        citation: 'IRC 162(a)',
+        verified: { citation: 'IRC 162(a)', sourceSpan: 'IRC 162 (2025 ed.) — passage 3' },
+      });
+      return (
+        granted.status === 'grounded' &&
+        granted.sourceSpan === 'IRC 162 (2025 ed.) — passage 3' &&
+        granted.claimedCitation === null
+      );
+    })(),
+  );
+  check(
+    'the reason the lookup refused it is what the model is told',
+    authority.gateAuthority({
+      status: 'grounded',
+      citation: 'IRC 9999',
+      refusedReason: 'Nothing in the corpus is addressed by "IRC 9999".',
+    }).demotedReason === 'Nothing in the corpus is addressed by "IRC 9999".',
+  );
+
+  /* ------------------------------------- citation matching, before lookup */
+
+  check(
+    'the same section written a dozen ways normalises to one key',
+    new Set(
+      [
+        'IRC 162(a)',
+        'irc §162(a)',
+        'IRC Section 162(a)',
+        '26 U.S.C. 162(a)',
+        'I.R.C. Sec. 162(a)',
+      ].map(corpus.normaliseCitation),
+    ).size === 1,
+    [...new Set(['IRC 162(a)', 'I.R.C. Sec. 162(a)'].map(corpus.normaliseCitation))].join(' | '),
+  );
+  check(
+    'a bare "Section 162" is not assumed to be the US code',
+    corpus.normaliseCitation('Section 162(a)') !== corpus.normaliseCitation('IRC 162(a)'),
+    'an Indian Act section is written the same way, and guessing wrong cites the wrong country',
+  );
+  check(
+    'a subsection belongs to its section',
+    corpus.citationRoot('IRC 162(a)(1)') === 'irc-162' &&
+      corpus.citationRoot('Treas. Reg. 1.162-1(a)') === corpus.citationRoot('Treas Reg 1.162-1'),
+  );
+  check(
+    'two different sections do not collide',
+    corpus.normaliseCitation('IRC 162') !== corpus.normaliseCitation('IRC 163'),
+  );
+
   config.setCorpus(false);
 
   /* ------------------------------------------------------- obligations */

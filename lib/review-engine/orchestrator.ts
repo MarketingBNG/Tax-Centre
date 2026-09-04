@@ -206,6 +206,9 @@ export async function advanceRun(input: {
     facts,
     actorId,
     model: run.model,
+    // The corpus date the run was created with, not today's: a stage that runs
+    // a week after the run started must read the same law the earlier stages did.
+    corpusAsOf: run.corpus_as_of ?? run.created_at,
     onEvent: emit,
     signal: input.signal,
   });

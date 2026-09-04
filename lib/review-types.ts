@@ -284,6 +284,9 @@ export interface ReviewRunRow {
   prompt_version: string;
   model: string;
   corpus_hash: string;
+  /** The date the authority corpus was read as of, and its fingerprint then. */
+  corpus_as_of: number | null;
+  corpus_fingerprint: string | null;
   /** JSON snapshot of the current facts when the run was created. */
   facts_snapshot: string;
   register_version: number;

@@ -80,6 +80,7 @@ const BIGINT_KEYS = [
   'answered_at',
   'approved_at',
   'cost_micros',
+  'corpus_as_of',
 ] as const;
 
 function coerce<T>(row: T): T {
@@ -338,6 +339,9 @@ export async function createRun(
     corpusHash: string;
     factsSnapshot: Record<string, unknown>;
     haltReason?: string | null;
+    /** The state of the authority corpus this run reads against. */
+    corpusAsOf?: number;
+    corpusFingerprint?: string | null;
   },
 ): Promise<ReviewRunRow> {
   const id = uuid();
@@ -345,8 +349,8 @@ export async function createRun(
     `INSERT INTO review_runs
        (id, engagement_id, run_number, parent_run_id, status, halt_reason,
         prompt_version, model, corpus_hash, facts_snapshot, register_version,
-        abort_requested, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`,
+        abort_requested, corpus_as_of, corpus_fingerprint, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?)`,
     id,
     input.engagementId,
     input.runNumber,
@@ -357,6 +361,8 @@ export async function createRun(
     input.model,
     input.corpusHash,
     JSON.stringify(input.factsSnapshot),
+    input.corpusAsOf ?? now(),
+    input.corpusFingerprint ?? null,
     actorId,
     now(),
   );

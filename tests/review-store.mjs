@@ -87,6 +87,7 @@ function buildStore() {
   for (const [src, out] of [
     ['lib/review-types.ts', 'review-types.js'],
     ['lib/review-engine/store.ts', 'store.js'],
+    ['lib/review-engine/corpus.ts', 'corpus.js'],
   ]) {
     const { outputText } = ts.transpileModule(readFileSync(path.join(ROOT, src), 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -103,7 +104,13 @@ function buildStore() {
   return dir;
 }
 
-/** The v7 block, sliced out of lib/db.ts so this tests the text that ships. */
+/**
+ * The review schema, sliced out of lib/db.ts so this tests the text that ships.
+ *
+ * From the v7 marker to the end of the string, so a later block — v8's corpus
+ * tables, and whatever comes after — is covered without anyone remembering to
+ * widen this.
+ */
 function v7Block() {
   const dbTs = readFileSync(path.join(ROOT, 'lib/db.ts'), 'utf8');
   const start = dbTs.indexOf('/* ================================================================ v7 =====');
@@ -120,6 +127,7 @@ if (!DATABASE_URL) {
 const dir = buildStore();
 const shim = await import(pathToFileURL(path.join(dir, 'db-shim.js')).href);
 const store = await import(pathToFileURL(path.join(dir, 'store.js')).href);
+const corpus = await import(pathToFileURL(path.join(dir, 'corpus.js')).href);
 const sql = postgres(DATABASE_URL, { prepare: false, max: 1, onnotice: () => {} });
 
 try {
@@ -506,6 +514,137 @@ try {
       check(
         'a finding escalated for low confidence stays escalated even once its figure is confirmed',
         (await store.confirmAmount(USER, lowConfidence[0].id, 'per_return')).status === 'escalated',
+      );
+
+      /* ------------------------------------------------ the authority corpus */
+
+      const year = (y) => Date.UTC(y, 0, 1);
+
+      await corpus.ingestSource(USER, {
+        kind: 'form_instructions',
+        title: 'Instructions for Form 1065 (2025)',
+        versionLabel: '2025',
+        effectiveFrom: year(2025),
+        passages: [
+          {
+            citation: 'Instructions to Form 1065, Schedule L',
+            heading: 'Balance Sheets per Books',
+            body:
+              'The balance sheet should agree with the partnership books and records. ' +
+              'Attach a statement explaining any differences.',
+          },
+        ],
+      });
+
+      const found = await corpus.lookupCitation('Instructions to Form 1065, Schedule L', year(2026));
+      check('a loaded source is retrievable by its citation', found.length === 1, `${found.length} hits`);
+
+      const grounded = await corpus.verifyCitation({
+        citation: 'Instructions to Form 1065, Schedule L',
+        quote: 'The balance sheet should agree with the partnership books and records',
+        asOf: year(2026),
+      });
+      check(
+        'a citation whose quoted words are in the passage is grounded',
+        grounded.ok === true && grounded.sourceSpan.includes('Instructions for Form 1065'),
+        grounded.ok ? grounded.sourceSpan : grounded.reason,
+      );
+
+      const wrongWords = await corpus.verifyCitation({
+        citation: 'Instructions to Form 1065, Schedule L',
+        quote: 'The balance sheet need not agree with the books in any material respect',
+        asOf: year(2026),
+      });
+      check(
+        'PROBE: a real citation with words it does not contain is refused',
+        wrongWords.ok === false && /do not appear/.test(wrongWords.reason),
+        wrongWords.ok ? 'granted' : wrongWords.reason.slice(0, 60),
+      );
+
+      const noQuote = await corpus.verifyCitation({
+        citation: 'Instructions to Form 1065, Schedule L',
+        quote: null,
+        asOf: year(2026),
+      });
+      check(
+        'a reference with nothing quoted is not authority',
+        noQuote.ok === false && /quoted words/.test(noQuote.reason),
+      );
+
+      const invented = await corpus.verifyCitation({
+        citation: 'IRC 7999(z)(4)',
+        quote: 'Notwithstanding any other provision of this subtitle, the taxpayer shall prevail',
+        asOf: year(2026),
+      });
+      check(
+        'PROBE: a citation nothing in the corpus addresses is refused',
+        invented.ok === false && /Nothing in the corpus/.test(invented.reason),
+      );
+
+      const tooEarly = await corpus.verifyCitation({
+        citation: 'Instructions to Form 1065, Schedule L',
+        quote: 'The balance sheet should agree with the partnership books and records',
+        asOf: year(2019),
+      });
+      check(
+        'a source that was not yet in force is not authority for an earlier year',
+        tooEarly.ok === false,
+        tooEarly.ok ? 'granted' : 'refused',
+      );
+
+      const beforeCorpus = await corpus.corpusFingerprint(year(2026));
+      await corpus.ingestSource(USER, {
+        kind: 'firm_sop',
+        title: 'Firm SOP — partner capital reconciliation',
+        effectiveFrom: year(2025),
+        passages: [
+          {
+            citation: 'Firm SOP 4.2',
+            body: 'Partner capital per Schedule L must be reconciled to Schedule M-2 every year.',
+          },
+        ],
+      });
+      const afterCorpus = await corpus.corpusFingerprint(year(2026));
+      check(
+        'the corpus fingerprint moves when the corpus does, so a run says which state it read',
+        beforeCorpus.fingerprint !== afterCorpus.fingerprint &&
+          afterCorpus.sources === beforeCorpus.sources + 1,
+        `${beforeCorpus.sources} → ${afterCorpus.sources}`,
+      );
+
+      const reloaded = await corpus.ingestSource(USER, {
+        kind: 'firm_sop',
+        title: 'Firm SOP — partner capital reconciliation',
+        effectiveFrom: year(2025),
+        passages: [
+          {
+            citation: 'Firm SOP 4.2',
+            body: 'Partner capital per Schedule L must be reconciled to Schedule M-2 every year.',
+          },
+        ],
+      });
+      const stillOne = await corpus.corpusFingerprint(year(2026));
+      check(
+        'loading the same text twice does not create a second source to disagree with the first',
+        stillOne.sources === afterCorpus.sources && reloaded.passages === 1,
+        `${stillOne.sources} sources`,
+      );
+
+      let undated = null;
+      try {
+        await corpus.ingestSource(USER, {
+          kind: 'irc',
+          title: 'Undated section',
+          effectiveFrom: Number.NaN,
+          passages: [{ citation: 'IRC 162', body: 'There shall be allowed as a deduction…' }],
+        });
+      } catch (err) {
+        undated = err.message;
+      }
+      check(
+        'a source with no effective date cannot be loaded at all',
+        undated !== null && /date it took effect/.test(undated),
+        undated?.slice(0, 50),
       );
 
       throw new Error('__rollback__');

@@ -687,6 +687,75 @@ CREATE TABLE IF NOT EXISTS run_events (
   created_at BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_runevents ON run_events(run_id, id);
+
+/* ================================================================ v8 =====
+   The authority corpus.
+
+   Rule 2 says a citation is either grounded in retrieved text or absent. Until
+   there was something to retrieve from, "absent" was the only reachable state
+   and every citation the model offered was demoted. These two tables are what
+   makes the other half possible: text the firm has loaded, addressed by
+   citation, so a reference on a finding can be checked against the words it
+   claims to be quoting rather than accepted for looking like a citation.
+
+   Nothing seeds them. What goes in is what the firm loads — form instructions,
+   its own SOPs, whatever statutory text it is licensed to hold — and a citation
+   outside that is still refused. A small corpus that is genuinely checked beats
+   a large one that is assumed.
+
+   Dating is mandatory, not decorative. Tax authority is time-bound: a March
+   review and a September review of the same year can need different states of
+   the same section. Every source carries the date it took effect and the date
+   it was retrieved, a run records the corpus date it read against, and a source
+   with no effective date cannot be loaded at all — an undated snapshot is
+   exactly what item 15 of the brief refuses.
+*/
+
+CREATE TABLE IF NOT EXISTS corpus_sources (
+  id             TEXT PRIMARY KEY,
+  -- irc | treas_reg | form_instructions | irs_pub | firm_sop | india_act | other
+  kind           TEXT NOT NULL,
+  title          TEXT NOT NULL,
+  -- The citation this source is authoritative for, normalised: "irc-162",
+  -- "treasreg-1.162-1", "inst-1065". A lookup starts here.
+  citation_root  TEXT NOT NULL,
+  -- What edition this is, in the publisher's own words.
+  version_label  TEXT,
+  -- Epoch ms. Both required: a source that might not have been in force when
+  -- the return was filed is not authority for that return.
+  effective_from BIGINT NOT NULL,
+  effective_to   BIGINT,
+  retrieved_at   BIGINT NOT NULL,
+  source_url     TEXT,
+  content_hash   TEXT NOT NULL,
+  created_by     TEXT,
+  created_at     BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_corpussources_root
+  ON corpus_sources(citation_root, effective_from DESC);
+
+-- The retrievable unit. One passage is what a finding's source_span points at,
+-- and the text is stored verbatim so a grounded citation can be checked to the
+-- word by whoever reads the workpaper.
+CREATE TABLE IF NOT EXISTS corpus_passages (
+  id        TEXT PRIMARY KEY,
+  source_id TEXT NOT NULL REFERENCES corpus_sources(id) ON DELETE CASCADE,
+  -- As a person writes it: "IRC 162(a)(1)", "Treas. Reg. 1.162-1(a)".
+  citation  TEXT NOT NULL,
+  -- The same, normalised for matching.
+  citation_key TEXT NOT NULL,
+  heading   TEXT,
+  body      TEXT NOT NULL,
+  ordinal   INTEGER NOT NULL,
+  UNIQUE (source_id, ordinal)
+);
+CREATE INDEX IF NOT EXISTS idx_corpuspassages_key ON corpus_passages(citation_key);
+
+-- Which state of the corpus a run read against, so the run is reproducible.
+-- Added rather than folded into the v7 block above, because review_runs may
+-- already exist wherever this has been deployed.
+ALTER TABLE review_runs ADD COLUMN IF NOT EXISTS corpus_as_of      BIGINT;
+ALTER TABLE review_runs ADD COLUMN IF NOT EXISTS corpus_fingerprint TEXT;
 `;
 
 /**

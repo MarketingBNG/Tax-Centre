@@ -13,6 +13,7 @@ import {
 } from '@/lib/review-engine/store';
 import { checkInputs } from '@/lib/review-engine/input-gate';
 import { planStages } from '@/lib/review-engine/stage-defs';
+import { corpusFingerprint } from '@/lib/review-engine/corpus';
 import { recordPlannedGaps } from '@/lib/review-engine/orchestrator';
 import { DOC_ROLES, type DocRole } from '@/lib/review-types';
 import type { FileRow } from '@/lib/types';
@@ -95,12 +96,19 @@ export async function POST(req: Request) {
    * different conclusions. Two runs sharing a corpus_hash examined the same
    * world, which is what makes a finding defensible months later.
    */
+  // The state of the authority corpus is part of what a run examined, so the
+  // review is reproducible against the law as it stood rather than as it stands
+  // now. An undated corpus is refused at load, so this is always a real date.
+  const corpusAsOf = Date.now();
+  const corpus = await corpusFingerprint(corpusAsOf);
+
   const corpusHash = crypto
     .createHash('sha256')
     .update(
       JSON.stringify({
         promptVersion: REVIEW_PROMPT_VERSION,
         model: REVIEW_MODEL,
+        corpus: corpus.fingerprint,
         facts,
         returnType: engagement.return_type,
         documents: [...documents]
@@ -122,6 +130,8 @@ export async function POST(req: Request) {
     promptVersion: REVIEW_PROMPT_VERSION,
     model: REVIEW_MODEL,
     corpusHash,
+    corpusAsOf,
+    corpusFingerprint: corpus.fingerprint,
     factsSnapshot: facts,
   });
 

@@ -18,6 +18,7 @@ import {
   listStages,
 } from '@/lib/review-engine/store';
 import { planStages } from '@/lib/review-engine/stage-defs';
+import { corpusFingerprint } from '@/lib/review-engine/corpus';
 import { stagesToRerun } from '@/lib/review-engine/versioning';
 import { recordPlannedGaps } from '@/lib/review-engine/orchestrator';
 import type { StageKey } from '@/lib/review-types';
@@ -97,12 +98,19 @@ export async function POST(req: Request, ctx: Ctx) {
     : stagesToRerun({ touched, documentsChanged: replacements.length > 0 });
 
   const runNumber = await nextRunNumber(previous.engagement_id);
+  // The state of the authority corpus is part of what a run examined, so the
+  // review is reproducible against the law as it stood rather than as it stands
+  // now. An undated corpus is refused at load, so this is always a real date.
+  const corpusAsOf = Date.now();
+  const corpus = await corpusFingerprint(corpusAsOf);
+
   const corpusHash = crypto
     .createHash('sha256')
     .update(
       JSON.stringify({
         promptVersion: REVIEW_PROMPT_VERSION,
         model: previous.model,
+        corpus: corpus.fingerprint,
         facts,
         returnType: engagement.return_type,
         documents: [...documents].map((d) => d.fileId).sort(),
@@ -118,6 +126,8 @@ export async function POST(req: Request, ctx: Ctx) {
     promptVersion: REVIEW_PROMPT_VERSION,
     model: previous.model,
     corpusHash,
+    corpusAsOf,
+    corpusFingerprint: corpus.fingerprint,
     factsSnapshot: facts,
   });
 

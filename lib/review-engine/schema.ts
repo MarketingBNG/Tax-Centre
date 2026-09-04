@@ -38,6 +38,35 @@ const LOCATION = {
   additionalProperties: false,
 } as const;
 
+/**
+ * Retrieval, so a citation can be grounded rather than guessed.
+ *
+ * The order matters and is the whole point: look it up, then quote what came
+ * back. A model that writes the citation first and searches afterwards is doing
+ * the dangerous thing with extra steps.
+ */
+export const SEARCH_AUTHORITY_TOOL = {
+  name: 'search_authority',
+  description:
+    'Look up a code section, regulation, form instruction or firm SOP in the verified corpus. ' +
+    'Returns the exact text, or says it is not held.\n\n' +
+    'You may only cite what this returns, and you must quote the words you are relying on. ' +
+    'A citation that did not come from here is recorded as claimed, never as authority — so ' +
+    'search first, then write the finding. If the corpus does not hold it, state the principle ' +
+    'in plain English; that is a perfectly good finding.',
+  parameters: {
+    type: 'object',
+    properties: {
+      citation: {
+        type: 'string',
+        description: 'e.g. "IRC 162(a)", "Treas. Reg. 1.162-1", "Instructions to Form 1065".',
+      },
+    },
+    required: ['citation'],
+    additionalProperties: false,
+  },
+} as const;
+
 const FIX = {
   type: 'object',
   description:
@@ -111,9 +140,15 @@ const FINDING = {
     authority_citation: {
       type: ['string', 'null'],
       description:
-        'Leave null. There is no verified corpus to cite against, so state the principle ' +
-        'in plain English instead. Anything put here is recorded as claimed and never shown ' +
-        'as authority.',
+        'Only a citation search_authority returned. Null otherwise — state the principle in ' +
+        'plain English instead. A citation that was not retrieved is recorded as claimed and ' +
+        'never shown as authority.',
+    },
+    authority_quote: {
+      type: ['string', 'null'],
+      description:
+        'The words from that passage the finding rests on, copied exactly. Without them the ' +
+        'citation is a reference rather than authority, and is demoted.',
     },
     evidence: {
       type: 'array',

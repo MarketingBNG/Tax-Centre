@@ -13,11 +13,15 @@ import type { AuthorityStatus } from '@/lib/review-types';
  * because it survives review — the reasoning reads well, the citation looks
  * like a citation, and nobody checks a reference that is formatted correctly.
  *
- * There is no corpus yet. So `grounded` is currently unreachable and this gate
- * demotes every citation the model offers, keeping what it claimed in
- * `claimed_citation` — discarded silently, a pattern of invented authority
- * would be invisible; kept, it is auditable and it is the eval signal for the
- * fabrication probes.
+ * Grounding is decided by a lookup, never by the model. corpus.ts checks that
+ * the citation is in loaded text that was in force for the year, and that the
+ * quoted words are actually in the passage; this gate records what that lookup
+ * found. With nothing loaded, nothing grounds — which is the correct answer
+ * rather than a degraded one.
+ *
+ * A refused citation is kept in `claimed_citation` rather than dropped.
+ * Discarded silently, a pattern of invented authority would be invisible; kept,
+ * it is auditable and it is the signal the fabrication probes read.
  *
  * The database backs this up: run_findings carries
  * CHECK (authority_citation IS NULL OR authority_status = 'grounded'),
@@ -28,6 +32,16 @@ export interface AuthorityInput {
   status?: string | null;
   citation?: string | null;
   sourceSpan?: string | null;
+  /**
+   * The result of actually looking the citation up in the corpus.
+   *
+   * Passed in rather than fetched here so this stays a pure function, and
+   * absent means "not verified" — the safe reading. The lookup itself lives in
+   * corpus.ts; this decides what may be recorded given what it found.
+   */
+  verified?: { citation: string; sourceSpan: string } | null;
+  /** Why the lookup refused it, for the message the model gets back. */
+  refusedReason?: string | null;
 }
 
 export interface GatedAuthority {
@@ -50,7 +64,6 @@ const VALID: AuthorityStatus[] = ['none_required', 'grounded', 'verify'];
  */
 export function gateAuthority(input: AuthorityInput): GatedAuthority {
   const claimed = input.citation?.trim() || null;
-  const sourceSpan = input.sourceSpan?.trim() || null;
   const requested = (VALID as string[]).includes(String(input.status))
     ? (input.status as AuthorityStatus)
     : null;
@@ -81,13 +94,14 @@ export function gateAuthority(input: AuthorityInput): GatedAuthority {
     };
   }
 
-  // The corpus path. Grounding means a retrieved span, not a plausible-looking
-  // reference — a citation with no span is exactly the failure mode this guards.
-  if (requested === 'grounded' && sourceSpan) {
+  // The corpus path. Grounding is not something the model can assert: it is
+  // what the lookup found. A citation the corpus confirmed, whose quoted words
+  // were found in the passage, is authority; anything else is a claim.
+  if (input.verified) {
     return {
       status: 'grounded',
-      citation: claimed,
-      sourceSpan,
+      citation: input.verified.citation,
+      sourceSpan: input.verified.sourceSpan,
       claimedCitation: null,
       demotedReason: null,
     };
@@ -99,8 +113,10 @@ export function gateAuthority(input: AuthorityInput): GatedAuthority {
     sourceSpan: null,
     claimedCitation: claimed,
     demotedReason:
-      'A citation is only authority when it points at a retrieved source span. ' +
-      'Without one it is recorded as claimed and tagged for verification.',
+      input.refusedReason ??
+      'A citation is only authority when the corpus confirms it and the quoted words are ' +
+        'found in the passage. Without that it is recorded as claimed and tagged for ' +
+        'verification.',
   };
 }
 

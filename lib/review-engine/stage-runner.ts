@@ -1,5 +1,9 @@
 import 'server-only';
-import { REVIEW_CONFIDENCE_THRESHOLD, REVIEW_MAX_TOOL_ROUNDS } from '@/lib/config';
+import {
+  CITATION_CORPUS_ENABLED,
+  REVIEW_CONFIDENCE_THRESHOLD,
+  REVIEW_MAX_TOOL_ROUNDS,
+} from '@/lib/config';
 import { getProvider } from '@/lib/providers';
 import { runAnalysis, ANALYSIS_TOOL } from '@/lib/tools';
 import { recordUsage } from '@/lib/chat';
@@ -16,6 +20,7 @@ import type {
 import * as store from './store';
 import { buildNumberIndex, checkAmounts, type NumberIndex } from './amounts';
 import { gateAuthority } from './authority';
+import { corpusHasContent, lookupCitation, verifyCitation } from './corpus';
 import { classify, categoryFor, haltsRun } from './severity';
 import { buildStagePrompt } from './prompts';
 import { ModelVisualParser } from './return-data';
@@ -24,6 +29,7 @@ import {
   RECORD_QUESTIONS_TOOL,
   RECORD_SCOPE_TOOL,
   RECORD_TIE_OUTS_TOOL,
+  SEARCH_AUTHORITY_TOOL,
   describeIssues,
   validateFinding,
 } from './schema';
@@ -90,6 +96,12 @@ export async function runStage(input: {
    * say today.
    */
   provider?: Pick<AiProvider, 'streamChat'>;
+  /**
+   * The date the corpus is read as of — the run stores it, so the same return
+   * reviewed in March and in September is reviewed against the law as it stood
+   * each time rather than as it stands now.
+   */
+  corpusAsOf?: number;
 }): Promise<RunStageResult> {
   const { runId, stageId, stageKey, engagement, facts, actorId, model, onEvent } = input;
 
@@ -128,8 +140,12 @@ export async function runStage(input: {
     })),
   });
 
+  const corpusAsOf = input.corpusAsOf ?? Date.now();
+  const corpusAvailable = CITATION_CORPUS_ENABLED && (await corpusHasContent(corpusAsOf));
+
   const priorFindings = await store.listFindings(runId);
   const prompt = await buildStagePrompt({
+    corpusAvailable,
     stageKey,
     engagement,
     facts,
@@ -154,8 +170,35 @@ export async function runStage(input: {
   if (stageKey === 'S0') tools.push(RECORD_SCOPE_TOOL);
   if (stageKey === 'S4') tools.push(RECORD_QUESTIONS_TOOL);
 
+  // Retrieval is offered only where there is something to retrieve. Handing the
+  // model a search tool over an empty corpus teaches it that searching is
+  // pointless, and the next thing it does is write the citation from memory.
+  if (corpusAvailable) tools.push(SEARCH_AUTHORITY_TOOL);
+
   async function handleTool(call: ToolInvocation): Promise<string> {
     const { name, args } = call;
+
+    if (name === 'search_authority') {
+      const citation = String(args.citation ?? '').trim();
+      if (!citation) throw new Error('Which citation?');
+
+      const passages = await lookupCitation(citation, corpusAsOf);
+      if (!passages.length) {
+        return (
+          `The corpus holds nothing addressed by "${citation}" and in force for this year. ` +
+          'State the principle in plain English instead — do not cite it from memory.'
+        );
+      }
+      return passages
+        .slice(0, 4)
+        .map(
+          (p) =>
+            `${p.citation} — ${p.source.title}` +
+            (p.heading ? ` (${p.heading})` : '') +
+            `\neffective ${new Date(p.source.effective_from).toISOString().slice(0, 10)}\n${p.body}`,
+        )
+        .join('\n\n---\n\n');
+    }
 
     if (name === 'run_analysis') {
       const code = String(args.code ?? '').trim();
@@ -320,11 +363,30 @@ export async function runStage(input: {
           continue;
         }
 
-        // Rule 2 — a citation nobody grounded is recorded as claimed, never as
-        // authority. Not a rejection: the finding itself may be perfectly good.
+        // Rule 2 — a citation is authority only where the corpus confirms it
+        // and the quoted words are in the passage. Checked here rather than
+        // trusted: a citation the model retrieved a moment ago is still
+        // verified against the text before it is recorded, because the failure
+        // this guards is a real section attached to words it does not contain.
+        //
+        // Not a rejection either way: the finding itself may be perfectly good
+        // with the authority demoted to "needs verifying".
+        const claimedCitation = (f.authority_citation ?? null) as string | null;
+        const verification = claimedCitation
+          ? await verifyCitation({
+              citation: claimedCitation,
+              quote: (f.authority_quote ?? null) as string | null,
+              asOf: corpusAsOf,
+            })
+          : null;
+
         const authority = gateAuthority({
-          status: f.authority_citation ? 'grounded' : 'none_required',
-          citation: (f.authority_citation ?? null) as string | null,
+          status: claimedCitation ? 'grounded' : 'none_required',
+          citation: claimedCitation,
+          verified: verification?.ok
+            ? { citation: verification.citation, sourceSpan: verification.sourceSpan }
+            : null,
+          refusedReason: verification && !verification.ok ? verification.reason : null,
         });
 
         const severity = classify({ kind, defectKind });
