@@ -15,6 +15,11 @@
  * behaviour under test.
  *
  * It does not call the OpenAI API — that costs money.
+ *
+ * It deletes user accounts, which cascades to their conversations and files, so
+ * it refuses to run against a database it cannot see is local unless that
+ * database's host is named in SMOKE_DELETE_USERS_ON. Point DATABASE_URL at a
+ * scratch database.
  */
 import { encode } from 'next-auth/jwt';
 import postgres from 'postgres';
@@ -49,6 +54,53 @@ function envValue(key) {
     }
   }
   return '';
+}
+
+/* ──────────────────── refuse to wreck a real database ────────────────── */
+
+/**
+ * Checked before anything else runs, including the server calls.
+ *
+ * This suite deletes user accounts, and a delete cascades to that person's
+ * conversations, files and usage history. Against a scratch database that is
+ * housekeeping. Against the firm's own it is data loss, and the addresses it
+ * clears — admin@usaindiacfo.com among them — are exactly the ones a real firm
+ * would be using.
+ *
+ * So it will not touch a database it cannot see is local unless somebody names
+ * that database on purpose. Naming the host rather than setting a plain flag is
+ * deliberate: a flag left in a shell would go on authorising whatever database
+ * happened to be configured next.
+ */
+const dbHost = (() => {
+  try {
+    return new URL(DATABASE_URL).hostname;
+  } catch {
+    return '';
+  }
+})();
+
+if (
+  DATABASE_URL &&
+  !/^(localhost|127\.0\.0\.1|::1|host\.docker\.internal)$/.test(dbHost) &&
+  envValue('SMOKE_DELETE_USERS_ON') !== dbHost
+) {
+  console.error(
+    [
+      '',
+      `  Refusing to run: ${dbHost || 'this database'} is not local, and this suite deletes`,
+      '  user accounts — which cascades to their conversations, files and usage rows.',
+      '',
+      '  It clears admin@usaindiacfo.com, rev@usaindiacfo.com, admin2@usaindiacfo.com,',
+      '  listed-as-member@usaindiacfo.com, preview@localhost and anything @example.test.',
+      '  If any of those is a real account here, it and its data are gone.',
+      '',
+      '  Point DATABASE_URL at a scratch database, or if you are certain, set',
+      `    SMOKE_DELETE_USERS_ON=${dbHost}`,
+      '',
+    ].join('\n'),
+  );
+  process.exit(2);
 }
 
 function authSecret() {
@@ -218,15 +270,59 @@ const db = postgres(DATABASE_URL, { prepare: false, max: 2 });
 // written against. Clear the accounts it creates first, or the second run
 // reports false failures ("already exists", "401") that say nothing about the
 // code. Cascades remove their conversations, files and usage rows.
-await db`DELETE FROM users WHERE email IN (
+const OWN_ACCOUNTS = [
   'admin@usaindiacfo.com',
   'rev@usaindiacfo.com',
   'admin2@usaindiacfo.com',
   'listed-as-member@usaindiacfo.com',
-  'preview@localhost'
-) OR email LIKE '%@example.test'`;
-// House instructions live in settings, which no cascade touches.
-await db`DELETE FROM settings WHERE key = 'system_prompt'`;
+];
+// The display names this suite gives the accounts it makes. A row under one of
+// these addresses wearing any other name was put there by somebody else.
+const OWN_NAMES = new Set(['Test Admin', 'Test Member', 'Second Admin', 'Listed']);
+
+const claimed = await db`
+  SELECT id, email, display_name FROM users
+   WHERE email = ANY(${OWN_ACCOUNTS}) OR email = 'preview@localhost'
+      OR email LIKE '%@example.test'`;
+
+const strangers = claimed.filter(
+  (row) =>
+    !row.email.endsWith('@example.test') &&
+    row.email !== 'preview@localhost' &&
+    !OWN_NAMES.has(row.display_name),
+);
+if (strangers.length) {
+  console.error(
+    [
+      '',
+      '  Refusing to run: these accounts use addresses this suite clears, but were not',
+      '  created by it — deleting them would take real conversations and files with them.',
+      '',
+      ...strangers.map((row) => `    ${row.email} — "${row.display_name}"`),
+      '',
+      '  Rename or remove them deliberately, or point DATABASE_URL somewhere else.',
+      '',
+    ].join('\n'),
+  );
+  await db.end();
+  process.exit(2);
+}
+
+if (claimed.length) {
+  await db`DELETE FROM users WHERE id = ANY(${claimed.map((row) => row.id)})`;
+}
+
+// House instructions are firm-wide and live in the same settings row the real
+// app reads. This used to delete them outright, which quietly defeated the
+// careful save-and-restore further down: the value it put back was always the
+// empty string it had just created. Left alone here — the prompt section
+// overwrites and restores it.
+const houseBefore = await db`SELECT value FROM settings WHERE key = 'system_prompt'`;
+if (houseBefore.length) {
+  console.log(
+    `  (house instructions present, ${houseBefore[0].value.length} chars — saved and restored below)`,
+  );
+}
 const cols = (
   await db`SELECT column_name FROM information_schema.columns WHERE table_name = 'users'`
 ).map((c) => c.column_name);
