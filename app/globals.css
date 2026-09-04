@@ -18,14 +18,35 @@
   --color-accent-hover: #7dbcaf;
   --color-accent-ink: #0d1614;
 
-  /* Severity colours: distinguishable at a glance, but softened so a report
-     with a dozen findings does not read as an emergency. */
+  /* Softened status colours: distinguishable at a glance, but muted so a screen
+     with a dozen warnings does not read as an emergency.
+
+     These six kept their original names because the app leans on two of them —
+     sev-blocking for anything destructive, sev-math for anything cautionary —
+     in about twenty places that have nothing to do with a tax review. Renaming
+     them to suit the review engine would have churned nine unrelated
+     components. */
   --color-sev-blocking: #d47d7d;
   --color-sev-risk: #d3a06f;
   --color-sev-math: #c4b477;
   --color-sev-opportunity: #7fae91;
   --color-sev-doc: #7fa0c2;
   --color-sev-nit: #8a939e;
+
+  /* The review engine's four severities, aliased onto the same palette so a
+     finding and a warning elsewhere in the app look like the same product.
+
+     Colour is never the only signal: every chip and banner carries the word as
+     well, so the summary reads correctly printed in black and white and to
+     anyone who does not separate red from amber. */
+  --color-sev-critical: #d47d7d;
+  --color-sev-high: #d3a06f;
+  --color-sev-medium: #c4b477;
+  --color-sev-low: #8a939e;
+
+  /* Verdicts. Hold takes the Critical colour and Release-with-conditions takes
+     High, so the banner and the counts beneath it cannot contradict each other. */
+  --color-verdict-clear: #7fae91;
 
   --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
@@ -73,4 +94,49 @@ body {
 
 .trc-prose strong {
   font-weight: 600;
+}
+
+/*
+ * The audit summary, printed.
+ *
+ * The app is dark; paper is not. Rather than a second stylesheet, the print
+ * rules invert the few surfaces the summary uses and drop everything that only
+ * makes sense on screen. The severity colours survive as text colour, because
+ * a summary photocopied in grey still has to be readable — which is also why
+ * every chip carries the word as well as the colour.
+ */
+@media print {
+  @page {
+    size: letter;
+    margin: 0.6in;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .trc-print-hide {
+    display: none !important;
+  }
+
+  .trc-print-sheet {
+    background: #fff !important;
+    color: #111 !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Keep a zone whole rather than letting a finding split across the fold. */
+  .trc-print-zone {
+    break-inside: avoid;
+    border-color: #bbb !important;
+    background: #fff !important;
+  }
+
+  .trc-print-sheet a {
+    text-decoration: none;
+    color: inherit;
+  }
 }

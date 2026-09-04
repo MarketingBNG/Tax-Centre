@@ -822,6 +822,13 @@ export function Chat({ me }: { me: Me }) {
           ＋ New chat
         </button>
 
+        <Link
+          href="/reviews"
+          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13.5px] text-ink-dim no-underline hover:bg-raised hover:text-ink"
+        >
+          ▣ Reviews
+        </Link>
+
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setShowSettings(true)}
