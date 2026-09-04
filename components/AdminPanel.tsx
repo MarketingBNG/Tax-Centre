@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Mark } from './Mark';
 import { ConnectorsTab } from './ConnectorsTab';
 import { SkillsManager } from './SkillsManager';
+import { VERDICT_WORD } from './reviews/chips';
+import type { Verdict } from '@/lib/review-types';
 
 type Tab = 'prompt' | 'costs' | 'people' | 'skills' | 'connectors' | 'audit';
 
@@ -27,6 +29,19 @@ interface Costs {
     usd: number;
   }[];
   cacheHitRate: number;
+  reviewsMonthToDateUsd?: number;
+  reviews?: {
+    id: string;
+    engagementId: string;
+    runNumber: number;
+    status: string;
+    verdict: Verdict | null;
+    createdAt: number;
+    entity: string | null;
+    taxYear: number | null;
+    stagesRun: number;
+    usd: number;
+  }[];
 }
 
 interface Person {
@@ -339,6 +354,41 @@ function CostsTab() {
           >
             {busy ? 'Purging…' : 'Purge expired documents'}
           </button>
+        </div>
+      ) : null}
+
+      {data.reviews?.length ? (
+        <div className={panel}>
+          <h2 className="mb-1 text-[15px] font-semibold">Reviews, priced per return</h2>
+          <p className="mb-3 text-[13px] text-ink-dim">
+            {usd(data.reviewsMonthToDateUsd ?? 0)} this month. Kept separate from chat because it
+            answers a different question: chat spend is managed by the cap above, while a review is
+            priced per return and the number that matters is what one file costs. A run showing{' '}
+            {usd(0)} did no model work — it was blocked on its inputs, or every stage was carried
+            forward from the run before it.
+          </p>
+          <Table
+            head={['Return', 'Run', 'Stages', 'Verdict', 'Cost']}
+            rows={data.reviews.map((r) => [
+              <a
+                key="r"
+                href={`/reviews/${r.engagementId}/runs/${r.runNumber}`}
+                className="no-underline hover:text-accent"
+              >
+                {r.entity ?? '(engagement removed)'}
+                <div className="text-[12px] text-ink-faint">
+                  {[r.taxYear ? `TY ${r.taxYear}` : null, new Date(r.createdAt).toLocaleDateString()]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </div>
+              </a>,
+              String(r.runNumber),
+              `${r.stagesRun}`,
+              r.verdict ? VERDICT_WORD[r.verdict] ?? r.verdict : r.status,
+              usd(r.usd),
+            ])}
+            numeric={[1, 2, 4]}
+          />
         </div>
       ) : null}
 

@@ -69,6 +69,8 @@ export interface RunDetail {
     finishedAt: number | null;
     errorText: string | null;
     abortRequested: boolean;
+    /** Summed from the stages that ran. */
+    costUsd: number;
   };
   engagement: {
     id: string;

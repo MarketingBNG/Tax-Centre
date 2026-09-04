@@ -33,6 +33,10 @@ function HeaderBand({ detail }: { detail: RunDetail }) {
     ['Register version', `${run.registerVersion}`],
     ['Run date', new Date(run.createdAt).toLocaleDateString()],
     ['Reviewer', approval?.approvedBy ?? 'not yet signed off'],
+    // In front of the people running reviews, not only in an admin total a
+    // month later: a review is the most expensive thing here and the cost is
+    // per return.
+    ['Cost to run', run.costUsd > 0 ? `$${run.costUsd.toFixed(2)}` : '—'],
   ];
 
   return (
@@ -254,6 +258,7 @@ function PrintFooter({ detail }: { detail: RunDetail }) {
         `register version ${run.registerVersion}`,
         new Date(run.createdAt).toLocaleDateString(),
         `${run.promptVersion} · ${run.model}`,
+        run.costUsd > 0 ? `$${run.costUsd.toFixed(2)} to run` : null,
       ]
         .filter(Boolean)
         .join(' · ')}

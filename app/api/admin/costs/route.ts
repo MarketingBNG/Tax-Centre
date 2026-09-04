@@ -52,6 +52,48 @@ export async function GET() {
   );
   const denom = (cache?.reads ?? 0) + (cache?.fresh ?? 0) + (cache?.writes ?? 0);
 
+  /**
+   * Reviews, priced per return.
+   *
+   * Kept apart from the chat totals because it is a different decision. Chat
+   * cost is answered by a monthly cap; review cost is answered by "is running
+   * this on every file worth it", and that needs the price of one return in
+   * front of whoever decides. Left-joined from review_runs so a run that cost
+   * nothing still appears — a run showing $0.00 is information.
+   */
+  const reviews = await all<{
+    id: string;
+    engagement_id: string;
+    run_number: number;
+    status: string;
+    verdict: string | null;
+    created_at: number;
+    entity: string | null;
+    tax_year: number | null;
+    cost: number;
+    stages_run: number;
+  }>(
+    `SELECT r.id, r.engagement_id, r.run_number, r.status, r.verdict, r.created_at,
+            COALESCE(e.entity_name, e.client_label) AS entity, e.tax_year,
+            COALESCE((SELECT SUM(s.cost_micros) FROM run_stages s WHERE s.run_id = r.id), 0) AS cost,
+            COALESCE((SELECT COUNT(*) FROM run_stages s
+                       WHERE s.run_id = r.id AND s.status = 'complete'), 0) AS stages_run
+       FROM review_runs r
+       LEFT JOIN engagements e ON e.id = r.engagement_id
+      ORDER BY r.created_at DESC
+      LIMIT 25`,
+  ).catch(() => []);
+
+  const reviewsMonthToDate =
+    (
+      await one<{ c: number }>(
+        `SELECT COALESCE(SUM(s.cost_micros), 0) AS c
+           FROM run_stages s JOIN review_runs r ON r.id = s.run_id
+          WHERE r.created_at >= ?`,
+        since,
+      ).catch(() => null)
+    )?.c ?? 0;
+
   return Response.json({
     monthToDateUsd: microsToUsd(total),
     capUsd: Number(await getSetting('monthly_cap_usd', '200')),
@@ -65,5 +107,18 @@ export async function GET() {
       usd: microsToUsd(r.cost_micros),
     })),
     cacheHitRate: denom ? (cache?.reads ?? 0) / denom : 0,
+    reviewsMonthToDateUsd: microsToUsd(reviewsMonthToDate),
+    reviews: reviews.map((r) => ({
+      id: r.id,
+      engagementId: r.engagement_id,
+      runNumber: r.run_number,
+      status: r.status,
+      verdict: r.verdict,
+      createdAt: Number(r.created_at),
+      entity: r.entity,
+      taxYear: r.tax_year,
+      stagesRun: Number(r.stages_run),
+      usd: microsToUsd(Number(r.cost)),
+    })),
   });
 }

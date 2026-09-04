@@ -117,6 +117,17 @@ export async function GET(_req: Request, ctx: Ctx) {
       finishedAt: run.finished_at,
       errorText: run.error_text,
       abortRequested: Boolean(run.abort_requested),
+      /**
+       * What this run cost, summed from the stages that actually ran.
+       *
+       * Shown rather than kept in the database only. A review is the most
+       * expensive thing the platform does, the cost is per return, and a firm
+       * deciding whether to run this on every file needs the number in front of
+       * the people running them — not discoverable a month later in an admin
+       * total nobody can attribute.
+       */
+      costUsd:
+        stages.reduce((total, s) => total + Number(s.cost_micros ?? 0), 0) / 1_000_000,
     },
     engagement: engagement && {
       id: engagement.id,
