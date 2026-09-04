@@ -197,6 +197,14 @@ export interface FindingLocation {
   schedule: string | null;
   line: string | null;
   gl_account: string | null;
+  /**
+   * The cross-border fact this line mirrors, in the India module only.
+   *
+   * Rule 4a asks that an engagement with an Indian link carry India-side lines.
+   * Recording which fact each line answers is what turns that from "the module
+   * said something" into "every fact was mirrored".
+   */
+  fact_key?: string | null;
 }
 
 export interface FindingFix {

@@ -2,7 +2,7 @@ import 'server-only';
 import { REVIEW_COST_CEILING_USD } from '@/lib/config';
 import * as store from './store';
 import { runStage, type StageEvent } from './stage-runner';
-import { computeVerdict } from './verdict';
+import { computeVerdict, verdictFindingsFrom } from './verdict';
 import { requiredForms } from './obligations';
 import { stageDef } from './stage-defs';
 import type { StageKey } from '@/lib/review-types';
@@ -289,16 +289,7 @@ export async function finalise(runId: string, actorId: string): Promise<void> {
   const formsPresent = Array.isArray(facts.forms_present) ? facts.forms_present.map(String) : [];
 
   const verdict = computeVerdict({
-    findings: findings.map((f) => ({
-      id: f.id,
-      code: f.finding_code,
-      stageKey: f.stage_key,
-      severity: f.severity,
-      status: f.status,
-      owner: f.owner,
-      authorityStatus: f.authority_status,
-      title: f.title,
-    })),
+    findings: verdictFindingsFrom(findings),
     requiredForms: requiredForms(engagement?.return_type ?? null, facts),
     presentForms: formsPresent,
     facts,

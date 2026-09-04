@@ -27,6 +27,12 @@ const LOCATION = {
     schedule: { type: ['string', 'null'], description: 'e.g. L, M-1, K' },
     line: { type: ['string', 'null'], description: 'e.g. 1d, 22' },
     gl_account: { type: ['string', 'null'], description: 'The book account it came from.' },
+    fact_key: {
+      type: ['string', 'null'],
+      description:
+        'Only in the India module: the exact fact key from the list of cross-border facts you ' +
+        'were given, so the register can show that each one was mirrored. One line per fact.',
+    },
   },
   required: ['form', 'schedule', 'line', 'gl_account'],
   additionalProperties: false,

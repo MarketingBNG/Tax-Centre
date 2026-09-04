@@ -13,7 +13,7 @@
  *   node tests/review-gates.mjs
  */
 import ts from 'typescript';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -51,17 +51,35 @@ function build() {
      export const REVIEW_CONFIDENCE_THRESHOLD = 0.7;`,
   );
 
+  /**
+   * The pure modules, discovered rather than listed.
+   *
+   * A hand-written list here broke the moment a gate started importing a new
+   * module: the compile succeeded, the import failed, and the whole suite read
+   * as one error rather than as the coverage it had quietly lost. The database
+   * suites already read the directory; this one now does too.
+   */
   const sources = [
     ['lib/review-types.ts', 'review-types.js'],
-    ['lib/review-engine/stage-defs.ts', 'stage-defs.js'],
-    ['lib/review-engine/severity.ts', 'severity.js'],
-    ['lib/review-engine/amounts.ts', 'amounts.js'],
-    ['lib/review-engine/authority.ts', 'authority.js'],
-    ['lib/review-engine/obligations.ts', 'obligations.js'],
-    ['lib/review-engine/verdict.ts', 'verdict.js'],
-    ['lib/review-engine/derive.ts', 'derive.js'],
-    ['lib/review-engine/questions.ts', 'questions.js'],
-    ['lib/review-engine/versioning.ts', 'versioning.js'],
+    ...readdirSync(path.join(ROOT, 'lib/review-engine'))
+      .filter((name) => name.endsWith('.ts'))
+      // Anything that talks to the database, a provider or blob storage is not
+      // a pure gate and is covered by the other suites.
+      .filter(
+        (name) =>
+          ![
+            'store.ts',
+            'orchestrator.ts',
+            'stage-runner.ts',
+            'register.ts',
+            'return-data.ts',
+            'prompts.ts',
+            'skills-source.ts',
+            'input-gate.ts',
+          ].includes(name),
+      )
+      .map((name) => [`lib/review-engine/${name}`, name.replace(/\.ts$/, '.js')]),
+    ['lib/review-engine/input-gate.ts', 'input-gate.js'],
   ];
 
   for (const [src, out] of sources) {
@@ -75,9 +93,12 @@ function build() {
         .replace(/^import ['"]server-only['"];?$/m, '')
         .replace(/from ['"]@\/lib\/config['"]/g, "from './config-stub.js'")
         .replace(/from ['"]@\/lib\/review-types['"]/g, "from './review-types.js'")
-        .replace(/from ['"]\.\/stage-defs['"]/g, "from './stage-defs.js'")
-        .replace(/from ['"]\.\/obligations['"]/g, "from './obligations.js'")
-        .replace(/from ['"]\.\/severity['"]/g, "from './severity.js'"),
+        // Generic, not a list of known siblings: TypeScript emits relative
+        // imports without an extension and Node's loader demands one, so every
+        // sibling is fixed the same way whether or not this test knew about it.
+        .replace(/from ['"](\.\.?\/[^'"]*)['"]/g, (whole, spec) =>
+          spec.endsWith('.js') ? whole : `from '${spec}.js'`,
+        ),
     );
   }
   return dir;
@@ -92,6 +113,7 @@ try {
   const authority = await load('authority.js');
   const obligations = await load('obligations.js');
   const verdict = await load('verdict.js');
+  const india = await load('india.js');
   const stages = await load('stage-defs.js');
   const config = await load('config-stub.js');
 
@@ -285,6 +307,70 @@ try {
     obligations.missingForms([{ form: '5472', because: '', factKey: '' }], ['Form 5472']).length === 0,
   );
 
+  /* --------------------------------- the rest of the information-return grid */
+
+  const gridFor = (facts) => obligations.requiredForms('1040', facts).map((o) => o.form);
+
+  check('a foreign branch pulls in an 8858', gridFor({ foreign_branch: true }).includes('8858'));
+  check(
+    'a foreign partnership interest pulls in an 8865',
+    gridFor({ foreign_partnership: true }).includes('8865'),
+  );
+  check('a PFIC holding pulls in an 8621', gridFor({ pfic_holdings: true }).includes('8621'));
+  check(
+    'a PFIC holding also reaches the 8938 test, since a fund is a foreign asset',
+    gridFor({ pfic_holdings: true }).includes('8938'),
+  );
+  check('a foreign trust pulls in a 3520', gridFor({ foreign_trust: true }).includes('3520'));
+  check(
+    'and a grantor trust the 3520-A on top of it',
+    gridFor({ foreign_trust: true, foreign_grantor_trust: true }).includes('3520-A'),
+  );
+  check(
+    'a grantor-trust flag alone does not invent a trust',
+    !gridFor({ foreign_grantor_trust: true }).includes('3520-A'),
+  );
+  check(
+    'a transfer to a foreign corporation pulls in a 926',
+    gridFor({ transfer_to_foreign_corp: true }).includes('926'),
+  );
+  check('a treaty position pulls in an 8833', gridFor({ treaty_position: true }).includes('8833'));
+  check(
+    'related-party transactions with India pull in a 3CEB',
+    gridFor({ india_related_party: true }).includes('3CEB (India)'),
+  );
+  check(
+    'a CFC with related-party dealings pulls in Schedule M as well as the 5471',
+    gridFor({ foreign_subsidiary: true, india_related_party: true }).includes('5471 Schedule M'),
+  );
+  check(
+    'and a plain 5471 in the return does not satisfy Schedule M',
+    obligations.missingForms(
+      [{ form: '5471 Schedule M', because: '', factKey: '' }],
+      ['5471'],
+    ).length === 1,
+  );
+  check(
+    'the pro-forma 1120 is not satisfied by an ordinary 1120',
+    obligations.missingForms(
+      [{ form: 'Pro-forma 1120', because: '', factKey: '' }],
+      ['1120'],
+    ).length === 1,
+  );
+  check(
+    'a clean domestic return owes nothing at all',
+    gridFor({}).length === 0,
+    gridFor({}).join(', ') || 'none',
+  );
+  check(
+    'every fact the wizard asks about is a fact something reads',
+    obligations.FOREIGN_FACTS.every(
+      (fact) =>
+        obligations.FORM_RULES.some((rule) => rule.when({ [fact.key]: true }, '1040')) ||
+        fact.indiaSide,
+    ),
+  );
+
   /* ---------------------------------------------------------- verdict */
 
   const base = { requiredForms: [], presentForms: [], facts: {} };
@@ -368,6 +454,59 @@ try {
       facts: { india_link: true },
       findings: [{ id: '1', code: 'S3-010', stageKey: 'S3-INDIA', severity: null, status: 'closed', owner: null }],
     }).result === 'clear',
+  );
+
+  // Rule 4a, fact by fact. An India module that says something is not the same
+  // as one that answered for everything recorded on the US side.
+  const twoFacts = { india_link: true, foreign_accounts: true, pfic_holdings: true };
+  const oneAnswered = verdict.computeVerdict({
+    ...base,
+    facts: twoFacts,
+    findings: [
+      {
+        id: '1',
+        code: 'S3-010',
+        stageKey: 'S3-INDIA',
+        severity: null,
+        status: 'closed',
+        owner: null,
+        factKey: 'foreign_accounts',
+      },
+    ],
+  });
+  check(
+    'an India line for one fact does not answer for the other',
+    oneAnswered.result === 'hold' && oneAnswered.blockers.some((b) => /PFIC/.test(b)),
+    oneAnswered.blockers.join(' | '),
+  );
+  check(
+    'answering every recorded fact settles it',
+    verdict.computeVerdict({
+      ...base,
+      facts: twoFacts,
+      findings: [
+        { id: '1', code: 'S3-010', stageKey: 'S3-INDIA', severity: null, status: 'closed', owner: null, factKey: 'foreign_accounts' },
+        { id: '2', code: 'S3-011', stageKey: 'S3-INDIA', severity: null, status: 'closed', owner: null, factKey: 'pfic_holdings' },
+      ],
+    }).result === 'clear',
+  );
+  check(
+    'an India line with no fact key against it answers for nothing',
+    verdict.computeVerdict({
+      ...base,
+      facts: twoFacts,
+      findings: [
+        { id: '1', code: 'S3-010', stageKey: 'S3-INDIA', severity: null, status: 'closed', owner: null },
+      ],
+    }).blockers.length === 2,
+  );
+  check(
+    'the India expectations name what to look for on the Indian side',
+    india.indiaExpectations(twoFacts).every((f) => f.expectation.length > 20),
+  );
+  check(
+    'a US-only engagement is asked to mirror nothing',
+    india.indiaExpectations({}).length === 0,
   );
 
   const brokenTie = verdict.computeVerdict({

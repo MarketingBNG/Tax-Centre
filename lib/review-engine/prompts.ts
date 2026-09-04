@@ -3,6 +3,7 @@ import { REVIEW_CONFIDENCE_THRESHOLD } from '@/lib/config';
 import type { Part, Turn } from '@/lib/providers/types';
 import type { EngagementRow, StageKey } from '@/lib/review-types';
 import { referencesFor, stageDef } from './stage-defs';
+import { indiaExpectations } from './india';
 import { skillBody, skillReference } from './skills-source';
 
 /**
@@ -92,7 +93,7 @@ export interface StagePrompt {
 }
 
 /** Instructions specific to the stage, appended after the reference material. */
-function stageInstruction(stageKey: StageKey): string {
+function stageInstruction(stageKey: StageKey, facts: Record<string, unknown>): string {
   if (stageKey === 'S0') {
     return `## This stage: scope and identity
 
@@ -106,6 +107,26 @@ Confirm what is being reviewed before any content review starts.
 Call record_scope once with what you find. Record a finding for anything that disagrees with the engagement record. A wrong entity type or a wrong return type is a wrong_entity_type defect and stops the review here — say so plainly, because everything after it would be wasted work.
 
 Then record at least one line even if everything agrees: "agreed" with what you confirmed.`;
+  }
+
+  if (stageKey === 'S3-INDIA') {
+    // Named facts rather than a general instruction to consider India. The
+    // verdict will not settle until each of these keys has a line against it,
+    // so what the model is asked for and what the platform checks are the same
+    // list, not two descriptions of the same intention.
+    const expectations = indiaExpectations(facts)
+      .map((fact) => `- \`${fact.key}\` — ${fact.label}. ${fact.expectation}`)
+      .join('\n');
+
+    return `## This stage: India symmetry
+
+This is a review of the Indian side in its own right, not a note appended to the US findings. Each cross-border fact below needs its own line, recorded with that exact fact key in location.fact_key.
+
+${expectations || '- No specific cross-border fact is recorded beyond the Indian link itself. Say what you would need to know to review the Indian side, as a coverage line.'}
+
+For each fact: what is due in India, whether the return as prepared is consistent with it, and what to check. If nothing is due in India for a fact, record an "agreed" line saying so and why — that answers the fact. Silence does not answer it, and the register will not settle while any fact is unanswered.
+
+You are reviewing whether the two sides agree, not preparing the Indian filing. Where the documents given cannot tell you, record a coverage line naming exactly what you would need.`;
   }
 
   if (stageKey === 'S4') {
@@ -171,7 +192,7 @@ export async function buildStagePrompt(input: StagePromptInput): Promise<StagePr
     sections.push(`## Already on the register\n\n${input.priorSummary}\n\nDo not repeat these.`);
   }
 
-  sections.push(stageInstruction(stageKey));
+  sections.push(stageInstruction(stageKey, facts));
   turns.push({ role: 'user', parts: [{ kind: 'text', text: sections.join('\n\n') }] });
 
   return { system, turns };

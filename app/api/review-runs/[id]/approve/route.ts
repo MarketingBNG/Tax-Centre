@@ -8,7 +8,7 @@ import {
   listTieOuts,
   recordApproval,
 } from '@/lib/review-engine/store';
-import { computeVerdict, canApprove } from '@/lib/review-engine/verdict';
+import { computeVerdict, canApprove, verdictFindingsFrom } from '@/lib/review-engine/verdict';
 import { requiredForms } from '@/lib/review-engine/obligations';
 import type { Verdict } from '@/lib/review-types';
 
@@ -74,16 +74,7 @@ export async function POST(req: Request, ctx: Ctx) {
   const formsPresent = Array.isArray(facts.forms_present) ? facts.forms_present.map(String) : [];
 
   const verdict = computeVerdict({
-    findings: findings.map((f) => ({
-      id: f.id,
-      code: f.finding_code,
-      stageKey: f.stage_key,
-      severity: f.severity,
-      status: f.status,
-      owner: f.owner,
-      authorityStatus: f.authority_status,
-      title: f.title,
-    })),
+    findings: verdictFindingsFrom(findings),
     requiredForms: requiredForms(engagement?.return_type ?? null, facts),
     presentForms: formsPresent,
     facts,

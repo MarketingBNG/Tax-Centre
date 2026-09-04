@@ -1,7 +1,7 @@
 import 'server-only';
 import * as store from './store';
 import { requiredForms } from './obligations';
-import { computeVerdict } from './verdict';
+import { computeVerdict, verdictFindingsFrom } from './verdict';
 
 /**
  * The review document, in the shape references/output-schema.md specifies.
@@ -34,16 +34,7 @@ export async function buildRegister(runId: string): Promise<Record<string, unkno
   const required = requiredForms(engagement?.return_type ?? null, facts);
 
   const verdict = computeVerdict({
-    findings: findings.map((f) => ({
-      id: f.id,
-      code: f.finding_code,
-      stageKey: f.stage_key,
-      severity: f.severity,
-      status: f.status,
-      owner: f.owner,
-      authorityStatus: f.authority_status,
-      title: f.title,
-    })),
+    findings: verdictFindingsFrom(findings),
     requiredForms: required,
     presentForms: formsPresent,
     facts,

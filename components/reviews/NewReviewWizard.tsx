@@ -3,6 +3,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RETURN_TYPES, type DocRole, type ReturnType } from '@/lib/review-types';
+// obligations.ts is pure rules with no server imports, so the form that asks
+// for the facts and the grid that reads them share one list.
+import { FOREIGN_FACTS } from '@/lib/review-engine/obligations';
 
 /**
  * Setting up a review.
@@ -115,10 +118,11 @@ export function NewReviewWizard() {
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
   const [jurisdictions, setJurisdictions] = useState('US-FED');
-  const [indiaLink, setIndiaLink] = useState(false);
   const [foreignOwnerPct, setForeignOwnerPct] = useState('');
-  const [foreignAccounts, setForeignAccounts] = useState(false);
-  const [foreignSubsidiary, setForeignSubsidiary] = useState(false);
+  // One state entry per fact in the grid, rather than a variable per fact: the
+  // list of facts is owned by obligations.ts, so a form added there appears
+  // here to be asked about without anyone having to remember to add a checkbox.
+  const [crossBorder, setCrossBorder] = useState<Record<string, boolean>>({});
 
   const [attached, setAttached] = useState<Attached[]>([]);
   const [uploading, setUploading] = useState<DocRole | null>(null);
@@ -172,9 +176,7 @@ export function NewReviewWizard() {
           .split(/[,;\s]+/)
           .map((j) => j.trim().toUpperCase())
           .filter(Boolean),
-        india_link: indiaLink,
-        foreign_accounts: foreignAccounts,
-        foreign_subsidiary: foreignSubsidiary,
+        ...Object.fromEntries(FOREIGN_FACTS.map((f) => [f.key, crossBorder[f.key] === true])),
       };
       if (foreignOwnerPct.trim()) facts.foreign_owner_pct = Number(foreignOwnerPct);
 
@@ -298,22 +300,18 @@ export function NewReviewWizard() {
             Cross-border facts — each one turns on checks that are otherwise skipped.
           </div>
           <div className="flex flex-wrap gap-4 text-[13px]">
-            <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={indiaLink} onChange={(e) => setIndiaLink(e.target.checked)} />
-              Indian owner, affiliate, income or assets
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={foreignAccounts} onChange={(e) => setForeignAccounts(e.target.checked)} />
-              Foreign financial accounts
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                checked={foreignSubsidiary}
-                onChange={(e) => setForeignSubsidiary(e.target.checked)}
-              />
-              Owns a foreign corporation
-            </label>
+            {FOREIGN_FACTS.map((fact) => (
+              <label key={fact.key} className="flex items-center gap-1.5" title={fact.indiaExpectation}>
+                <input
+                  type="checkbox"
+                  checked={crossBorder[fact.key] === true}
+                  onChange={(e) =>
+                    setCrossBorder((prev) => ({ ...prev, [fact.key]: e.target.checked }))
+                  }
+                />
+                {fact.label}
+              </label>
+            ))}
             <label className="flex items-center gap-1.5">
               Foreign owner %
               <input

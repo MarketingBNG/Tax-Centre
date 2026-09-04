@@ -1,6 +1,16 @@
-import { OPEN_STATUSES, type FindingStatus, type Owner, type Severity, type StageKey, type Verdict } from '@/lib/review-types';
+import {
+  OPEN_STATUSES,
+  type FindingLocation,
+  type FindingStatus,
+  type Owner,
+  type RunFindingRow,
+  type Severity,
+  type StageKey,
+  type Verdict,
+} from '@/lib/review-types';
 import type { Obligation } from './obligations';
 import { missingForms } from './obligations';
+import { unmirroredFacts } from './india';
 
 /**
  * The verdict, computed from the register.
@@ -25,6 +35,8 @@ export interface VerdictFinding {
   severity: Severity | null;
   status: FindingStatus;
   owner: Owner | null;
+  /** The cross-border fact an India-module line answers for. */
+  factKey?: string | null;
   /** Set where the finding rests on authority nobody verified. */
   authorityStatus?: string;
   title?: string;
@@ -52,6 +64,38 @@ export interface VerdictResult {
 }
 
 const isOpen = (status: FindingStatus): boolean => OPEN_STATUSES.includes(status);
+
+/**
+ * Register rows as the verdict wants them.
+ *
+ * One conversion, used everywhere the verdict is computed. It was duplicated at
+ * four call sites, which is three chances to add a field to the rule and forget
+ * to feed it — and a verdict rule that silently receives undefined does not
+ * fail, it just stops applying.
+ */
+export function verdictFindingsFrom(rows: RunFindingRow[]): VerdictFinding[] {
+  return rows.map((f) => {
+    let factKey: string | null = null;
+    if (f.location_json) {
+      try {
+        factKey = (JSON.parse(f.location_json) as FindingLocation).fact_key ?? null;
+      } catch {
+        factKey = null;
+      }
+    }
+    return {
+      id: f.id,
+      code: f.finding_code,
+      stageKey: f.stage_key,
+      severity: f.severity,
+      status: f.status,
+      owner: f.owner,
+      factKey,
+      authorityStatus: f.authority_status,
+      title: f.title,
+    };
+  });
+}
 
 export function computeVerdict(input: VerdictInput): VerdictResult {
   const { findings, facts } = input;
@@ -92,12 +136,25 @@ export function computeVerdict(input: VerdictInput): VerdictResult {
   // Rule 4a — where there is an Indian link, the register must actually contain
   // an India-side line. A US verdict cannot close an open India item, and
   // silence about it is not the same as having checked.
+  //
+  // Checked fact by fact, not once for the module. "The India module said
+  // something" is a weaker statement than "every cross-border fact was
+  // mirrored", and the second is the one the firm's differentiator rests on:
+  // it is the fact nobody looked at that produces the missed Indian filing.
   const indiaLink = facts.india_link === true;
-  const hasIndiaLine = findings.some((f) => f.stageKey === 'S3-INDIA');
-  if (indiaLink && !hasIndiaLine) {
+  const indiaLines = findings.filter((f) => f.stageKey === 'S3-INDIA');
+  if (indiaLink && !indiaLines.length) {
     blockers.push(
       'This engagement has an Indian link but the register carries no India-symmetry line. ' +
         'The India module must run and record at least one entry, even if that entry is "agreed".',
+    );
+  }
+
+  const unmirrored = unmirroredFacts(facts, indiaLines);
+  for (const fact of unmirrored) {
+    blockers.push(
+      `No India-side line for "${fact.label}" — the fact is recorded on the US side and the ` +
+        'India module did not answer for it.',
     );
   }
 
@@ -112,7 +169,11 @@ export function computeVerdict(input: VerdictInput): VerdictResult {
   }
 
   const holdReasons =
-    criticalOpen > 0 || absent.length > 0 || failed.length > 0 || (indiaLink && !hasIndiaLine);
+    criticalOpen > 0 ||
+    absent.length > 0 ||
+    failed.length > 0 ||
+    (indiaLink && !indiaLines.length) ||
+    unmirrored.length > 0;
 
   const result: Verdict = holdReasons
     ? 'hold'
