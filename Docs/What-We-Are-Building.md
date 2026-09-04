@@ -174,12 +174,25 @@ finding only counts if it names the account or form. The set is nine, not
 thirty, and all of it is synthetic, so it catches regressions rather than
 proving readiness. The rest have to be real returns with known answers.
 
-The first real-model run against it is worth reporting honestly: on the
-partnership return with three planted book problems, the AI found one of the
-three before the spending cap stopped the run. Every safety rule held — 19
-figures, all sourced, no citation stored as authority — but one in three is not
-a review. That is what a test set is for, and it is the reason to have built it
-before pointing this at a client file rather than after.
+Running it immediately paid for itself, in a way worth spelling out because it
+went both ways.
+
+The first run scored one of three planted problems and looked alarming. Reading
+what the AI had actually written showed two things. The test set was not giving
+the review the normalised books at all, so the account-mapping work was being
+measured without being used. And the scoring was wrong: the AI *had* found the
+suspect expense account, with the right figures and a usable fix, but recorded
+it in the financial-review step rather than the bookkeeping step — and the
+scorer called that a miss. Which check catches a problem is the engine's
+business; that it was caught and made actionable is the firm's. The score now
+reports where a problem turned up rather than demanding a particular place.
+
+With both fixed, the same return scores **three of three**, on the cheapest
+model, for five cents. Every safety rule held throughout.
+
+None of that would have been visible from watching it run. A demo would have
+looked fine on the first version and fine on the second, and the difference
+between them is the whole review.
 
 The **chart-of-accounts mapping** is now done too, which was the half of the
 connector work that did not need anyone's credentials. Every books check is

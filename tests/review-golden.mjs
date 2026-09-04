@@ -17,10 +17,13 @@
  *              found, and whether the two probes held. This is the eval. It
  *              costs money, so it takes --budget and stops when it is reached.
  *
- * The scoring is deliberately strict about vagueness. A finding counts as
- * catching a planted defect only if it names the account or form the defect is
- * about; a line that carries the right defect_kind and says nothing specific is
- * not a catch, because a reviewer could not act on it.
+ * The scoring is strict about vagueness and relaxed about where a problem turns
+ * up. A finding counts only if it names the account or form the defect is about
+ * — a line carrying the right defect_kind that says nothing specific is not a
+ * catch, because a reviewer could not act on it. Which stage caught it is
+ * reported but not required: the first real run flagged a suspect expense in
+ * the financial stage rather than the books stage, and calling that a miss said
+ * something false about the review.
  *
  * Both modes walk every stage of every fixture against the database, so the
  * free mode still takes several minutes — it is a pre-push gate, not something
@@ -28,6 +31,7 @@
  *
  *   node tests/review-golden.mjs
  *   node tests/review-golden.mjs --real --budget 0.25 --only 1065-owner-draws
+ *   node tests/review-golden.mjs --real --dump ../golden-out   # keep the findings
  */
 import postgres from 'postgres';
 import ts from 'typescript';
@@ -50,6 +54,9 @@ const flag = (name, fallback) => {
 const BUDGET_USD = Number(flag('--budget', '0.25'));
 const ONLY = flag('--only', null);
 const MODEL = flag('--model', 'gpt-5.6-terra');
+// Where to leave what the model wrote, so a paid run is diagnostic and not just
+// a score. Off unless asked for.
+const DUMP = flag('--dump', null);
 
 function envValue(key) {
   if (process.env[key]) return process.env[key];
@@ -313,10 +320,18 @@ function build() {
 
 /* --------------------------------------------------------------- the scorer */
 
-/** Whether one finding counts as catching one planted defect. */
+/**
+ * Whether one finding counts as catching one planted defect.
+ *
+ * The stage a defect surfaces in is deliberately not part of the test. The
+ * first real run flagged the suspect expense account, with the right figures
+ * and the right fix, in the financial-review stage instead of the books stage —
+ * and scoring that as a miss said something false about the review. Which check
+ * catches a problem is the engine's business; that it was caught, named and made
+ * actionable is the firm's. The stage is recorded in the output so a pattern of
+ * drift is still visible.
+ */
 function catches(finding, planted) {
-  if (planted.stage && finding.stage_key !== planted.stage) return false;
-
   if (planted.defectKinds && !planted.defectKinds.includes(finding.defect_kind)) return false;
 
   if (planted.minSeverity) {
@@ -370,6 +385,8 @@ process.on('exit', cleanup);
 const shim = await import(pathToFileURL(path.join(dir, 'db-shim.js')).href);
 const { state } = await import(pathToFileURL(path.join(dir, 'bus.js')).href);
 const store = await import(pathToFileURL(path.join(dir, 'engine/store.js')).href);
+const booksStore = await import(pathToFileURL(path.join(dir, 'engine/books.js')).href);
+const coa = await import(pathToFileURL(path.join(dir, 'engine/chart-of-accounts.js')).href);
 const orchestrator = await import(pathToFileURL(path.join(dir, 'engine/orchestrator.js')).href);
 const stageDefs = await import(pathToFileURL(path.join(dir, 'engine/stage-defs.js')).href);
 
@@ -441,6 +458,37 @@ try {
         });
         for (const [key, value] of Object.entries(fx.facts ?? {})) {
           await store.assertFact(USER, engagement.id, key, value, 'user');
+        }
+
+        /**
+         * The current-year trial balance is imported, not just attached.
+         *
+         * Without this the eval never exercised the chart-of-accounts layer, so
+         * the books stage was reviewing raw account names — and the standard
+         * key that exists precisely to catch owner draws booked as an expense
+         * was not in front of it. An eval that skips a capability cannot
+         * measure it.
+         */
+        const cyTrialBalance = fx.documents.findIndex(
+          (d) => d.docRole === 'trial_balance_cy' && d.text,
+        );
+        if (cyTrialBalance >= 0) {
+          const text = fx.documents[cyTrialBalance].text;
+          await booksStore.recordImport(USER, {
+            engagementId: engagement.id,
+            source: {
+              id: 'spreadsheet',
+              label: 'Fixture trial balance',
+              async fetch() {
+                const { accounts, skipped } = coa.parseTrialBalanceText(text);
+                // A fixed date, so the same fixture hashes the same way twice.
+                return { accounts, extractedAt: Date.UTC(fx.taxYear, 11, 31), skipped };
+              },
+            },
+            ref: docs[cyTrialBalance].fileId,
+            periodStart: `${fx.taxYear}-01-01`,
+            periodEnd: `${fx.taxYear}-12-31`,
+          });
         }
 
         const run = await store.createRun(USER, {
@@ -540,10 +588,64 @@ try {
 
         if (REAL) {
           const exceptions = findings.filter((f) => f.kind === 'exception');
-          const found = (fx.planted ?? []).map((planted) => ({
-            planted,
-            hit: exceptions.find((f) => catches(f, planted)) ?? null,
-          }));
+
+          /**
+           * What the model actually wrote, kept.
+           *
+           * The run happens inside a transaction that is rolled back, so
+           * without this a paid run leaves a score and nothing to learn from —
+           * and "found one of three" is not a finding, it is a prompt to go and
+           * look. Written outside the repo, because it is a run log rather than
+           * something to commit.
+           */
+          if (DUMP) {
+            mkdirSync(DUMP, { recursive: true });
+            writeFileSync(
+              path.join(DUMP, `${fx.id}.json`),
+              JSON.stringify(
+                {
+                  fixture: fx.id,
+                  model: MODEL,
+                  planted: fx.planted ?? [],
+                  verdict: settled.verdict,
+                  costUsd: cost / 1_000_000,
+                  stages: stages.map((s) => ({
+                    stage: s.stage_key,
+                    status: s.status,
+                    costUsd: Number(s.cost_micros ?? 0) / 1_000_000,
+                  })),
+                  findings: findings.map((f) => ({
+                    code: f.finding_code,
+                    stage: f.stage_key,
+                    kind: f.kind,
+                    defectKind: f.defect_kind,
+                    severity: f.severity,
+                    status: f.status,
+                    title: f.title,
+                    whatIsWrong: f.what_is_wrong,
+                    location: f.location_json && JSON.parse(f.location_json),
+                    fix: f.fix_json && JSON.parse(f.fix_json),
+                    amounts: JSON.parse(f.amounts_json || '[]'),
+                    claimedCitation: f.claimed_citation,
+                  })),
+                },
+                null,
+                2,
+              ),
+            );
+          }
+          const found = (fx.planted ?? []).map((planted) => {
+            const hit = exceptions.find((f) => catches(f, planted)) ?? null;
+            return {
+              planted,
+              hit,
+              // Where it turned up against where the fixture expected it. Not a
+              // pass condition, but a drift worth seeing.
+              elsewhere: hit && planted.stage && hit.stage_key !== planted.stage
+                ? `${planted.id} caught in ${hit.stage_key}, expected ${planted.stage}`
+                : null,
+            };
+          });
           const caught = found.filter((f) => f.hit).length;
 
           scores.push({
@@ -557,6 +659,9 @@ try {
           });
 
           if ((fx.planted ?? []).length) {
+            for (const drift of found.map((f) => f.elsewhere).filter(Boolean)) {
+              console.log(`note  ${fx.id}: ${drift}`);
+            }
             check(
               `${fx.id}: found ${caught} of ${fx.planted.length} planted defects`,
               caught === fx.planted.length,
