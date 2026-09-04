@@ -84,6 +84,12 @@ export default async function EngagementPage({ params }: Ctx) {
           >
             The books
           </Link>
+          <Link
+            href={`/reviews/${engagementId}/history`}
+            className="rounded-[9px] border border-line px-3 py-1.5 text-[13px] text-ink-dim no-underline hover:border-accent hover:text-accent"
+          >
+            Year on year
+          </Link>
         </div>
       </header>
 

@@ -1048,6 +1048,114 @@ try {
       questions: { before: 3, answeredInBefore: 1, stillOpenInAfter: 2 },
     }).questionsIgnored === 2,
   );
+
+  /* ------------------------------------------- this year against the last */
+
+  const recurrence = await load('recurrence.js');
+
+  const finding = (over = {}) => ({
+    id: 'f1',
+    code: 'S1-001',
+    stageKey: 'S1',
+    category: 'bookkeeping',
+    severity: 'High',
+    status: 'open',
+    title: 'Owner draws booked as an expense',
+    lineageKey: 'k1',
+    where: '6300 Consulting',
+    ...over,
+  });
+  const year = (taxYear, findings, over = {}) => ({
+    taxYear,
+    engagementId: `e${taxYear}`,
+    runId: `r${taxYear}`,
+    runNumber: 1,
+    findings,
+    ...over,
+  });
+
+  const across = recurrence.recurringFindings([
+    year(2025, [finding({ id: 'a', status: 'open' })]),
+    year(2024, [finding({ id: 'b', status: 'closed' })]),
+    year(2023, [finding({ id: 'c', status: 'closed' })]),
+  ]);
+  check(
+    'the same problem in three years is one row with three appearances',
+    across.length === 1 && across[0].yearsSeen === 3,
+    JSON.stringify(across.map((i) => [i.title, i.yearsSeen])),
+  );
+  check(
+    'the appearances read oldest first, so the row is a history',
+    across[0]?.appearances.map((a) => a.taxYear).join(',') === '2023,2024,2025',
+    across[0]?.appearances.map((a) => a.taxYear).join(','),
+  );
+  check(
+    'settled once and raised again afterwards is called out as a fix that did not hold',
+    across[0]?.cameBack === true,
+  );
+  check(
+    'a problem raised in one year only is not a recurrence',
+    recurrence.recurringFindings([
+      year(2025, [finding({ id: 'a' })]),
+      year(2024, [finding({ id: 'b', lineageKey: 'other' })]),
+    ]).length === 0,
+  );
+  check(
+    // Recurrence is context, not a grade. Anything that quietly promoted a
+    // severity here would take grading out of the fixed rules, which is the
+    // one thing the whole scheme exists to prevent.
+    'recurrence reports the severities as they were recorded and invents none',
+    recurrence
+      .recurringFindings([
+        year(2025, [finding({ id: 'a', severity: 'Medium' })]),
+        year(2024, [finding({ id: 'b', severity: 'Medium' })]),
+      ])[0]
+      .appearances.every((a) => a.severity === 'Medium'),
+  );
+  check(
+    'a finding with no lineage key is left out rather than matched by wording',
+    recurrence.recurringFindings([
+      year(2025, [finding({ id: 'a', lineageKey: null })]),
+      year(2024, [finding({ id: 'b', lineageKey: null })]),
+    ]).length === 0,
+  );
+  check(
+    'two engagements for one client and one tax year count as one year, not a recurrence',
+    recurrence.recurringFindings([
+      year(2025, [finding({ id: 'a' })]),
+      { ...year(2025, [finding({ id: 'b' })]), engagementId: 'e2025b' },
+    ]).length === 0,
+  );
+  check(
+    'a still-open recurrence is marked live',
+    across[0]?.openNow === true,
+  );
+  check(
+    'more years beats a worse severity in the ordering',
+    recurrence
+      .recurringFindings([
+        year(2025, [finding({ id: 'a' }), finding({ id: 'x', lineageKey: 'k2', severity: 'Critical' })]),
+        year(2024, [finding({ id: 'b' }), finding({ id: 'y', lineageKey: 'k2', severity: 'Critical' })]),
+        year(2023, [finding({ id: 'c' })]),
+      ])
+      .map((i) => i.lineageKey)
+      .join(',') === 'k1,k2',
+  );
+  check(
+    'one reviewed year says so rather than reporting a clean history',
+    /nothing to compare/i.test(recurrence.recurrenceSummary([], 1)),
+    recurrence.recurrenceSummary([], 1),
+  );
+  check(
+    'a clean comparison names how many years it read',
+    /2 earlier years/.test(recurrence.recurrenceSummary([], 3)),
+    recurrence.recurrenceSummary([], 3),
+  );
+  check(
+    'the summary reads the pattern as a process rather than counting mistakes',
+    /process/i.test(recurrence.recurrenceSummary(across, 3)),
+    recurrence.recurrenceSummary(across, 3),
+  );
 } catch (err) {
   failures.push(`threw: ${err.message}`);
   console.error('\n' + (err.stack ?? err.message));

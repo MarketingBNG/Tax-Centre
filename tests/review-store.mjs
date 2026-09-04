@@ -732,6 +732,79 @@ try {
         /preparer/i.test(block),
       );
 
+      /* --------------------------------------- earlier years, same client */
+
+      const priorYear = await store.createEngagement(USER, {
+        clientLabel: 'Acme Holdings',
+        entityName: 'Acme Holdings LLC',
+        ein: '[EIN-a3f2]',
+        returnType: '1065',
+        taxYear: 2024,
+      });
+      // Same label, different client. The label is free text a colleague will
+      // spell their own way, so it must not be what joins years together when
+      // there is an EIN to join on.
+      await store.createEngagement(USER, {
+        clientLabel: 'Acme Holdings',
+        ein: '[EIN-9999]',
+        returnType: '1065',
+        taxYear: 2024,
+      });
+
+      const priors = await store.priorYearEngagements(eng);
+      check(
+        'an earlier year for the same EIN is found',
+        priors.length === 1 && priors[0].id === priorYear.id,
+        priors.map((p) => `${p.tax_year} ${p.ein}`).join(', '),
+      );
+      check(
+        'a later year is not offered as history for an earlier one',
+        (await store.priorYearEngagements(priorYear)).length === 0,
+      );
+
+      const noEinThis = await store.createEngagement(USER, {
+        clientLabel: 'Bharat Textiles',
+        returnType: '1120',
+        taxYear: 2025,
+      });
+      const noEinPrior = await store.createEngagement(USER, {
+        clientLabel: 'Bharat Textiles',
+        returnType: '1120',
+        taxYear: 2024,
+      });
+      await store.createEngagement(USER, {
+        clientLabel: 'Bharat Textiles Pvt Ltd',
+        returnType: '1120',
+        taxYear: 2024,
+      });
+      const byLabel = await store.priorYearEngagements(noEinThis);
+      check(
+        'with no EIN it falls back to the exact label',
+        byLabel.length === 1 && byLabel[0].id === noEinPrior.id,
+        byLabel.map((p) => p.client_label).join(', '),
+      );
+
+      // A run that never got past the input gate recorded nothing, and must not
+      // present itself as a year that was reviewed and found clean.
+      const priorRun = await store.createRun(USER, {
+        engagementId: priorYear.id,
+        runNumber: await store.nextRunNumber(priorYear.id),
+        status: 'blocked_inputs',
+        promptVersion: 'trr-1.0',
+        model: 'gpt-5.6-terra',
+        corpusHash: 'hash-prior',
+        factsSnapshot: {},
+      });
+      check(
+        'a run blocked on its inputs is not a year that can be compared',
+        (await store.latestReviewedRun(priorYear.id)) === null,
+      );
+      await store.setRunStatus(priorRun.id, 'complete');
+      check(
+        'a finished run is',
+        (await store.latestReviewedRun(priorYear.id))?.id === priorRun.id,
+      );
+
       throw new Error('__rollback__');
     })
     .catch((err) => {

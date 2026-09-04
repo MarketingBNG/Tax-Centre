@@ -397,6 +397,48 @@ export const latestRun = (engagementId: string) =>
     engagementId,
   );
 
+/**
+ * The most recent run with a register worth comparing.
+ *
+ * `complete` and `halted` both qualify: a run that stopped at a Stage 0
+ * Critical still recorded why, and a run that never got past the input gate
+ * recorded nothing. Excluding the latter keeps an abandoned setup from
+ * presenting itself as a year that was reviewed and found clean.
+ */
+export const latestReviewedRun = (engagementId: string) =>
+  one<ReviewRunRow>(
+    `SELECT * FROM review_runs
+      WHERE engagement_id = ? AND status IN ('complete','halted')
+      ORDER BY run_number DESC LIMIT 1`,
+    engagementId,
+  );
+
+/**
+ * Earlier tax years for the same client.
+ *
+ * The EIN identifies the client where there is one, because the client label is
+ * free text a colleague will spell differently next January. Where there is no
+ * EIN it falls back to the label, matched exactly — a fuzzy match here would
+ * silently compare two different clients across years, which is worse than
+ * finding no history at all.
+ */
+export const priorYearEngagements = (engagement: EngagementRow, limit = 4) =>
+  engagement.tax_year === null
+    ? Promise.resolve([] as EngagementRow[])
+    : all<EngagementRow>(
+        `SELECT * FROM engagements
+          WHERE id <> ?
+            AND tax_year IS NOT NULL
+            AND tax_year < ?
+            AND ${engagement.ein ? 'ein = ?' : 'ein IS NULL AND client_label = ?'}
+          ORDER BY tax_year DESC
+          LIMIT ?`,
+        engagement.id,
+        engagement.tax_year,
+        engagement.ein ?? engagement.client_label,
+        limit,
+      );
+
 export async function setRunStatus(
   runId: string,
   status: RunStatus,
