@@ -276,6 +276,10 @@ export function RunView({ runId }: { runId: string }) {
           runId={runId}
           documents={detail.documents}
           onClose={() => setOpenFinding(null)}
+          onChanged={() => {
+            setOpenFinding(null);
+            void load();
+          }}
         />
       )}
     </div>

@@ -103,10 +103,48 @@ export interface AmountCheck {
    * the reading was.
    */
   confidenceCap: number;
+  /**
+   * Accepted figures the platform could not verify, which a person has to.
+   *
+   * Item 8 of the brief asks for a confidence score per extracted field with
+   * anything below the threshold routed to manual entry rather than guessed.
+   * The score here is per figure and comes from how the figure was obtained,
+   * which is the only thing about it that is actually knowable — a page-image
+   * read carries no measurable certainty, so claiming a computed one for it
+   * would be inventing precision.
+   */
+  needsConfirmation: FindingAmount[];
 }
 
 /** The most a page-image read may claim. Mirrors return-data.ts. */
 export const VISUAL_CAP = 0.6;
+
+/** Below this, a figure is queued for a person instead of relied on. */
+export const FIGURE_CONFIRM_BELOW = 0.7;
+
+/** What each way of obtaining a figure is worth. */
+export const SOURCE_CONFIDENCE: Record<AmountSourceKind, number> = {
+  // Produced by the sandbox from figures already sourced, and matched exactly
+  // against what it printed.
+  calc: 1,
+  // Quoted from a document whose text was extracted, and matched against it.
+  // Not 1: extraction itself can mis-associate a figure with a label.
+  text_doc: 0.95,
+  // Read off a page by eye. Nothing checks it.
+  visual: VISUAL_CAP,
+};
+
+/** Stamps a figure with what its source is worth, and queues it if that is not enough. */
+function scored(amount: FindingAmount): FindingAmount {
+  const confidence = SOURCE_CONFIDENCE[amount.source_kind];
+  return {
+    ...amount,
+    confidence,
+    needs_confirmation: confidence < FIGURE_CONFIRM_BELOW,
+    confirmed_by: null,
+    confirmed_at: null,
+  };
+}
 
 /**
  * Checks a finding's amounts against what the run actually saw.
@@ -163,7 +201,7 @@ export function checkAmounts(
         });
         continue;
       }
-      accepted.push({ label, value, source_kind: 'calc', source_ref: sourceRef, verified: true });
+      accepted.push(scored({ label, value, source_kind: 'calc', source_ref: sourceRef, verified: true }));
       continue;
     }
 
@@ -189,7 +227,7 @@ export function checkAmounts(
         });
         continue;
       }
-      accepted.push({ label, value, source_kind: 'text_doc', source_ref: sourceRef, verified: true });
+      accepted.push(scored({ label, value, source_kind: 'text_doc', source_ref: sourceRef, verified: true }));
       continue;
     }
 
@@ -197,7 +235,7 @@ export function checkAmounts(
       // Accepted, and honestly labelled. Nothing here proves the figure — a
       // structured Drake export is what would, which is why that parser is the
       // highest-value thing still unbuilt.
-      accepted.push({ label, value, source_kind: 'visual', source_ref: sourceRef, verified: false });
+      accepted.push(scored({ label, value, source_kind: 'visual', source_ref: sourceRef, verified: false }));
       cap = Math.min(cap, VISUAL_CAP);
       continue;
     }
@@ -211,5 +249,10 @@ export function checkAmounts(
     });
   }
 
-  return { accepted, problems, confidenceCap: cap };
+  return {
+    accepted,
+    problems,
+    confidenceCap: cap,
+    needsConfirmation: accepted.filter((a) => a.needs_confirmation),
+  };
 }

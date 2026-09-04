@@ -35,16 +35,34 @@ export function FindingDetail({
   runId,
   documents,
   onClose,
+  onChanged,
 }: {
   finding: FindingView;
   runId: string;
   /** Filenames by file id, so evidence can be named and opened. */
   documents: { fileId: string; filename: string }[];
   onClose: () => void;
+  /** Called after a figure is confirmed, so the register above reloads. */
+  onChanged?: () => void;
 }) {
   const [viewing, setViewing] = useState<{ fileId: string; title: string; page: number | null } | null>(
     null,
   );
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  async function confirm(label: string) {
+    setConfirming(label);
+    try {
+      const res = await fetch(`/api/review-runs/${runId}/findings/${finding.id}/confirm-amount`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label }),
+      });
+      if (res.ok) onChanged?.();
+    } finally {
+      setConfirming(null);
+    }
+  }
 
   const nameOf = (fileId: string) =>
     documents.find((d) => d.fileId === fileId)?.filename ?? 'document';
@@ -159,10 +177,32 @@ export function FindingDetail({
                           </span>
                         )}
                       </td>
+                      <td className="py-1.5 pl-2 text-right">
+                        {amount.needs_confirmation ? (
+                          <button
+                            onClick={() => confirm(amount.label)}
+                            disabled={confirming === amount.label}
+                            className="rounded-[7px] border border-line px-2 py-0.5 text-[11px] text-ink-dim hover:border-line-strong hover:text-ink disabled:opacity-50"
+                            title="Record that you have checked this figure against the page. Your name is stored against it."
+                          >
+                            {confirming === amount.label ? 'saving…' : 'I checked this'}
+                          </button>
+                        ) : amount.confirmed_by ? (
+                          <span className="text-[11px] text-ink-faint" title="Confirmed by a reviewer">
+                            confirmed
+                          </span>
+                        ) : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {finding.amounts.some((a) => a.needs_confirmation) && (
+                <p className="mt-1.5 text-[11.5px] text-ink-faint">
+                  Figures read off a page image cannot be checked by anything here. Open the page,
+                  confirm the figure, and your name is recorded against it.
+                </p>
+              )}
             </section>
           )}
 

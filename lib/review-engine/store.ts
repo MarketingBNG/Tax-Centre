@@ -748,6 +748,71 @@ export async function clearStageOutput(runId: string, stageKey: StageKey): Promi
   await exec(`DELETE FROM run_calcs   WHERE run_id = ? AND stage_key = ?`, runId, stageKey);
 }
 
+/**
+ * Records that a named person checked an unverifiable figure against its source.
+ *
+ * The figure keeps its source_kind — it was still read off a page, and pretending
+ * otherwise would lose the reason it needed confirming. What changes is that
+ * somebody is now on the record as having looked, which is the only thing that
+ * can substitute for a check the platform cannot perform.
+ *
+ * A finding escalated solely because of unconfirmed figures returns to open once
+ * the last of them is confirmed. One escalated for low model confidence stays
+ * escalated: that was never about the figures.
+ */
+export async function confirmAmount(
+  actorId: string,
+  findingId: string,
+  label: string,
+): Promise<RunFindingRow | null> {
+  const finding = await one<RunFindingRow>(`SELECT * FROM run_findings WHERE id = ?`, findingId);
+  if (!finding) return null;
+
+  let amounts: FindingAmount[];
+  try {
+    amounts = JSON.parse(finding.amounts_json || '[]') as FindingAmount[];
+  } catch {
+    return null;
+  }
+
+  const target = amounts.find((a) => a.label === label && a.needs_confirmation);
+  if (!target) return finding;
+
+  target.needs_confirmation = false;
+  target.confirmed_by = actorId;
+  target.confirmed_at = now();
+
+  const stillWaiting = amounts.some((a) => a.needs_confirmation);
+  const wasFigureEscalation =
+    finding.status === 'escalated' && (finding.status_note ?? '').includes('page image');
+
+  const rows = await all<RunFindingRow>(
+    `WITH bumped AS (
+       UPDATE review_runs SET register_version = register_version + 1 WHERE id = ?
+     )
+     UPDATE run_findings
+        SET amounts_json = ?, status = ?, status_note = ?, updated_at = ?
+      WHERE id = ?
+      RETURNING *`,
+    finding.run_id,
+    JSON.stringify(amounts),
+    !stillWaiting && wasFigureEscalation ? 'open' : finding.status,
+    !stillWaiting && wasFigureEscalation
+      ? 'Figures confirmed against the source by a named reviewer.'
+      : finding.status_note,
+    now(),
+    findingId,
+  );
+
+  await audit(actorId, 'review.amount_confirmed', 'run_finding', findingId, {
+    runId: finding.run_id,
+    code: finding.finding_code,
+    label,
+    value: target.value,
+  });
+  return rows[0] ?? null;
+}
+
 /* -------------------------------------------------------------- tie-outs */
 
 export async function insertTieOuts(

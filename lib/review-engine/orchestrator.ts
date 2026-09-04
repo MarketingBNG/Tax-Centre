@@ -2,7 +2,7 @@ import 'server-only';
 import { REVIEW_COST_CEILING_USD } from '@/lib/config';
 import * as store from './store';
 import { runStage, type StageEvent } from './stage-runner';
-import { computeVerdict, verdictFindingsFrom } from './verdict';
+import { computeVerdict, verdictFindingsFrom, type VerdictResult } from './verdict';
 import { requiredForms } from './obligations';
 import { stageDef } from './stage-defs';
 import type { StageKey } from '@/lib/review-types';
@@ -266,6 +266,39 @@ export async function advanceRun(input: {
     runFinished: !remaining,
     runStatus: remaining ? 'running' : 'complete',
   };
+}
+
+/**
+ * Recomputes and stores the verdict from the register as it now stands.
+ *
+ * Called after anything that moves a finding, so the banner never lags behind
+ * the register it describes — and so a standing approval lapses the moment the
+ * thing it was given for changes. Does not touch the run's status: the run is
+ * over, only the register moved.
+ */
+export async function resettleVerdict(runId: string): Promise<VerdictResult | null> {
+  const run = await store.getRun(runId);
+  if (!run) return null;
+
+  const [findings, tieOuts, engagement] = await Promise.all([
+    store.listFindings(runId),
+    store.listTieOuts(runId),
+    store.getEngagement(run.engagement_id),
+  ]);
+  const facts = await store.currentFacts(run.engagement_id);
+
+  const verdict = computeVerdict({
+    findings: verdictFindingsFrom(findings),
+    requiredForms: requiredForms(engagement?.return_type ?? null, facts),
+    presentForms: Array.isArray(facts.forms_present) ? facts.forms_present.map(String) : [],
+    facts,
+    failedTieOuts: tieOuts
+      .filter((t) => !t.agrees)
+      .map((t) => ({ name: t.name, findingId: t.finding_id })),
+  });
+
+  await store.setVerdict(runId, verdict.result, verdict);
+  return verdict;
 }
 
 /**

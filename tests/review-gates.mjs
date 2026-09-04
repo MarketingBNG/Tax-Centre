@@ -238,6 +238,41 @@ try {
     `cap ${visual.confidenceCap}`,
   );
 
+  /* ------------------------- confidence per figure, and the manual queue */
+
+  check(
+    'a page-image figure is queued for a person to confirm',
+    visual.needsConfirmation.length === 1 &&
+      visual.accepted[0].needs_confirmation === true &&
+      visual.accepted[0].confidence === amounts.VISUAL_CAP,
+  );
+  check(
+    'and starts out confirmed by nobody',
+    visual.accepted[0].confirmed_by === null && visual.accepted[0].confirmed_at === null,
+  );
+
+  const verified = amounts.checkAmounts(
+    [
+      { label: 'per_bank_rec', value: 41930, source_kind: 'text_doc', source_ref: 'bank-dec.xlsx' },
+      { label: 'total', value: 96410.5, source_kind: 'calc', source_ref: 'c1' },
+    ],
+    index,
+  );
+  check(
+    'a computed figure is certain and a quoted one nearly so',
+    verified.accepted[1].confidence === 1 && verified.accepted[0].confidence === 0.95,
+    verified.accepted.map((a) => `${a.label}:${a.confidence}`).join(' '),
+  );
+  check(
+    'neither of those needs a person',
+    verified.needsConfirmation.length === 0,
+  );
+  check(
+    'the confirmation threshold sits above what a page read is worth, or nothing would queue',
+    amounts.FIGURE_CONFIRM_BELOW > amounts.VISUAL_CAP &&
+      amounts.FIGURE_CONFIRM_BELOW <= amounts.SOURCE_CONFIDENCE.text_doc,
+  );
+
   /* ============================================ the authority gate (Rule 2) */
 
   config.setCorpus(false);

@@ -3,18 +3,12 @@ import {
   getFinding,
   getQuestion,
   getRun,
-  listFindings,
-  listTieOuts,
   recordAnswer,
   registerVersion,
   updateFindingStatus,
-  getEngagement,
-  currentFacts,
-  setVerdict,
 } from '@/lib/review-engine/store';
 import { outcomeOfAnswer } from '@/lib/review-engine/questions';
-import { computeVerdict, verdictFindingsFrom } from '@/lib/review-engine/verdict';
-import { requiredForms } from '@/lib/review-engine/obligations';
+import { resettleVerdict } from '@/lib/review-engine/orchestrator';
 
 type Ctx = { params: Promise<{ id: string; questionId: string }> };
 
@@ -73,26 +67,9 @@ export async function POST(req: Request, ctx: Ctx) {
     }
   }
 
-  // The verdict is recomputed from the register on every status change, so the
-  // banner cannot lag behind the finding that moved.
-  const [findings, tieOuts, engagement] = await Promise.all([
-    listFindings(id),
-    listTieOuts(id),
-    getEngagement(run.engagement_id),
-  ]);
-  const facts = await currentFacts(run.engagement_id);
-  const formsPresent = Array.isArray(facts.forms_present) ? facts.forms_present.map(String) : [];
-
-  const verdict = computeVerdict({
-    findings: verdictFindingsFrom(findings),
-    requiredForms: requiredForms(engagement?.return_type ?? null, facts),
-    presentForms: formsPresent,
-    facts,
-    failedTieOuts: tieOuts
-      .filter((t) => !t.agrees)
-      .map((t) => ({ name: t.name, findingId: t.finding_id })),
-  });
-  await setVerdict(id, verdict.result, verdict);
+  // Recomputed from the register on every status change, so the banner cannot
+  // lag behind the finding that moved.
+  const verdict = await resettleVerdict(id);
 
   return Response.json({
     ok: true,

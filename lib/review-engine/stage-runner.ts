@@ -336,8 +336,21 @@ export async function runStage(input: {
           Number.isFinite(stated) ? stated : 0.5,
           amountCheck.confidenceCap,
         );
+        // Item 8 — a figure the platform cannot verify does not get relied on
+        // quietly. Where a serious finding rests on one, it goes to a person to
+        // confirm against the page rather than being carried as established.
+        // Deferring on 15% beats being confidently wrong on 5%, because the 5%
+        // is invisible until it is too late.
+        const unconfirmed = amountCheck.needsConfirmation;
+        const needsEyes =
+          kind === 'exception' &&
+          unconfirmed.length > 0 &&
+          (severity === 'Critical' || severity === 'High');
+
         const status: FindingStatus =
-          kind === 'exception' && confidence < REVIEW_CONFIDENCE_THRESHOLD ? 'escalated' : 'open';
+          kind === 'exception' && (confidence < REVIEW_CONFIDENCE_THRESHOLD || needsEyes)
+            ? 'escalated'
+            : 'open';
 
         const title = String(f.title ?? '');
         const location = (f.location ?? null) as FindingLocation | null;
@@ -364,9 +377,13 @@ export async function runStage(input: {
           owner: (f.owner ?? null) as Owner | null,
           status: kind === 'exception' ? status : 'closed',
           statusNote:
-            status === 'escalated'
-              ? `Confidence ${confidence.toFixed(2)} is below the ${REVIEW_CONFIDENCE_THRESHOLD} threshold — needs a reviewer.`
-              : authority.demotedReason,
+            status !== 'escalated'
+              ? authority.demotedReason
+              : confidence < REVIEW_CONFIDENCE_THRESHOLD
+                ? `Confidence ${confidence.toFixed(2)} is below the ${REVIEW_CONFIDENCE_THRESHOLD} threshold — needs a reviewer.`
+                : `${unconfirmed.map((a) => `${a.label} (${a.value})`).join(', ')} ` +
+                  'could only be read off a page image, and nothing here can check it. ' +
+                  'Confirm the figure against the source before relying on this.',
           confidence,
         });
       }

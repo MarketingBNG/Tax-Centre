@@ -430,6 +430,84 @@ try {
           demoted[0].claimed_citation === 'IRC 162(a)',
       );
 
+      /* ------------------------- confirming a figure nothing could verify */
+
+      const [visualFinding] = await store.insertFindings(run.id, 'S3-FED', [
+        {
+          kind: 'exception',
+          defectKind: 'wrong_amount',
+          severity: 'Critical',
+          category: 'irs_return',
+          title: 'Schedule L cash disagrees with the books',
+          whatIsWrong: 'Read off the return PDF; nothing here can check it.',
+          status: 'escalated',
+          statusNote: 'per_return (42180) could only be read off a page image.',
+          amounts: [
+            {
+              label: 'per_return',
+              value: 42180,
+              source_kind: 'visual',
+              source_ref: 'return.pdf#p3',
+              verified: false,
+              confidence: 0.6,
+              needs_confirmation: true,
+              confirmed_by: null,
+              confirmed_at: null,
+            },
+          ],
+        },
+      ]);
+
+      const confirmed = await store.confirmAmount(USER, visualFinding.id, 'per_return');
+      const confirmedAmounts = JSON.parse(confirmed.amounts_json);
+      check(
+        'confirming a figure records who did it and when',
+        confirmedAmounts[0].confirmed_by === USER &&
+          typeof confirmedAmounts[0].confirmed_at === 'number' &&
+          confirmedAmounts[0].needs_confirmation === false,
+      );
+      check(
+        'the figure keeps saying it was read off a page — that fact does not go away',
+        confirmedAmounts[0].source_kind === 'visual' && confirmedAmounts[0].verified === false,
+      );
+      check(
+        'and the finding comes back off the escalation queue',
+        confirmed.status === 'open',
+        confirmed.status,
+      );
+      check(
+        'confirming the same figure twice changes nothing further',
+        JSON.parse((await store.confirmAmount(USER, visualFinding.id, 'per_return')).amounts_json)[0]
+          .confirmed_by === USER,
+      );
+
+      const lowConfidence = await store.insertFindings(run.id, 'S3-FED', [
+        {
+          kind: 'exception',
+          defectKind: 'wrong_amount',
+          severity: 'Critical',
+          category: 'irs_return',
+          title: 'Something the model was unsure of',
+          whatIsWrong: 'Low confidence, not a page-read problem.',
+          status: 'escalated',
+          statusNote: 'Confidence 0.30 is below the 0.7 threshold — needs a reviewer.',
+          amounts: [
+            {
+              label: 'per_return',
+              value: 42180,
+              source_kind: 'visual',
+              source_ref: 'return.pdf#p3',
+              verified: false,
+              needs_confirmation: true,
+            },
+          ],
+        },
+      ]);
+      check(
+        'a finding escalated for low confidence stays escalated even once its figure is confirmed',
+        (await store.confirmAmount(USER, lowConfidence[0].id, 'per_return')).status === 'escalated',
+      );
+
       throw new Error('__rollback__');
     })
     .catch((err) => {

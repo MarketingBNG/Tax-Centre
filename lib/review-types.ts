@@ -190,6 +190,24 @@ export interface FindingAmount {
   /** A run_calcs id, a filename, or a page reference, depending on the kind. */
   source_ref: string;
   verified: boolean;
+  /**
+   * How far this particular figure can be trusted, from how it was obtained —
+   * not a guess and not the model's opinion of itself. A computed figure is
+   * certain, a figure quoted from readable text is nearly so, a figure read off
+   * a page image is not checkable at all.
+   */
+  confidence?: number;
+  /**
+   * True where the platform cannot verify the figure and a person has to.
+   *
+   * The firm's guardrail is that a system which defers is worth more than one
+   * that is confidently wrong, so an unverifiable figure is queued rather than
+   * accepted quietly.
+   */
+  needs_confirmation?: boolean;
+  /** Set once a named person has confirmed the figure against the source. */
+  confirmed_by?: string | null;
+  confirmed_at?: number | null;
 }
 
 export interface FindingLocation {
