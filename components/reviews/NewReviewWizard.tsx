@@ -206,7 +206,10 @@ export function NewReviewWizard() {
       const run = await runRes.json();
       if (!runRes.ok) throw new Error(run.error ?? 'Could not create the run');
 
-      router.push(`/reviews/${engagement.id}`);
+      // Straight to the run, which is where the gate result and the Start
+      // button are — landing on the engagement instead would hide whichever of
+      // those the person needs next.
+      router.push(`/reviews/${engagement.id}/runs/${run.runNumber}`);
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);

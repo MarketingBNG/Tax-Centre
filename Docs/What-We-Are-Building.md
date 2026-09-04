@@ -71,15 +71,29 @@ question: did the fix work?
 
 ## Where we are
 
-**Done** — the database, the grading and safety rules (84 automated tests,
-including deliberate attempts to smuggle in a fake citation and an unsourced
-number, both refused), the document checklist, and the setup screens.
+**Done**
 
-**Next** — the engine that runs the five stages, the summary page, answering
-questions and re-running, comparing runs, sign-off.
+- The database and record-keeping behind runs, issues, questions and sign-offs
+- The grading and safety rules, with 111 automated tests — including deliberate
+  attempts to smuggle in a fake citation and three kinds of unsourced number,
+  all refused
+- The document checklist that stops a review before it starts if something
+  essential is missing
+- The engine that runs the five stages, one at a time so a long review survives
+  being interrupted
+- The one-page summary, and clicking into any issue to see the fix and where
+  each figure came from
+
+**Next** — answering questions and re-running only what the answer affects,
+comparing one run against the last, and sign-off.
 
 **Later** — Tally / QuickBooks / Zoho / Xero connections, reading Drake exports
 as data rather than page images, a verified library of tax law.
+
+**Not yet tried against a real return.** Every test so far uses a scripted
+stand-in for the AI, which proves our own rules work but not that the review
+itself is any good. That needs a real run on a real return, and it will cost
+money and probably surface things the stand-in cannot.
 
 ## One open question
 

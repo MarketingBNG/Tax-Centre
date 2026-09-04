@@ -8,15 +8,8 @@ import {
   listStages,
   listTieOuts,
 } from '@/lib/review-engine/store';
-import { severityRank } from '@/lib/review-engine/severity';
+import { deriveSummary, isOpenStatus } from '@/lib/review-engine/derive';
 import { stageDef } from '@/lib/review-engine/stage-defs';
-import {
-  CATEGORIES,
-  CATEGORY_LABELS,
-  OPEN_STATUSES,
-  type Category,
-  type Severity,
-} from '@/lib/review-types';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -54,8 +47,6 @@ export async function GET(_req: Request, ctx: Ctx) {
     currentApproval(id),
   ]);
 
-  const isOpen = (status: string) => OPEN_STATUSES.includes(status as never);
-
   const view = findings.map((f) => ({
     id: f.id,
     code: f.finding_code,
@@ -82,39 +73,18 @@ export async function GET(_req: Request, ctx: Ctx) {
     statusNote: f.status_note,
     confidence: f.confidence,
     questionId: f.question_id,
-    isOpen: isOpen(f.status),
+    isOpen: isOpenStatus(f.status),
   }));
 
-  // Category counts. "High-flag" is computed from severity over the same rows
-  // rather than stored — one tag, two lenses, so they cannot drift apart.
-  const categories: Record<string, { open: number; worst: Severity | null; label: string }> = {};
-  for (const category of CATEGORIES) {
-    categories[category] = { open: 0, worst: null, label: CATEGORY_LABELS[category as Category] };
-  }
-  categories.high_flag = { open: 0, worst: null, label: 'High-flag issues' };
-
-  const worse = (a: Severity | null, b: Severity | null) =>
-    severityRank(a) <= severityRank(b) ? a : b;
-
-  for (const finding of view) {
-    if (!finding.isOpen) continue;
-    const bucket = categories[finding.category];
-    if (bucket) {
-      bucket.open += 1;
-      bucket.worst = worse(finding.severity, bucket.worst);
-    }
-    if (finding.severity === 'Critical' || finding.severity === 'High') {
-      categories.high_flag.open += 1;
-      categories.high_flag.worst = worse(finding.severity, categories.high_flag.worst);
-    }
-  }
-
-  const openSorted = view
-    .filter((f) => f.isOpen && f.severity)
-    .sort(
-      (a, b) =>
-        severityRank(a.severity) - severityRank(b.severity) || a.code.localeCompare(b.code),
-    );
+  const derived = deriveSummary(
+    findings.map((f) => ({
+      id: f.id,
+      code: f.finding_code,
+      category: f.category,
+      severity: f.severity,
+      status: f.status,
+    })),
+  );
 
   return Response.json({
     run: {
@@ -181,13 +151,6 @@ export async function GET(_req: Request, ctx: Ctx) {
       registerVersionSeen: approval.register_version_seen,
       verdictSeen: approval.verdict_seen,
     },
-    derived: {
-      categories,
-      topFindingIds: openSorted.slice(0, 5).map((f) => f.id),
-      openCriticalHigh: openSorted.filter(
-        (f) => f.severity === 'Critical' || f.severity === 'High',
-      ).length,
-      escalated: view.filter((f) => f.status === 'escalated').length,
-    },
+    derived,
   });
 }

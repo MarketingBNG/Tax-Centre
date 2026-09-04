@@ -59,6 +59,7 @@ function build() {
     ['lib/review-engine/authority.ts', 'authority.js'],
     ['lib/review-engine/obligations.ts', 'obligations.js'],
     ['lib/review-engine/verdict.ts', 'verdict.js'],
+    ['lib/review-engine/derive.ts', 'derive.js'],
   ];
 
   for (const [src, out] of sources) {
@@ -73,7 +74,8 @@ function build() {
         .replace(/from ['"]@\/lib\/config['"]/g, "from './config-stub.js'")
         .replace(/from ['"]@\/lib\/review-types['"]/g, "from './review-types.js'")
         .replace(/from ['"]\.\/stage-defs['"]/g, "from './stage-defs.js'")
-        .replace(/from ['"]\.\/obligations['"]/g, "from './obligations.js'"),
+        .replace(/from ['"]\.\/obligations['"]/g, "from './obligations.js'")
+        .replace(/from ['"]\.\/severity['"]/g, "from './severity.js'"),
     );
   }
   return dir;
@@ -433,6 +435,67 @@ try {
     'the federal stage reads the module for the return type',
     stages.referencesFor('S3-FED', '1065')[0] === 'references/stage-3-1065.md' &&
       stages.referencesFor('S3-FED', '1040-NR')[0] === 'references/stage-3-1040NR.md',
+  );
+
+  /* --------------------------------------------- the summary's own counts */
+
+  const derive = await load('derive.js');
+
+  const register = [
+    { id: 'a', code: 'S1-001', category: 'bookkeeping', severity: 'Critical', status: 'open' },
+    { id: 'b', code: 'S1-002', category: 'bookkeeping', severity: 'Low', status: 'open' },
+    { id: 'c', code: 'S2-001', category: 'financial', severity: 'High', status: 'answered_pending_evidence' },
+    { id: 'd', code: 'S3-001', category: 'cross_border', severity: 'High', status: 'open' },
+    { id: 'e', code: 'S3-002', category: 'cross_border', severity: 'Critical', status: 'closed' },
+    { id: 'f', code: 'S3-003', category: 'transfer_pricing', severity: 'Medium', status: 'escalated' },
+    { id: 'g', code: 'S1-003', category: 'bookkeeping', severity: null, status: 'closed' },
+  ];
+  const summary = derive.deriveSummary(register);
+
+  check(
+    'a closed finding drops out of the category counts',
+    summary.categories.cross_border.open === 1,
+    `cross_border ${summary.categories.cross_border.open}`,
+  );
+  check(
+    'a category reports its worst open severity',
+    summary.categories.bookkeeping.worst === 'Critical' &&
+      summary.categories.financial.worst === 'High',
+  );
+  check(
+    'high-flag is a filter, so a Critical is counted in its category and there too',
+    summary.categories.high_flag.open === 3 && summary.categories.bookkeeping.open === 2,
+    `high_flag ${summary.categories.high_flag.open}, bookkeeping ${summary.categories.bookkeeping.open}`,
+  );
+  check(
+    'an escalated item still counts as open',
+    summary.categories.transfer_pricing.open === 1 && summary.escalated === 1,
+  );
+  check(
+    'the top five are worst-first',
+    summary.topFindingIds[0] === 'a' && summary.topFindingIds.slice(0, 3).includes('c'),
+    summary.topFindingIds.join(', '),
+  );
+  check(
+    'the top five is capped at five even with more open',
+    derive.deriveSummary(
+      Array.from({ length: 9 }, (_, i) => ({
+        id: `x${i}`,
+        code: `S1-00${i}`,
+        category: 'bookkeeping',
+        severity: 'High',
+        status: 'open',
+      })),
+    ).topFindingIds.length === 5,
+  );
+  check(
+    'ordering is stable between reloads',
+    JSON.stringify(derive.deriveSummary(register).topFindingIds) ===
+      JSON.stringify(derive.deriveSummary([...register].reverse()).topFindingIds),
+  );
+  check(
+    'an agreed line with no severity is never in the top five',
+    !summary.topFindingIds.includes('g'),
   );
 } catch (err) {
   failures.push(`threw: ${err.message}`);

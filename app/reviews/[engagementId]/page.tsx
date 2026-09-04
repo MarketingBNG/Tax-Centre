@@ -84,24 +84,26 @@ export default async function EngagementPage({ params }: Ctx) {
         ) : (
           <ul className="space-y-1.5">
             {runs.map((run) => (
-              <li
-                key={run.id}
-                className="flex items-center justify-between rounded-lg border border-line-soft px-3 py-2"
-              >
-                <div>
-                  <div className="text-[13px]">
-                    Run {run.run_number}
-                    <span className="ml-2 text-[11.5px] text-ink-faint">
-                      {STATUS_LABEL[run.status] ?? run.status}
-                    </span>
+              <li key={run.id}>
+                <Link
+                  href={`/reviews/${engagementId}/runs/${run.run_number}`}
+                  className="flex items-center justify-between rounded-lg border border-line-soft px-3 py-2 no-underline hover:border-line hover:bg-raised"
+                >
+                  <div>
+                    <div className="text-[13px] text-ink">
+                      Run {run.run_number}
+                      <span className="ml-2 text-[11.5px] text-ink-faint">
+                        {STATUS_LABEL[run.status] ?? run.status}
+                      </span>
+                    </div>
+                    {run.halt_reason && (
+                      <div className="mt-0.5 text-[11.5px] text-sev-high">{run.halt_reason}</div>
+                    )}
                   </div>
-                  {run.halt_reason && (
-                    <div className="mt-0.5 text-[11.5px] text-sev-high">{run.halt_reason}</div>
-                  )}
-                </div>
-                <div className="text-[12px] text-ink-dim">
-                  {run.verdict ? VERDICT_WORD[run.verdict] : '—'}
-                </div>
+                  <div className="text-[12px] text-ink-dim">
+                    {run.verdict ? VERDICT_WORD[run.verdict] : '—'}
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
