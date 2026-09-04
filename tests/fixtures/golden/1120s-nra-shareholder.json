@@ -1,0 +1,47 @@
+{
+  "id": "1120s-nra-shareholder",
+  "note": "An S corporation may not have a non-resident alien shareholder (IRC 1361(b)(1)(C)). The whole return is prepared on the wrong form, which is a Stage 0 problem: nothing downstream of it is reviewing the right thing.",
+  "returnType": "1120-S",
+  "taxYear": 2025,
+  "facts": {
+    "foreign_owner": true,
+    "india_link": true,
+    "jurisdictions": ["US-FED"]
+  },
+  "documents": [
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    },
+    {
+      "filename": "ownership.xlsx",
+      "docRole": "ownership_schedule",
+      "text": "Shareholder,Interest,Residency,Notes\nR Mehta,60%,US citizen resident in NJ,\nA Mehta,40%,Indian resident - non-resident alien for US purposes,Acquired her shares in March 2023\n\nNo Form 2553 is in the file. The prior preparer's memo says \"S status elected 2019\"."
+    },
+    {
+      "filename": "tb-2025.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Account,Description,Debit,Credit\n1010,Cash - operating,52300.00,\n1200,Accounts receivable,74100.00,\n2100,Accounts payable,,31400.00\n3000,Common stock,,10000.00\n3100,Retained earnings,,85000.00\n4000,Sales,,412000.00\n6100,Officer compensation,96000.00,\n6200,Salaries and wages,214000.00,\n6500,Rent,102000.00,\nTotal,,538400.00,538400.00"
+    },
+    {
+      "filename": "tb-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Account,Description,Debit,Credit\n6100,Officer compensation,90000.00,\n6500,Rent,102000.00,\n4000,Sales,,388000.00"
+    }
+  ],
+  "planted": [
+    {
+      "id": "nra-shareholder-on-1120s",
+      "what": "40% of the shares are held by a non-resident alien, which an S corporation may not have. The return is filed on Form 1120-S regardless, and no Form 2553 is in the file to show what was ever elected.",
+      "defectKinds": ["wrong_entity_type", "unsupported_position"],
+      "minSeverity": "Critical",
+      "stage": "S0",
+      "mustMention": ["1120-S"]
+    }
+  ],
+  "expect": {
+    "haltsAt": "S0",
+    "verdict": "hold"
+  }
+}

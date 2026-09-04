@@ -1,0 +1,55 @@
+{
+  "id": "1120-5471-foreign-sub",
+  "note": "A US corporation owning a foreign subsidiary owes Form 5471, and the penalty for not filing it runs per year per entity whether or not any tax was due. The existing set covered 5472 — the mirror case, a foreign owner of a US entity — but never this direction.",
+  "returnType": "1120",
+  "taxYear": 2025,
+  "facts": {
+    "foreign_subsidiary": true,
+    "india_link": true,
+    "india_related_party": true,
+    "jurisdictions": ["US-FED"]
+  },
+  "documents": [
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    },
+    {
+      "filename": "tb-2025.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Account,Description,Debit,Credit\n1010,Cash - operating,88200.00,\n1400,Due from Bharat Softech Pvt Ltd,180000.00,\n1600,Investment in Bharat Softech Pvt Ltd,25000.00,\n2100,Accounts payable,,54200.00\n3000,Common stock,,50000.00\n3100,Retained earnings,,120000.00\n4000,Sales,,742000.00\n6100,Salaries and wages,398000.00,\n6500,Rent,168000.00,\n6900,Management fees - Bharat Softech Pvt Ltd,107000.00,\nTotal,,966200.00,966200.00"
+    },
+    {
+      "filename": "tb-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Account,Description,Debit,Credit\n1400,Due from Bharat Softech Pvt Ltd,64000.00,\n1600,Investment in Bharat Softech Pvt Ltd,25000.00,\n6900,Management fees - Bharat Softech Pvt Ltd,98000.00,\n4000,Sales,,689000.00"
+    },
+    {
+      "filename": "ownership.xlsx",
+      "docRole": "ownership_schedule",
+      "text": "Entity,Held by,Interest,Notes\nBharat Softech Pvt Ltd (Bengaluru),the taxpayer,100%,Incorporated 2021. Files its own Indian corporate return.\n\nThe file contains no Form 5471 and no organisational chart. The intercompany balance has never been confirmed against the subsidiary's own ledger."
+    }
+  ],
+  "planted": [
+    {
+      "id": "no-5471-for-the-subsidiary",
+      "what": "The taxpayer owns 100% of an Indian company and no Form 5471 is in the file. The penalty applies per year per entity whether or not any tax was owed.",
+      "defectKinds": ["missing_form"],
+      "minSeverity": "Critical",
+      "stage": "S3-INTL",
+      "mustMention": ["5471"]
+    },
+    {
+      "id": "intercompany-balance-unconfirmed",
+      "what": "180,000 due from the subsidiary, up from 64,000, never agreed to the subsidiary's own ledger — so it is not known whether it is a receivable, a capital contribution or a distribution.",
+      "defectKinds": ["missing_evidence", "unexplained_tieout_failure", "wrong_classification"],
+      "minSeverity": "Medium",
+      "stage": "S1",
+      "mustMention": ["1400"]
+    }
+  ],
+  "expect": {
+    "verdict": "hold"
+  }
+}

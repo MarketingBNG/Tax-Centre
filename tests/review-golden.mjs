@@ -552,18 +552,48 @@ try {
           continue;
         }
 
+        /**
+         * A halted run has stages that deliberately never ran.
+         *
+         * A Stage 0 Critical stops the sequence, because nothing after it is
+         * reviewing the right entity — so "every stage is terminal" is the
+         * wrong assertion for that run, and asserting it anyway would report
+         * the halt working correctly as a failure. What is required instead is
+         * that everything up to the halt ran, and that the halt was recorded
+         * with a reason.
+         */
+        const halted = settled.status === 'halted';
+        const ranSeq = Math.max(
+          ...stages
+            .filter((s) => s.status !== 'pending' && s.status !== 'running')
+            .map((s) => s.seq),
+          -1,
+        );
+        const shouldHaveRun = (stage) => !halted || stage.seq <= ranSeq;
+
         check(
-          `${fx.id}: every stage reached a terminal state`,
-          stages.every((s) => s.status !== 'pending' && s.status !== 'running'),
+          `${fx.id}: every stage reached a terminal state${halted ? ', up to the halt' : ''}`,
+          stages
+            .filter(shouldHaveRun)
+            .every((s) => s.status !== 'pending' && s.status !== 'running'),
           stages.map((s) => `${s.stage_key}:${s.status}`).join(' '),
         );
+        if (halted) {
+          check(
+            `${fx.id}: the halt says why`,
+            Boolean(settled.halt_reason),
+            settled.halt_reason ?? 'no reason recorded',
+          );
+        }
         check(
-          `${fx.id}: no stage went silent`,
-          stageDefs.STAGE_DEFS.every((def) =>
-            plan.find((p) => p.stageKey === def.key)?.status === 'not_applicable'
-              ? true
-              : findings.some((f) => f.stage_key === def.key),
-          ),
+          `${fx.id}: no stage that ran went silent`,
+          stageDefs.STAGE_DEFS.every((def) => {
+            const planned = plan.find((p) => p.stageKey === def.key);
+            if (!planned || planned.status === 'not_applicable') return true;
+            const stage = stages.find((s) => s.stage_key === def.key);
+            if (stage && !shouldHaveRun(stage)) return true;
+            return findings.some((f) => f.stage_key === def.key);
+          }),
         );
 
         /* ------------------------------------- the gates, on every fixture */
@@ -673,6 +703,15 @@ try {
               `${fx.id}: does not invent problems in a clean return`,
               exceptions.length <= fx.expect.maxExceptions,
               `${exceptions.length} exceptions raised`,
+            );
+          }
+          if (fx.expect?.haltsAt) {
+            // Only meaningful against the real model: the scripted provider is
+            // not trying to find the identity problem that causes the halt.
+            check(
+              `${fx.id}: the run stops at ${fx.expect.haltsAt} rather than reviewing on`,
+              settled.status === 'halted',
+              `status ${settled.status}`,
             );
           }
           if (fx.expect?.verdict) {

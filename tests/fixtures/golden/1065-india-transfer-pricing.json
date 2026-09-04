@@ -1,0 +1,54 @@
+{
+  "id": "1065-india-transfer-pricing",
+  "note": "The transfer-pricing family, which no other fixture exercised. A US partnership pays its Indian affiliate for development work at a rate nothing supports, and the Indian side of the same transaction is unaddressed — the symmetry the India module exists to force.",
+  "returnType": "1065",
+  "taxYear": 2025,
+  "facts": {
+    "india_link": true,
+    "india_related_party": true,
+    "jurisdictions": ["US-FED"]
+  },
+  "documents": [
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": null
+    },
+    {
+      "filename": "tb-2025.xlsx",
+      "docRole": "trial_balance_cy",
+      "text": "Account,Description,Debit,Credit\n1010,Cash - operating,68400.00,\n1200,Accounts receivable,112500.00,\n2100,Accounts payable,,42300.00\n2500,Due to Bharat Softech Pvt Ltd,,96000.00\n3000,Partner capital,,150000.00\n4000,Consulting revenue,,586600.00\n6100,Salaries and wages,262000.00,\n6700,Offshore development - Bharat Softech Pvt Ltd,240000.00,\n6800,Rent,192000.00,\nTotal,,874900.00,874900.00"
+    },
+    {
+      "filename": "tb-2024.xlsx",
+      "docRole": "trial_balance_py",
+      "text": "Account,Description,Debit,Credit\n6700,Offshore development - Bharat Softech Pvt Ltd,88000.00,\n6100,Salaries and wages,241000.00,\n4000,Consulting revenue,,502000.00"
+    },
+    {
+      "filename": "ownership.xlsx",
+      "docRole": "ownership_schedule",
+      "text": "Partner,Interest,Notes\nS Iyer,70%,Also holds 100% of Bharat Softech Pvt Ltd (Bengaluru)\nJ Whitcombe,30%,\n\nBharat Softech Pvt Ltd invoices monthly for development staff. There is no written services agreement, no benchmarking study and no rate card in the file. Nothing in the file addresses the Indian side of these transactions."
+    }
+  ],
+  "planted": [
+    {
+      "id": "affiliate-rate-unsupported",
+      "what": "240,000 paid to an Indian company under common control, up from 88,000, with no agreement, no benchmarking and no rate card behind it.",
+      "defectKinds": ["unsupported_position", "missing_evidence", "wrong_amount"],
+      "minSeverity": "High",
+      "stage": "S3-INDIA",
+      "mustMention": ["6700"]
+    },
+    {
+      "id": "india-side-not-addressed",
+      "what": "Related-party transactions with an Indian company put Form 3CEB in scope on the Indian side, and the rate used there has to match the rate deducted here. The file says nothing either way.",
+      "defectKinds": ["missing_form", "missing_evidence", "unsupported_position"],
+      "minSeverity": "High",
+      "stage": "S3-INDIA",
+      "mustMention": ["3CEB"]
+    }
+  ],
+  "expect": {
+    "verdict": "hold"
+  }
+}
