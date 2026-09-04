@@ -1,6 +1,6 @@
 import 'server-only';
 import crypto from 'node:crypto';
-import { one, all, run as exec, audit } from '@/lib/db';
+import { one as readOne, all as readAll, run as exec, audit, type Param } from '@/lib/db';
 import type {
   AuthorityStatus,
   Category,
@@ -57,6 +57,53 @@ export const MAX_STAGE_ATTEMPTS = 3;
 
 const uuid = () => crypto.randomUUID();
 const now = () => Date.now();
+
+/**
+ * BIGINT columns arrive from the driver as strings, so that values beyond
+ * Number.MAX_SAFE_INTEGER survive the trip. Epoch milliseconds are nowhere
+ * near that, and a string reaching `new Date()` produces Invalid Date rather
+ * than an error — which is how a bad run date reaches a printed summary
+ * unnoticed.
+ *
+ * Coerced here, at the one boundary every read passes through, rather than at
+ * each call site: the row types promise `number`, and a promise kept in nine
+ * places out of ten is the same bug with extra steps. The `id` columns are
+ * deliberately not in this list — they are TEXT uuids everywhere except
+ * run_events, which is handled where it is read.
+ */
+const BIGINT_KEYS = [
+  'created_at',
+  'updated_at',
+  'started_at',
+  'finished_at',
+  'heartbeat_at',
+  'answered_at',
+  'approved_at',
+  'cost_micros',
+] as const;
+
+function coerce<T>(row: T): T {
+  if (!row || typeof row !== 'object') return row;
+  const record = row as Record<string, unknown>;
+  for (const key of BIGINT_KEYS) {
+    const value = record[key];
+    if (typeof value === 'string' && value !== '') record[key] = Number(value);
+  }
+  return row;
+}
+
+/**
+ * Every read in this module goes through these rather than the raw helpers, so
+ * there is no way to add a query later that forgets to coerce.
+ */
+async function one<T>(query: string, ...params: Param[]): Promise<T | null> {
+  const row = await readOne<T>(query, ...params);
+  return row ? coerce(row) : null;
+}
+
+async function all<T>(query: string, ...params: Param[]): Promise<T[]> {
+  return (await readAll<T>(query, ...params)).map(coerce);
+}
 
 /* ---------------------------------------------------------- engagements */
 

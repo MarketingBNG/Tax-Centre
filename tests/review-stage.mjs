@@ -502,6 +502,52 @@ try {
         JSON.parse(asked[0].branches_json)[0].then === 'post the 250 difference',
       );
 
+      /* ---------------------------------- the register, in the documented shape */
+
+      const register = await (
+        await import(pathToFileURL(path.join(dir, 'engine/register.js')).href)
+      ).buildRegister(run.id);
+
+      check('the register export is produced', Boolean(register));
+      check(
+        'it carries the provenance a finding can be defended with months later',
+        register.prompt_version === 'trr-1.0' &&
+          Boolean(register.corpus_hash) &&
+          Boolean(register.review_id),
+      );
+      check(
+        'findings are keyed by their code, not their internal id',
+        register.findings.every((f) => /^S\d-\d{3}$/.test(f.id)),
+        register.findings.map((f) => f.id).join(', '),
+      );
+      check(
+        'a question points at its finding by code',
+        register.questions[0]?.finding_id === open[0].finding_code,
+      );
+      check(
+        'the demoted citation is exported as claimed, never as authority',
+        register.findings.some(
+          (f) => f.authority.citation === null && f.authority.claimed_citation === 'IRC 162(a)',
+        ),
+      );
+      check(
+        'the verdict is computed into the export, not copied from a stale column',
+        ['hold', 'release_with_conditions', 'clear'].includes(register.verdict.result),
+        register.verdict.result,
+      );
+      check(
+        'sections that could not be checked are listed rather than omitted',
+        Array.isArray(register.coverage.not_checked) && register.coverage.not_checked.length > 0,
+      );
+      check(
+        'counts the platform does not track are null, not zero',
+        register.coverage.stage_1_accounts_sampled === null,
+      );
+      check(
+        'an unapproved register says so rather than implying a sign-off',
+        register.approval.approved_by === null,
+      );
+
       /* ------------------------------------------- a retry does not double up */
 
       const before = (await store.listFindings(run.id)).filter((f) => f.stage_key === 'S1').length;

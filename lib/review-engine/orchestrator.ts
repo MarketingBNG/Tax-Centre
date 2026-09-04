@@ -1,4 +1,5 @@
 import 'server-only';
+import { REVIEW_COST_CEILING_USD } from '@/lib/config';
 import * as store from './store';
 import { runStage, type StageEvent } from './stage-runner';
 import { computeVerdict } from './verdict';
@@ -70,6 +71,23 @@ export async function advanceRun(input: {
     await store.setRunStatus(runId, 'cancelled');
     await emit({ type: 'error', message: 'Stopped.' });
     return { outcome: 'aborted', runFinished: true, runStatus: 'cancelled' };
+  }
+
+  // A runaway run should be a visible failure, not a quiet bill. Checked before
+  // claiming the next stage rather than mid-stage, so nothing is left half done.
+  const spentMicros = (await store.listStages(runId)).reduce(
+    (total, stage) => total + Number(stage.cost_micros ?? 0),
+    0,
+  );
+  const spentUsd = spentMicros / 1_000_000;
+  if (spentUsd >= REVIEW_COST_CEILING_USD) {
+    const message =
+      `This run has spent $${spentUsd.toFixed(2)}, at the $${REVIEW_COST_CEILING_USD} ceiling. ` +
+      'Stopped before the next stage. Raise REVIEW_COST_CEILING_USD if this return is genuinely ' +
+      'that large.';
+    await store.setRunStatus(runId, 'failed', { errorText: message });
+    await emit({ type: 'error', message });
+    return { outcome: 'nothing_to_do', runFinished: true, runStatus: 'failed', message };
   }
 
   const engagement = await store.getEngagement(run.engagement_id);

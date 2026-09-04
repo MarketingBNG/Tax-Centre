@@ -126,12 +126,21 @@ export function RunView({ runId }: { runId: string }) {
             </button>
           )}
           {finished && (
-            <button
-              onClick={() => window.print()}
-              className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-accent hover:text-accent"
-            >
-              Print
-            </button>
+            <>
+              <a
+                href={`/api/review-runs/${runId}/register?download=1`}
+                className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim no-underline hover:border-accent hover:text-accent"
+                title="The whole register as JSON, for the workpaper file"
+              >
+                Export
+              </a>
+              <button
+                onClick={() => window.print()}
+                className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-accent hover:text-accent"
+              >
+                Print
+              </button>
+            </>
           )}
           {(notStarted || (finished && run.status !== 'complete')) && (
             <button

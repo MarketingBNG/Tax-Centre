@@ -183,6 +183,16 @@ try {
         factsSnapshot: facts,
       });
       check('runs number from 1', runNumber === 1 && run.register_version === 1);
+
+      // BIGINT columns come back from the driver as strings. The row types say
+      // number, and a string reaching `new Date()` yields Invalid Date rather
+      // than throwing — which is how a bad run date reaches a printed summary
+      // without anybody noticing.
+      check(
+        'timestamps come back as numbers, not strings',
+        typeof run.created_at === 'number' && Number.isFinite(new Date(run.created_at).getTime()),
+        `created_at is a ${typeof run.created_at}`,
+      );
       check('the next run number advances', (await store.nextRunNumber(eng.id)) === 2);
 
       await store.addRunDocuments(run.id, [

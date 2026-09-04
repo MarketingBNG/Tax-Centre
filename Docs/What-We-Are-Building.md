@@ -74,7 +74,7 @@ question: did the fix work?
 **Done**
 
 - The database and record-keeping behind runs, issues, questions and sign-offs
-- The grading and safety rules, with 143 automated tests — including deliberate
+- The grading and safety rules, with 155 automated tests — including deliberate
   attempts to smuggle in a fake citation and three kinds of unsourced number,
   all refused
 - The document checklist that stops a review before it starts if something
@@ -89,9 +89,13 @@ question: did the fix work?
   affected, and putting run 2 beside run 1 to see what actually closed
 - Sign-off, recording who approved, when, and exactly which version they read —
   and refusing if the register changed while they had it open
+- Printing the summary for the workpaper file, and exporting the whole register
+  as data
 
-**Next** — the printable summary for the workpaper file, and a machine-readable
-export of the whole register.
+That is the review engine complete, end to end.
+
+**Next** — a real run against a real return, which is the only thing that will
+tell us whether the review itself is any good.
 
 **Later** — Tally / QuickBooks / Zoho / Xero connections, reading Drake exports
 as data rather than page images, a verified library of tax law.

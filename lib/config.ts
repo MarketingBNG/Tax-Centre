@@ -169,3 +169,14 @@ export const CITATION_CORPUS_ENABLED = process.env.CITATION_CORPUS_ENABLED === '
 /** Tool rounds one review stage may take. Higher than chat: a stage alternates
  *  calculation and recording, and four rounds is not enough to finish. */
 export const REVIEW_MAX_TOOL_ROUNDS = Number(process.env.REVIEW_MAX_TOOL_ROUNDS || 12);
+
+/**
+ * Ceiling on one review, in US dollars.
+ *
+ * A review re-sends the documents once per stage. The prefix is identical
+ * across stages so most of that is charged at the cached rate, but a large
+ * return with a retrying stage is still the one place this project could spend
+ * real money without anybody noticing. Hitting the ceiling stops the run with
+ * a plain message rather than continuing quietly.
+ */
+export const REVIEW_COST_CEILING_USD = Number(process.env.REVIEW_COST_CEILING_USD || 8);

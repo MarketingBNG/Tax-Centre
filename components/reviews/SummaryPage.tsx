@@ -235,6 +235,33 @@ function TieOutStrip({ detail }: { detail: RunDetail }) {
   );
 }
 
+/**
+ * Provenance, on the printed page only.
+ *
+ * A summary that leaves the screen has to stay attributable: a page in a
+ * workpaper file with no run number is a page nobody can tie back to the
+ * register it came from, or check against a later run.
+ */
+function PrintFooter({ detail }: { detail: RunDetail }) {
+  const { run, engagement } = detail;
+  return (
+    <div className="hidden border-t border-line-soft pt-2 text-[10px] text-ink-faint print:block">
+      {[
+        engagement?.entityName || engagement?.clientLabel,
+        engagement?.returnType,
+        engagement?.taxYear ? `TY ${engagement.taxYear}` : null,
+        `run ${run.runNumber}`,
+        `register version ${run.registerVersion}`,
+        new Date(run.createdAt).toLocaleDateString(),
+        `${run.promptVersion} · ${run.model}`,
+      ]
+        .filter(Boolean)
+        .join(' · ')}
+      {' — first-pass review; a named human sign-off is what clears a return.'}
+    </div>
+  );
+}
+
 export function SummaryPage({
   detail,
   onOpenFinding,
@@ -281,6 +308,8 @@ export function SummaryPage({
           </ul>
         </section>
       )}
+
+      <PrintFooter detail={detail} />
     </div>
   );
 }
