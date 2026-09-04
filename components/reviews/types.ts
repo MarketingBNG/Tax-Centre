@@ -89,6 +89,15 @@ export interface RunDetail {
     error: string | null;
     costMicros: number | null;
   }[];
+  documents: {
+    fileId: string;
+    filename: string;
+    kind: string;
+    pageCount: number | null;
+    docRole: string;
+    parserId: string;
+    parserConfidence: number | null;
+  }[];
   findings: FindingView[];
   tieOuts: {
     id: string;

@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { AuthorityChip, SeverityChip, StatusChip } from './chips';
+import { DocumentViewer } from './DocumentViewer';
 import type { FindingView } from './types';
 
 /**
@@ -22,13 +24,31 @@ const SOURCE_LABEL: Record<string, string> = {
   visual: 'read off the page',
 };
 
+/** A page reference the model wrote, e.g. return.pdf#p3 — used to open at the page. */
+const pageFrom = (sourceRef: string): number | null => {
+  const match = /#p(\d+)/i.exec(sourceRef);
+  return match ? Number(match[1]) : null;
+};
+
 export function FindingDetail({
   finding,
+  runId,
+  documents,
   onClose,
 }: {
   finding: FindingView;
+  runId: string;
+  /** Filenames by file id, so evidence can be named and opened. */
+  documents: { fileId: string; filename: string }[];
   onClose: () => void;
 }) {
+  const [viewing, setViewing] = useState<{ fileId: string; title: string; page: number | null } | null>(
+    null,
+  );
+
+  const nameOf = (fileId: string) =>
+    documents.find((d) => d.fileId === fileId)?.filename ?? 'document';
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/55" onClick={onClose}>
       <aside
@@ -113,17 +133,31 @@ export function FindingDetail({
                         {money(amount.value)}
                       </td>
                       <td className="py-1.5 text-right">
-                        <span
-                          className={amount.verified ? 'text-ink-faint' : 'text-sev-high'}
-                          title={
-                            amount.verified
-                              ? `Checked against ${amount.source_ref}`
-                              : 'Read off a page image — nothing could independently confirm it'
-                          }
-                        >
-                          {SOURCE_LABEL[amount.source_kind] ?? amount.source_kind}
-                          {!amount.verified && ' · unverified'}
-                        </span>
+                        {amount.source_kind === 'visual' ? (
+                          <button
+                            onClick={() =>
+                              setViewing({
+                                fileId:
+                                  documents.find((d) =>
+                                    amount.source_ref.startsWith(d.filename),
+                                  )?.fileId ?? '',
+                                title: amount.source_ref,
+                                page: pageFrom(amount.source_ref),
+                              })
+                            }
+                            className="text-sev-high underline decoration-sev-high/40 hover:decoration-sev-high"
+                            title="Read off a page image — nothing could independently confirm it. Open the page to check."
+                          >
+                            read off the page · unverified
+                          </button>
+                        ) : (
+                          <span
+                            className="text-ink-faint"
+                            title={`Checked against ${amount.source_ref}`}
+                          >
+                            {SOURCE_LABEL[amount.source_kind] ?? amount.source_kind}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -149,9 +183,23 @@ export function FindingDetail({
                 </p>
               )}
               {finding.evidence.length > 0 && (
-                <ul className="mt-2 space-y-0.5 text-[12.5px] text-ink-dim">
+                <ul className="mt-2 space-y-1 text-[12.5px]">
                   {finding.evidence.map((item, i) => (
-                    <li key={i}>— {item.description}</li>
+                    <li key={i} className="flex items-baseline gap-1.5">
+                      <span className="text-ink-faint">—</span>
+                      <button
+                        onClick={() =>
+                          setViewing({
+                            fileId: item.file_id,
+                            title: nameOf(item.file_id),
+                            page: null,
+                          })
+                        }
+                        className="text-left text-ink-dim underline decoration-accent/40 hover:text-ink hover:decoration-accent"
+                      >
+                        {item.description}
+                      </button>
+                    </li>
                   ))}
                 </ul>
               )}
@@ -168,6 +216,16 @@ export function FindingDetail({
           </section>
         </div>
       </aside>
+
+      {viewing?.fileId && (
+        <DocumentViewer
+          runId={runId}
+          fileId={viewing.fileId}
+          title={viewing.title}
+          page={viewing.page}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SummaryPage } from './SummaryPage';
 import { FindingDetail } from './FindingDetail';
-import { SeverityChip, StatusChip } from './chips';
+import { FindingsTable } from './FindingsTable';
 import { useRunAdvance } from './useRunAdvance';
 import type { FindingView, RunDetail } from './types';
 
@@ -57,17 +57,6 @@ export function RunView({ runId }: { runId: string }) {
     const timer = setInterval(() => void load(), 4000);
     return () => clearInterval(timer);
   }, [running, load]);
-
-  const visibleFindings = useMemo(() => {
-    if (!detail) return [];
-    if (!categoryFilter) return detail.findings;
-    if (categoryFilter === 'high_flag') {
-      return detail.findings.filter(
-        (f) => f.isOpen && (f.severity === 'Critical' || f.severity === 'High'),
-      );
-    }
-    return detail.findings.filter((f) => f.category === categoryFilter);
-  }, [detail, categoryFilter]);
 
   if (loadError) {
     return (
@@ -207,45 +196,24 @@ export function RunView({ runId }: { runId: string }) {
 
       {/* ------------------------------------------------- the full register */}
 
-      {categoryFilter && (
-        <section className="trc-print-hide mt-3 rounded-xl border border-line-soft bg-panel px-4 py-3">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-[13px] font-medium">
-              {detail.derived.categories[categoryFilter]?.label ?? 'Findings'}
-            </h2>
-            <button
-              onClick={() => setCategoryFilter(null)}
-              className="text-[12px] text-ink-faint hover:text-ink"
-            >
-              Clear filter
-            </button>
-          </div>
-          <ul className="space-y-1">
-            {visibleFindings.map((finding) => (
-              <li key={finding.id}>
-                <button
-                  onClick={() => setOpenFinding(finding)}
-                  className="flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-raised"
-                >
-                  <span className="w-14 shrink-0 pt-0.5 font-mono text-[11px] text-ink-faint">
-                    {finding.code}
-                  </span>
-                  <span className="shrink-0 pt-0.5">
-                    <SeverityChip severity={finding.severity} />
-                  </span>
-                  <span className="min-w-0 flex-1 text-[13px]">{finding.title}</span>
-                  <span className="shrink-0 pt-0.5">
-                    <StatusChip status={finding.status} />
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {detail.findings.length > 0 && (
+        <div className="trc-print-hide mt-3">
+          <FindingsTable
+            key={categoryFilter ?? 'all'}
+            detail={detail}
+            onOpen={setOpenFinding}
+            initialCategory={categoryFilter}
+          />
+        </div>
       )}
 
       {openFinding && (
-        <FindingDetail finding={openFinding} onClose={() => setOpenFinding(null)} />
+        <FindingDetail
+          finding={openFinding}
+          runId={runId}
+          documents={detail.documents}
+          onClose={() => setOpenFinding(null)}
+        />
       )}
     </div>
   );

@@ -1,10 +1,12 @@
 import { currentUser, unauthorized, notFound } from '@/lib/auth';
+import { all } from '@/lib/db';
 import {
   currentApproval,
   getEngagement,
   getRun,
   listFindings,
   listQuestions,
+  listRunDocuments,
   listStages,
   listTieOuts,
 } from '@/lib/review-engine/store';
@@ -38,14 +40,26 @@ export async function GET(_req: Request, ctx: Ctx) {
   const run = await getRun(id);
   if (!run) return notFound();
 
-  const [engagement, stages, findings, tieOuts, questions, approval] = await Promise.all([
+  const [engagement, stages, findings, tieOuts, questions, approval, runDocs] = await Promise.all([
     getEngagement(run.engagement_id),
     listStages(id),
     listFindings(id),
     listTieOuts(id),
     listQuestions(id),
     currentApproval(id),
+    listRunDocuments(id),
   ]);
+
+  // Filenames, so a finding's evidence can be named and opened rather than
+  // shown as a file id nobody recognises.
+  const fileIds = runDocs.map((d) => d.file_id);
+  const fileRows = fileIds.length
+    ? await all<{ id: string; filename: string; kind: string; page_count: number | null }>(
+        `SELECT id, filename, kind, page_count FROM files
+          WHERE id IN (${fileIds.map(() => '?').join(',')})`,
+        ...fileIds,
+      )
+    : [];
 
   const view = findings.map((f) => ({
     id: f.id,
@@ -123,6 +137,18 @@ export async function GET(_req: Request, ctx: Ctx) {
       error: s.error_text,
       costMicros: s.cost_micros,
     })),
+    documents: runDocs.map((doc) => {
+      const file = fileRows.find((f) => f.id === doc.file_id);
+      return {
+        fileId: doc.file_id,
+        filename: file?.filename ?? '(removed)',
+        kind: file?.kind ?? 'unknown',
+        pageCount: file?.page_count ?? null,
+        docRole: doc.doc_role,
+        parserId: doc.parser_id,
+        parserConfidence: doc.parser_confidence,
+      };
+    }),
     findings: view,
     tieOuts: tieOuts.map((t) => ({
       id: t.id,
