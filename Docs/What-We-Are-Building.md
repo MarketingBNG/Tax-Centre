@@ -127,11 +127,37 @@ progress bar but never written onto the summary itself, so the printed page was
 silent about them. Same for a document you chose to proceed without. Both now
 appear as "not checked, and here's why", which was the whole point of that rule.
 
-**Next** — a real client return, which is larger and messier than a test
-fixture in ways that will matter.
+## What is left
 
-**Later** — Tally / QuickBooks / Zoho / Xero connections, reading Drake exports
-as data rather than page images, a verified library of tax law.
+**Before anyone uses it — three things, and they all need a decision from you.**
+
+1. **It has never run on the live site.** Everything so far ran locally, or in a
+   database transaction that was thrown away afterwards. The new tables have to
+   be created for real before a single review can be started. That is a one-time
+   thing, and it is your call whether they go into the live database or a
+   separate one first.
+2. **Nobody has clicked through it.** The screens are built and tested, but no
+   person has done the full loop by hand — start a review, watch it run, read
+   the summary, answer a question, sign off, print. That is where the awkward
+   parts show up.
+3. **One real client return.** A test file is small and tidy. A real Drake PDF
+   is neither, and figures read off a page are the weakest input the system has.
+
+**After that, in rough order of value**
+
+- **Structured Drake / ProConnect exports** instead of page images — the single
+  biggest gain available, and the open question below.
+- **Books connections** (Tally, QuickBooks, Zoho, Xero) so the trial balance is
+  pulled rather than uploaded.
+- **A verified library of tax law**, so the system can cite authority instead of
+  stating the principle and marking it "needs verifying".
+- **A wider test set** — around thirty returns with known answers, to measure
+  whether it is getting better rather than just different.
+- **Prior-year comparison** — this year against last, to catch errors that
+  repeat.
+
+Client-facing anything stays off the list deliberately. Emails to clients are
+written by a person.
 
 ## One open question
 
