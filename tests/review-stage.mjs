@@ -15,7 +15,7 @@
  */
 import postgres from 'postgres';
 import ts from 'typescript';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, mkdirSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -127,19 +127,22 @@ function build() {
     `export const getProvider = () => { throw new Error('The test must inject a provider.'); };`,
   );
 
+  /**
+   * Every engine module, discovered rather than listed.
+   *
+   * A hand-maintained list silently stopped compiling this test twice as new
+   * modules were added — the import failed, the suite chained on && and the
+   * failure looked like nothing running. Reading the directory means adding a
+   * module cannot break the test that covers it.
+   */
   const sources = [
     ['lib/review-types.ts', 'engine/review-types.js'],
-    ['lib/review-engine/stage-defs.ts', 'engine/stage-defs.js'],
-    ['lib/review-engine/severity.ts', 'engine/severity.js'],
-    ['lib/review-engine/amounts.ts', 'engine/amounts.js'],
-    ['lib/review-engine/authority.ts', 'engine/authority.js'],
-    ['lib/review-engine/obligations.ts', 'engine/obligations.js'],
-    ['lib/review-engine/verdict.ts', 'engine/verdict.js'],
-    ['lib/review-engine/schema.ts', 'engine/schema.js'],
-    ['lib/review-engine/questions.ts', 'engine/questions.js'],
-    ['lib/review-engine/store.ts', 'engine/store.js'],
-    ['lib/review-engine/stage-runner.ts', 'engine/stage-runner.js'],
     ['lib/tools.ts', 'engine/tools.js'],
+    ...readdirSync(path.join(ROOT, 'lib/review-engine'))
+      .filter((name) => name.endsWith('.ts'))
+      // Replaced by stubs below: they need blob storage or an installed skill.
+      .filter((name) => !['return-data.ts', 'prompts.ts', 'skills-source.ts'].includes(name))
+      .map((name) => [`lib/review-engine/${name}`, `engine/${name.replace(/\.ts$/, '.js')}`]),
   ];
 
   for (const [src, out] of sources) {

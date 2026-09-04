@@ -6,6 +6,7 @@ import { SummaryPage } from './SummaryPage';
 import { FindingDetail } from './FindingDetail';
 import { FindingsTable } from './FindingsTable';
 import { QuestionsPanel } from './QuestionsPanel';
+import { RunCompare } from './RunCompare';
 import { useRunAdvance } from './useRunAdvance';
 import type { FindingView, RunDetail } from './types';
 
@@ -34,6 +35,8 @@ export function RunView({ runId }: { runId: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [openFinding, setOpenFinding] = useState<FindingView | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [showCompare, setShowCompare] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -50,6 +53,19 @@ export function RunView({ runId }: { runId: string }) {
   }, [load]);
 
   const { running, events, error, start, halt } = useRunAdvance(runId, load);
+
+  const rerun = useCallback(async () => {
+    setRerunning(true);
+    try {
+      const res = await fetch(`/api/review-runs/${runId}/rerun`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Could not create the next run');
+      if (detail) window.location.href = `/reviews/${detail.run.engagementId}/runs/${data.runNumber}`;
+    } catch (err) {
+      setLoadError((err as Error).message);
+      setRerunning(false);
+    }
+  }, [runId, detail]);
 
   // Refresh the register as stages land, so findings appear while it works
   // rather than all at once at the end.
@@ -90,6 +106,24 @@ export function RunView({ runId }: { runId: string }) {
         </Link>
 
         <div className="flex items-center gap-2">
+          {finished && detail.findings.length > 0 && (
+            <button
+              onClick={() => void rerun()}
+              disabled={rerunning}
+              className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-accent hover:text-accent disabled:opacity-40"
+              title="Creates the next run. Only the stages an answer could have affected run again."
+            >
+              {rerunning ? 'Creating…' : 'Run again'}
+            </button>
+          )}
+          {finished && (
+            <button
+              onClick={() => setShowCompare(!showCompare)}
+              className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-accent hover:text-accent"
+            >
+              {showCompare ? 'Hide comparison' : 'Compare'}
+            </button>
+          )}
           {finished && (
             <button
               onClick={() => window.print()}
@@ -193,6 +227,12 @@ export function RunView({ runId }: { runId: string }) {
           categoryFilter={categoryFilter}
           onCategory={setCategoryFilter}
         />
+      )}
+
+      {showCompare && (
+        <div className="trc-print-hide mt-3">
+          <RunCompare runId={runId} />
+        </div>
       )}
 
       {detail.questions.length > 0 && (

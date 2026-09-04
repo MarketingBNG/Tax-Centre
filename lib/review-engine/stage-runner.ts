@@ -8,6 +8,7 @@ import type {
   Category,
   DefectKind,
   EngagementRow,
+  FindingLocation,
   FindingStatus,
   Owner,
   StageKey,
@@ -27,6 +28,7 @@ import {
   validateFinding,
 } from './schema';
 import { selectQuestions, type CandidateQuestion } from './questions';
+import { lineageKey } from './versioning';
 import type { FileRow } from '@/lib/types';
 import { all } from '@/lib/db';
 
@@ -337,15 +339,21 @@ export async function runStage(input: {
         const status: FindingStatus =
           kind === 'exception' && confidence < REVIEW_CONFIDENCE_THRESHOLD ? 'escalated' : 'open';
 
+        const title = String(f.title ?? '');
+        const location = (f.location ?? null) as FindingLocation | null;
+
         toStore.push({
           kind,
           defectKind,
           severity,
           category: categoryFor(stageKey, (f.category_override ?? null) as Category | null),
-          title: String(f.title ?? ''),
+          title,
+          // Recognisable as the same problem in the next run, even though codes
+          // are per-run and the wording will differ.
+          lineageKey: lineageKey({ stageKey, defectKind, location, title }),
           whatIsWrong: String(f.what_is_wrong ?? ''),
           whyItMatters: f.why_it_matters == null ? null : String(f.why_it_matters),
-          location: (f.location ?? null) as never,
+          location,
           fix: (f.fix ?? null) as never,
           authorityStatus: authority.status,
           authorityCitation: authority.citation,

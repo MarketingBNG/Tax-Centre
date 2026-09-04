@@ -74,7 +74,7 @@ question: did the fix work?
 **Done**
 
 - The database and record-keeping behind runs, issues, questions and sign-offs
-- The grading and safety rules, with 128 automated tests — including deliberate
+- The grading and safety rules, with 143 automated tests — including deliberate
   attempts to smuggle in a fake citation and three kinds of unsourced number,
   all refused
 - The document checklist that stops a review before it starts if something
@@ -85,9 +85,10 @@ question: did the fix work?
   each figure came from
 - The 5–10 questions for the preparer, and answering them — with the rule that
   a written answer alone leaves a serious issue open
+- Re-running after fixes, redoing only the stages an answer could have
+  affected, and putting run 2 beside run 1 to see what actually closed
 
-**Next** — re-running only what an answer affects, comparing one run against
-the last, and sign-off.
+**Next** — sign-off, and the printable summary.
 
 **Later** — Tally / QuickBooks / Zoho / Xero connections, reading Drake exports
 as data rather than page images, a verified library of tax law.

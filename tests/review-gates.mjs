@@ -61,6 +61,7 @@ function build() {
     ['lib/review-engine/verdict.ts', 'verdict.js'],
     ['lib/review-engine/derive.ts', 'derive.js'],
     ['lib/review-engine/questions.ts', 'questions.js'],
+    ['lib/review-engine/versioning.ts', 'versioning.js'],
   ];
 
   for (const [src, out] of sources) {
@@ -581,6 +582,136 @@ try {
     'an answer that has to come from the client is marked as waiting on them',
     questions.outcomeOfAnswer({ severity: 'High', hasEvidence: false, awaitingClient: true })
       .status === 'client',
+  );
+
+  /* ------------------------------------- re-running, and comparing runs */
+
+  const versioning = await load('versioning.js');
+
+  check(
+    'a books answer re-runs everything downstream — books drive the return',
+    JSON.stringify(versioning.stagesToRerun({ touched: ['S1'] })) ===
+      JSON.stringify(['S1', 'S2', 'S3-FED', 'S3-INTL', 'S3-STATE', 'S3-INDIA', 'S4']),
+    versioning.stagesToRerun({ touched: ['S1'] }).join(' '),
+  );
+  check(
+    'a financial answer re-runs that stage and the derived one, not the return',
+    JSON.stringify(versioning.stagesToRerun({ touched: ['S2'] })) === JSON.stringify(['S2', 'S4']),
+    versioning.stagesToRerun({ touched: ['S2'] }).join(' '),
+  );
+  check(
+    'an international answer re-runs that module alone',
+    JSON.stringify(versioning.stagesToRerun({ touched: ['S3-INTL'] })) ===
+      JSON.stringify(['S3-INTL', 'S4']),
+    versioning.stagesToRerun({ touched: ['S3-INTL'] }).join(' '),
+  );
+  check(
+    'a scope answer re-runs the whole sequence',
+    versioning.stagesToRerun({ touched: ['S0'] }).length === 8,
+  );
+  check(
+    'a replaced document re-runs everything — the run saw the wrong world',
+    versioning.stagesToRerun({ touched: [], documentsChanged: true }).length === 8,
+  );
+  check(
+    'nothing touched means nothing re-runs, not everything',
+    versioning.stagesToRerun({ touched: [] }).length === 0,
+  );
+  check(
+    'stage 4 always re-runs when anything does — questions and verdict are derived',
+    versioning.stagesToRerun({ touched: ['S3-STATE'] }).includes('S4'),
+  );
+
+  // The lineage key is what lets run 2 say "this is the same finding".
+  const sameProblem = {
+    stageKey: 'S1',
+    defectKind: 'wrong_amount',
+    location: { form: '1065', schedule: 'L', line: '1d', gl_account: '1010' },
+  };
+  check(
+    'the same problem keys the same across runs, even reworded',
+    versioning.lineageKey({ ...sameProblem, title: 'Cash does not agree' }) ===
+      versioning.lineageKey({ ...sameProblem, title: 'Schedule L cash is wrong by $250' }),
+  );
+  check(
+    'a different line is a different problem',
+    versioning.lineageKey({ ...sameProblem, title: 'x' }) !==
+      versioning.lineageKey({
+        ...sameProblem,
+        location: { ...sameProblem.location, line: '2a' },
+        title: 'x',
+      }),
+  );
+  check(
+    'with no location, figures in the title do not make it a new problem',
+    versioning.lineageKey({
+      stageKey: 'S2',
+      defectKind: 'unsupported_position',
+      location: null,
+      title: 'Gross margin fell to 27%',
+    }) ===
+      versioning.lineageKey({
+        stageKey: 'S2',
+        defectKind: 'unsupported_position',
+        location: null,
+        title: 'Gross margin fell to 31%',
+      }),
+  );
+
+  const row = (over) => ({
+    id: 'x',
+    code: 'S1-001',
+    stageKey: 'S1',
+    severity: 'High',
+    status: 'open',
+    title: 't',
+    lineageKey: 'k1',
+    carriedFromFindingId: null,
+    ...over,
+  });
+
+  const moved = versioning.diffRuns({
+    before: [
+      row({ id: 'b1', lineageKey: 'k1' }),
+      row({ id: 'b2', code: 'S1-002', lineageKey: 'k2', severity: 'Critical' }),
+    ],
+    after: [row({ id: 'a1', lineageKey: 'k1', severity: 'Medium' })],
+    questions: { before: 2, answeredInBefore: 2, stillOpenInAfter: 0 },
+  });
+  check(
+    'a problem the later run no longer raises is closed',
+    moved.closed.length === 1 && moved.closed[0].id === 'b2',
+    moved.closed.map((f) => f.id).join(', '),
+  );
+  check(
+    'the same problem at a different severity is changed, not closed and reopened',
+    moved.changed.length === 1 &&
+      moved.changed[0].before.severity === 'High' &&
+      moved.changed[0].after.severity === 'Medium',
+  );
+  check(
+    'a genuinely new problem is new',
+    versioning.diffRuns({
+      before: [],
+      after: [row({ id: 'a1', lineageKey: 'kNew' })],
+      questions: { before: 0, answeredInBefore: 0, stillOpenInAfter: 0 },
+    }).opened.length === 1,
+  );
+  check(
+    'an explicitly carried-forward finding matches its ancestor',
+    versioning.diffRuns({
+      before: [row({ id: 'b1', lineageKey: null })],
+      after: [row({ id: 'a1', lineageKey: null, carriedFromFindingId: 'b1' })],
+      questions: { before: 0, answeredInBefore: 0, stillOpenInAfter: 0 },
+    }).unchanged.length === 1,
+  );
+  check(
+    'questions asked twice and still unanswered are surfaced',
+    versioning.diffRuns({
+      before: [],
+      after: [],
+      questions: { before: 3, answeredInBefore: 1, stillOpenInAfter: 2 },
+    }).questionsIgnored === 2,
   );
 } catch (err) {
   failures.push(`threw: ${err.message}`);
