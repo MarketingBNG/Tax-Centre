@@ -82,7 +82,7 @@ question: did the fix work?
 **Done**
 
 - The database and record-keeping behind runs, issues, questions and sign-offs
-- The grading and safety rules, with 235 automated tests — including deliberate
+- The grading and safety rules, with 255 automated tests — including deliberate
   attempts to smuggle in a fake citation and three kinds of unsourced number,
   all refused
 - The document checklist that stops a review before it starts if something
@@ -180,10 +180,21 @@ figures, all sourced, no citation stored as authority — but one in three is no
 a review. That is what a test set is for, and it is the reason to have built it
 before pointing this at a client file rather than after.
 
-Two are not started, and both are blocked on something outside the code: the
-four books connectors with their chart-of-accounts mapping (needs app
-credentials for QuickBooks, Zoho and Xero), and the structured Drake and
-ProConnect parsers (needs one real export file to read).
+The **chart-of-accounts mapping** is now done too, which was the half of the
+connector work that did not need anyone's credentials. Every books check is
+written once against firm-standard account names, so it works the same whether
+the ledger says "Sundry Debtors", "Accounts Receivable" or just 1200. An account
+it does not recognise is left unmapped and says so rather than being filed under
+the nearest guess, and the client's own code and name are kept beside the
+standard one — a preparer cannot act on a note about a name their screen does
+not show. Imports are stamped with three separate dates: when the data left the
+source system, what period it covers, and when it came in here.
+
+Two things are not started, and both wait on something from outside the code:
+the four books connectors themselves (a developer app each for QuickBooks, Zoho
+and Xero, and a decision to reuse the firm's existing Tally connector rather
+than build a second), and the structured Drake and ProConnect parsers, which
+need one real export file each to read.
 
 ## What is left
 
