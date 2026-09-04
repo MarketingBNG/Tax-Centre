@@ -1,7 +1,7 @@
 /**
  * Installs a skill folder from disk through the real upload route.
  *
- *   node tests/install-skill.mjs "skills/Tax-Review-Skills/tax-return-review" [firm|personal]
+ *   node tests/install-skill.mjs "Skills/Tax-Review-Skills/tax-return-review" [firm|personal]
  *
  * The browser sends the folder with a matching array of relative paths, because
  * a File in a form does not keep the path it came from. This does the same, so
@@ -14,7 +14,9 @@ import path from 'node:path';
 const BASE = process.env.BASE || 'http://127.0.0.1:3100';
 const COOKIE_NAME = 'authjs.session-token';
 
-const folder = process.argv[2] ?? 'skills/Tax-Review-Skills/tax-return-review';
+// Capital S: the folder is Skills/. Windows did not care, but a case-sensitive
+// filesystem — every Linux CI box and deploy target — would fail here.
+const folder = process.argv[2] ?? 'Skills/Tax-Review-Skills/tax-return-review';
 const scope = process.argv[3] === 'personal' ? 'personal' : 'firm';
 
 function env(key) {

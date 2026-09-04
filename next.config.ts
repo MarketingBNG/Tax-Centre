@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
   // build; Next must require() them at runtime instead.
   serverExternalPackages: ['exceljs', 'mammoth', 'pdf-lib'],
 
+  // The review engine falls back to the skill folder in the repo when the
+  // database has no firm copy installed. Nothing imports those markdown files,
+  // so tracing cannot infer them and a deploy would ship without them — the
+  // fallback would then be missing on exactly the fresh deploy it exists for.
+  outputFileTracingIncludes: {
+    '/api/**': ['./Skills/**/*.md'],
+  },
+
   async headers() {
     return [
       {

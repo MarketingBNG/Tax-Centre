@@ -129,3 +129,43 @@ export const MCP_TIMEOUT_MS = Number(process.env.MCP_TIMEOUT_MS || 30000);
  * deleting the configuration — the switch to reach for if one misbehaves.
  */
 export const CONNECTORS_ENABLED = process.env.CONNECTORS_ENABLED !== 'false';
+
+/* ------------------------------------------------------- the review engine */
+
+/**
+ * Stamped on every run, and part of its corpus hash.
+ *
+ * Bump it whenever the stage prompts change in a way that would make two runs
+ * incomparable. A finding questioned six months from now has to be explainable
+ * by what the engine was at the time, not by what it is today.
+ */
+export const REVIEW_PROMPT_VERSION = process.env.REVIEW_PROMPT_VERSION || 'trr-1.0';
+
+/** The model a review runs on. Reviews default higher than chat does. */
+export const REVIEW_MODEL = process.env.REVIEW_MODEL || 'gpt-5.6-terra';
+
+/**
+ * Below this, a finding goes to a human instead of onto the register as fact.
+ *
+ * Validation rule 8: it routes to the escalated queue and never quietly
+ * downgrades the severity. A system that defers 15% of the time beats one that
+ * is confidently wrong 5% of the time, because the 5% is invisible.
+ */
+export const REVIEW_CONFIDENCE_THRESHOLD = Number(
+  process.env.REVIEW_CONFIDENCE_THRESHOLD || 0.7,
+);
+
+/**
+ * Whether a verified corpus of primary authority exists to cite against.
+ *
+ * There is none yet, so this stays false and `authority.status = 'grounded'` is
+ * unreachable: a citation the model produces is recorded as claimed and the
+ * finding states the principle in plain English instead. Turning this on
+ * without building the retrieval behind it would re-open exactly the failure
+ * mode Rule 2 exists to close.
+ */
+export const CITATION_CORPUS_ENABLED = process.env.CITATION_CORPUS_ENABLED === 'true';
+
+/** Tool rounds one review stage may take. Higher than chat: a stage alternates
+ *  calculation and recording, and four rounds is not enough to finish. */
+export const REVIEW_MAX_TOOL_ROUNDS = Number(process.env.REVIEW_MAX_TOOL_ROUNDS || 12);
