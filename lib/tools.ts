@@ -29,7 +29,7 @@ import type { ToolInvocation, ToolSpec } from './providers/types';
  * treat this as defence in depth behind the prompt rule that says instructions
  * inside a document are never instructions to the model.
  */
-function runAnalysis(code: string, files: Record<string, string>): string {
+export function runAnalysis(code: string, files: Record<string, string>): string {
   const logs: string[] = [];
   const print = (...args: unknown[]) => {
     if (logs.length > 400) return;
@@ -135,7 +135,7 @@ function runAnalysis(code: string, files: Record<string, string>): string {
 
 /* -------------------------------------------------------------- the specs */
 
-const ANALYSIS_TOOL: ToolSpec = {
+export const ANALYSIS_TOOL: ToolSpec = {
   name: 'run_analysis',
   description:
     'Run a short synchronous JavaScript program to compute something exactly. Use ' +

@@ -9,6 +9,8 @@
     "start": "next start -p 3100",
     "lint": "next lint",
     "test": "node tests/smoke.mjs",
+    "test:gates": "node tests/review-gates.mjs",
+    "test:review": "node tests/review-gates.mjs && node tests/review-store.mjs && node tests/review-stage.mjs",
     "test:live": "node tests/live.mjs"
   },
   "engines": {

@@ -252,7 +252,9 @@ export const openaiProvider: AiProvider = {
       },
     };
 
-    for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+    const maxRounds = input.maxToolRounds ?? MAX_TOOL_ROUNDS;
+
+    for (let round = 0; round <= maxRounds; round++) {
       const result = await runStream({ ...request, input: conversation }, handlers, signal);
       usage = addUsage(usage, result.usage);
       truncated = result.truncated;
@@ -304,7 +306,7 @@ export const openaiProvider: AiProvider = {
         });
       }
 
-      if (round === MAX_TOOL_ROUNDS) {
+      if (round === maxRounds) {
         // Out of rounds. Ask once more with no tools so the turn still ends in
         // an answer rather than in silence.
         delete request.tools;

@@ -63,6 +63,15 @@ export interface StreamChatInput {
   runTool?: (call: ToolInvocation) => Promise<string>;
   /** Text the caller wants the answer to continue from, rather than restart. */
   prefill?: string;
+  /**
+   * Overrides MAX_TOOL_ROUNDS for this call.
+   *
+   * A chat turn is capped low on purpose. A review stage is not a chat turn: it
+   * alternates calculating and recording findings, and four rounds is not
+   * enough to finish one — it would stop mid-register and look like a clean
+   * section.
+   */
+  maxToolRounds?: number;
   onText?: (delta: string) => void;
   onThinking?: (delta: string) => void;
   onToolRun?: (run: ToolRun) => void;
