@@ -59,7 +59,8 @@ export default async function EngagementPage({ params }: Ctx) {
         ← All reviews
       </Link>
 
-      <header className="mt-3 mb-6">
+      <header className="mt-3 mb-6 flex items-start justify-between gap-4">
+        <div>
         <h1 className="text-[21px] font-semibold tracking-tight">
           {engagement.entity_name || engagement.client_label}
         </h1>
@@ -74,6 +75,15 @@ export default async function EngagementPage({ params }: Ctx) {
           ]
             .filter(Boolean)
             .join(' · ')}
+        </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/reviews/${engagementId}/books`}
+            className="rounded-[9px] border border-line px-3 py-1.5 text-[13px] text-ink-dim no-underline hover:border-accent hover:text-accent"
+          >
+            The books
+          </Link>
         </div>
       </header>
 

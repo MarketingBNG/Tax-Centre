@@ -69,9 +69,14 @@ export function AdminPanel() {
           <Mark size={20} />
           Admin
         </h1>
-        <Link href="/" className={btn}>
-          ← Back to chat
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/corpus" className={btn}>
+            Citation library
+          </Link>
+          <Link href="/" className={btn}>
+            ← Back to chat
+          </Link>
+        </div>
       </div>
 
       <div className="mb-5 flex gap-1 border-b border-line-soft">
