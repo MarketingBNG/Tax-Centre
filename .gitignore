@@ -7,3 +7,6 @@ out/
 next-env.d.ts
 tsconfig.tsbuildinfo
 *.log
+
+# Scratch build for tests/review-live.mjs
+.trc-live-*/

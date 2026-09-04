@@ -31,8 +31,16 @@ the form accurately. Fix the form only, and the error returns next year.
 
 ## How issues are graded
 
-Software decides the grade, not the AI. The AI says what it found; fixed rules
-decide how serious it is — so the same fact gets the same grade every time.
+Software decides the grade, not the AI. The AI says *what kind* of problem it
+found; fixed rules decide how serious that is.
+
+One honest caveat, from testing against the real model: the rules are perfectly
+consistent, but the AI still chooses which kind of problem it is reporting, and
+two runs can classify the same fact differently — we saw one model call an open
+suspense account a missing-paperwork issue and another call it a
+misclassification, which are different grades. So this removes most of the
+variation, not all of it. That is a good argument for the human sign-off being
+where it is.
 
 | Grade | Meaning | Effect |
 |---|---|---|
@@ -94,16 +102,27 @@ question: did the fix work?
 
 That is the review engine complete, end to end.
 
-**Next** — a real run against a real return, which is the only thing that will
-tell us whether the review itself is any good.
+**Tried against the real AI, once.** A small trial balance with four
+deliberately planted problems, run through the real books stage. It found all
+four, used the calculator rather than doing sums in its head, wrote a usable
+fix for each, and recorded plainly which sections it had *not* tested. Every
+safety rule held. Cost: about 11 cents.
+
+Two things that run taught us:
+
+- The stronger model is worth it. On the cheapest one, two of the four problems
+  were missed — including an owner's drawings booked as an expense, which is
+  exactly the kind of error this is for. The platform defaults to the stronger
+  one.
+- It is honest about coverage. Nine of the thirteen lines it wrote were "this
+  was not tested, and here is why" — which is the point of the rule that
+  nothing may be silently fine.
+
+**Next** — a real client return, which is larger and messier than a test
+fixture in ways that will matter.
 
 **Later** — Tally / QuickBooks / Zoho / Xero connections, reading Drake exports
 as data rather than page images, a verified library of tax law.
-
-**Not yet tried against a real return.** Every test so far uses a scripted
-stand-in for the AI, which proves our own rules work but not that the review
-itself is any good. That needs a real run on a real return, and it will cost
-money and probably surface things the stand-in cannot.
 
 ## One open question
 
