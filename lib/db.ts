@@ -378,6 +378,315 @@ CREATE TABLE IF NOT EXISTS agent_skill_files (
 -- the model to notice. JSON array of skill ids; absent means none pinned, and
 -- the automatic route still applies.
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS skills TEXT;
+
+/* ================================================================ v7 =====
+   The review engine: engagements, immutable runs, and the findings register.
+
+   Every table here is prefixed engagements_/review_/run_ deliberately. A dead
+   set of tables — reviews, review_files, findings, citations, stream_events —
+   survives in production from the review era with entirely different shapes,
+   and CREATE TABLE IF NOT EXISTS against those names would silently do nothing
+   while every query below failed. Same reasoning as agent_skills above.
+
+   Two rules are enforced by the shape of the schema rather than by discipline:
+
+     - Severity is written only by lib/review-engine/severity.ts, from a
+       defect_kind the model supplies. The model states what is wrong; code
+       decides how bad it is, so two reviewers a season apart get the same
+       answer to the same fact.
+
+     - "High-flag" — the sixth category on the summary page — has no column.
+       It is severity IN ('Critical','High') and nothing else. Storing it would
+       create a second source of truth that could drift from the first.
+
+   The "who did this" columns — created_by, approved_by, answered_by — carry no
+   foreign key to users, for the same reason audit_log.actor_id does not: they
+   record what happened, and an approval must survive the approver leaving the
+   firm. A cascade would erase the sign-off along with the account, and a
+   blocking reference would make removing somebody fail instead.
+   ======================================================================== */
+
+-- The client and return under review. A series of runs hangs off this row, so
+-- identity stays put while the runs that examine it come and go.
+CREATE TABLE IF NOT EXISTS engagements (
+  id            TEXT PRIMARY KEY,
+  -- Free text until there is a clients table to point at.
+  client_label  TEXT NOT NULL,
+  entity_name   TEXT,
+  -- Tokenised where PII_MODE=tokenize, exactly as it is in extracted document
+  -- text, so a Stage 0 comparison between the two still matches.
+  ein           TEXT,
+  return_type   TEXT,
+  tax_year      INTEGER,
+  period_start  TEXT,
+  period_end    TEXT,
+  short_year    INTEGER NOT NULL DEFAULT 0,
+  created_by    TEXT NOT NULL,
+  created_at    BIGINT NOT NULL,
+  updated_at    BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_engagements_created ON engagements(created_at DESC);
+
+-- Facts about the engagement that drive which stages run: india_link, the
+-- jurisdiction list, a foreign owner's percentage. Superseded rather than
+-- edited, because a run records the facts it saw and a later correction must
+-- not rewrite what an earlier run was judged on.
+CREATE TABLE IF NOT EXISTS engagement_facts (
+  id               TEXT PRIMARY KEY,
+  engagement_id    TEXT NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  key              TEXT NOT NULL,
+  -- JSON scalar or array.
+  value            TEXT NOT NULL,
+  -- Where the fact came from: typed in, read by Stage 0, or supplied as the
+  -- answer to a question. An answered fact is the only one that can close a
+  -- finding, which is why the provenance is a column and not a comment.
+  source           TEXT NOT NULL CHECK (source IN ('user','stage0','answer')),
+  evidence_file_id TEXT,
+  confidence       DOUBLE PRECISION,
+  superseded_by    TEXT,
+  created_by       TEXT,
+  created_at       BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_engfacts_current
+  ON engagement_facts(engagement_id, key) WHERE superseded_by IS NULL;
+
+-- One run. run_number is the version the team talks about ("run 2 cleared it").
+-- Nothing the pipeline wrote is ever edited: a correction is a new run, so the
+-- diff between two runs is a fact rather than a reconstruction.
+CREATE TABLE IF NOT EXISTS review_runs (
+  id               TEXT PRIMARY KEY,
+  engagement_id    TEXT NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  run_number       INTEGER NOT NULL,
+  parent_run_id    TEXT,
+  status           TEXT NOT NULL CHECK (status IN
+                     ('blocked_inputs','pending','running','halted','complete','failed','cancelled')),
+  -- Why a halted run stopped, e.g. 'critical_finding:S0-001'.
+  halt_reason      TEXT,
+  prompt_version   TEXT NOT NULL,
+  model            TEXT NOT NULL,
+  -- Hash over the documents, the facts snapshot, the skill content and the
+  -- prompt version. Two runs with the same corpus_hash saw the same world.
+  corpus_hash      TEXT NOT NULL,
+  facts_snapshot   TEXT NOT NULL,
+  -- Bumped by every mutation to a finding or a question. An approval names the
+  -- version it saw, so approval currency is a comparison rather than a flag
+  -- somebody has to remember to clear.
+  register_version INTEGER NOT NULL DEFAULT 1,
+  verdict          TEXT CHECK (verdict IN ('clear','release_with_conditions','hold')),
+  verdict_json     TEXT,
+  -- The request that asks for a stop will not reach the instance running the
+  -- stage, so the stop travels through the database instead.
+  abort_requested  INTEGER NOT NULL DEFAULT 0,
+  heartbeat_at     BIGINT,
+  created_by       TEXT NOT NULL,
+  created_at       BIGINT NOT NULL,
+  started_at       BIGINT,
+  finished_at      BIGINT,
+  error_text       TEXT,
+  UNIQUE (engagement_id, run_number)
+);
+CREATE INDEX IF NOT EXISTS idx_runs_engagement
+  ON review_runs(engagement_id, run_number DESC);
+
+-- Exactly which files this run read, and in what role. This is inputs_received[]
+-- in the output schema, and it is what corpus_hash covers.
+CREATE TABLE IF NOT EXISTS run_documents (
+  run_id            TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,
+  file_id           TEXT NOT NULL REFERENCES files(id),
+  doc_role          TEXT NOT NULL,
+  document_index    INTEGER NOT NULL,
+  -- Which ReturnData parser read it. 'model-visual' is today's only answer; a
+  -- structured Drake export parser will name itself here, and the confidence
+  -- it reports is what routes a doubtful field to a human instead of a guess.
+  parser_id         TEXT NOT NULL DEFAULT 'model-visual',
+  parser_confidence DOUBLE PRECISION,
+  PRIMARY KEY (run_id, file_id)
+);
+
+-- The unit of durability. A stage is one-to-few model calls, which fits inside
+-- a serverless invocation; a whole review does not. Resuming a run is just
+-- claiming the next pending row, so a closed browser or a killed instance
+-- costs at most the stage that was in flight.
+CREATE TABLE IF NOT EXISTS run_stages (
+  id                    TEXT PRIMARY KEY,
+  run_id                TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,
+  -- S0, S1, S2, S3-FED, S3-INTL, S3-STATE, S3-INDIA, S4.
+  stage_key             TEXT NOT NULL,
+  seq                   INTEGER NOT NULL,
+  status                TEXT NOT NULL CHECK (status IN
+                          ('pending','running','complete','failed','skipped',
+                           'not_applicable','carried_forward')),
+  attempt               INTEGER NOT NULL DEFAULT 0,
+  -- Documents, facts and skill content this stage saw. A re-run compares it to
+  -- decide whether the stage has to run again or can be carried forward.
+  input_hash            TEXT,
+  carried_from_stage_id TEXT,
+  model                 TEXT,
+  raw_output            TEXT,
+  usage_json            TEXT,
+  cost_micros           BIGINT,
+  heartbeat_at          BIGINT,
+  started_at            BIGINT,
+  finished_at           BIGINT,
+  error_text            TEXT,
+  UNIQUE (run_id, stage_key)
+);
+CREATE INDEX IF NOT EXISTS idx_runstages_next ON run_stages(run_id, seq);
+
+-- The findings register. The model fills in the prose and the pointers; code
+-- fills in finding_code, severity and category.
+CREATE TABLE IF NOT EXISTS run_findings (
+  id             TEXT PRIMARY KEY,
+  run_id         TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,
+  stage_key      TEXT NOT NULL,
+  -- S1-001, S3-006 — assigned in code, sequential within a stage.
+  finding_code   TEXT NOT NULL,
+  -- 'agreed' is a checked-and-fine line and 'coverage' records what could not
+  -- be reached. Both exist because a reviewer who sees a silent section cannot
+  -- tell whether it was clean or skipped.
+  kind           TEXT NOT NULL CHECK (kind IN ('exception','agreed','coverage')),
+  -- The model's statement of what sort of defect this is. It is the only input
+  -- to the severity tree, and it is deliberately a closed vocabulary.
+  defect_kind    TEXT CHECK (defect_kind IN
+                   ('wrong_amount','wrong_classification','missing_form','wrong_entity_type',
+                    'unsupported_position','unexplained_tieout_failure','missing_evidence',
+                    'presentation')),
+  -- Null on 'agreed' lines. Never written from model output.
+  severity       TEXT CHECK (severity IN ('Critical','High','Medium','Low')),
+  -- bookkeeping | financial | irs_return | cross_border | transfer_pricing.
+  -- Mapped from the producing stage, so the summary can group without a second
+  -- classification pass.
+  category       TEXT NOT NULL,
+  title          TEXT NOT NULL,
+  what_is_wrong  TEXT NOT NULL,
+  why_it_matters TEXT,
+  -- {form, schedule, line, gl_account}
+  location_json  TEXT,
+  -- {where, change, then, why} — written for a novice Drake operator.
+  fix_json       TEXT,
+  authority_status TEXT NOT NULL DEFAULT 'none_required'
+                   CHECK (authority_status IN ('none_required','grounded','verify')),
+  authority_citation    TEXT,
+  authority_source_span TEXT,
+  -- What the model tried to cite before the gate demoted it. Kept so a pattern
+  -- of invented authority is visible rather than merely discarded.
+  claimed_citation TEXT,
+  -- [{file_id, description, where}]
+  evidence_json  TEXT,
+  -- [{label, value, source_kind, source_ref, verified}] — every figure carries
+  -- where it came from, because a number with no source must not reach a
+  -- register at all.
+  amounts_json   TEXT,
+  owner          TEXT CHECK (owner IN ('preparer','reviewer','client')),
+  status         TEXT NOT NULL DEFAULT 'open' CHECK (status IN
+                   ('open','answered_pending_evidence','answered','closed','changed',
+                    'escalated','client')),
+  status_note    TEXT,
+  confidence     DOUBLE PRECISION,
+  question_id    TEXT,
+  -- Stable-ish identity across runs, so run 2 can say "this is the same finding
+  -- you saw in run 1" even though finding codes are per-run sequential.
+  lineage_key    TEXT,
+  carried_from_finding_id TEXT,
+  created_at     BIGINT NOT NULL,
+  updated_at     BIGINT NOT NULL,
+  -- A citation exists only when something grounded it. With no corpus wired up
+  -- yet, 'grounded' is unreachable and this constraint is what guarantees a
+  -- plausible-looking code section cannot be stored as authority.
+  CHECK (authority_citation IS NULL OR authority_status = 'grounded'),
+  UNIQUE (run_id, finding_code)
+);
+CREATE INDEX IF NOT EXISTS idx_runfindings_run ON run_findings(run_id, stage_key, finding_code);
+CREATE INDEX IF NOT EXISTS idx_runfindings_open ON run_findings(run_id, severity, status);
+
+-- The tie-outs the summary shows as a row of ticks. Stored separately from
+-- findings because a passing tie-out is not a finding but still has to be
+-- visible — that is the whole point of the strip.
+CREATE TABLE IF NOT EXISTS run_tie_outs (
+  id          TEXT PRIMARY KEY,
+  run_id      TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,
+  stage_key   TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  left_value  DOUBLE PRECISION,
+  right_value DOUBLE PRECISION,
+  left_source  TEXT,
+  right_source TEXT,
+  agrees      INTEGER NOT NULL,
+  finding_id  TEXT,
+  created_at  BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_runtieouts_run ON run_tie_outs(run_id);
+
+-- Every calculation the sandbox ran, kept with the numbers it produced. This is
+-- what makes "the model did not originate this figure" checkable rather than
+-- merely instructed: an amount sourced to the calculation layer has to match a
+-- value in one of these rows.
+CREATE TABLE IF NOT EXISTS run_calcs (
+  id          TEXT PRIMARY KEY,
+  run_id      TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,
+  stage_key   TEXT NOT NULL,
+  explanation TEXT,
+  code        TEXT NOT NULL,
+  output      TEXT NOT NULL,
+  values_json TEXT,
+  created_at  BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_runcalcs_run ON run_calcs(run_id);
+
+-- The 5-10 questions for the preparer. An answer arrives here; whether it is
+-- enough to close the finding is decided in code, not by the person typing.
+CREATE TABLE IF NOT EXISTS run_questions (
+  id            TEXT PRIMARY KEY,
+  run_id        TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,
+  question_code TEXT NOT NULL,
+  finding_id    TEXT,
+  owner         TEXT NOT NULL CHECK (owner IN ('preparer','client')),
+  question      TEXT NOT NULL,
+  figure        TEXT,
+  -- [{if, then}] — what follows from each possible answer, so the preparer can
+  -- see the consequence before answering.
+  branches_json TEXT,
+  evidence_needed TEXT,
+  status        TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','answered','ignored')),
+  answer_kind   TEXT CHECK (answer_kind IN ('fact','document','yes_no','text')),
+  answer_text   TEXT,
+  -- JSON array of files.id.
+  answer_evidence_file_ids TEXT,
+  answered_by   TEXT,
+  answered_at   BIGINT,
+  -- An unanswered question carried into the next run, so "asked twice and never
+  -- answered" is visible instead of quietly disappearing.
+  carried_from_question_id TEXT,
+  created_at    BIGINT NOT NULL,
+  UNIQUE (run_id, question_code)
+);
+CREATE INDEX IF NOT EXISTS idx_runquestions_run ON run_questions(run_id, question_code);
+
+-- Append-only. The current approval is the newest row whose register_version_seen
+-- still matches the run's register_version; when a finding changes, the version
+-- moves and the approval stops being current on its own. Nothing is deleted, so
+-- "who signed this off, and what did they see" survives every later edit.
+CREATE TABLE IF NOT EXISTS run_approvals (
+  id                    TEXT PRIMARY KEY,
+  run_id                TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,
+  approved_by           TEXT NOT NULL,
+  approved_at           BIGINT NOT NULL,
+  register_version_seen INTEGER NOT NULL,
+  verdict_seen          TEXT NOT NULL,
+  note                  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_runapprovals_run ON run_approvals(run_id, approved_at DESC);
+
+-- Progress, kept so a reconnecting tab can replay what it missed and a second
+-- viewer can watch a run somebody else started. Read by cursor, pruned when the
+-- run ends.
+CREATE TABLE IF NOT EXISTS run_events (
+  id         BIGSERIAL PRIMARY KEY,
+  run_id     TEXT NOT NULL,
+  payload    TEXT NOT NULL,
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_runevents ON run_events(run_id, id);
 `;
 
 /**
