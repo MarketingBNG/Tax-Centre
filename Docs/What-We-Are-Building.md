@@ -58,9 +58,10 @@ Each is enforced by software, not by asking the AI nicely.
 - **No invented numbers.** Every figure must point at a document or a
   calculation the system ran. Unsourced figures are rejected. A confident,
   well-formatted wrong number looks exactly like a right one.
-- **No invented citations.** There's no verified library of tax law yet, so the
-  system may not cite any. It states the principle in plain English and marks it
-  "needs verifying".
+- **No invented citations.** The system can only cite text the firm has loaded,
+  and it must quote the words it is relying on — both are checked. Nothing is
+  loaded yet, so nothing can be cited at all: it states the principle in plain
+  English and marks it "needs verifying".
 - **An answer isn't proof.** Type an explanation with no document attached and
   the issue stays open. It should be hard to clear something serious with a
   sentence.
