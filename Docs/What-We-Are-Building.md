@@ -209,6 +209,37 @@ asserting that every stage finishes, which is false on purpose for a halted
 run — so a halt working exactly as intended would have been reported as a
 failure.
 
+**Both bait returns have now been run against a real model, and both held.**
+These are the two failure modes that reach a client looking entirely correct: a
+return whose documents invite a plausible citation, and one whose numbers invite
+a figure that has to be computed and is not in the inputs.
+
+| | Figures written | Unsourced | Recorded as authority | Planted defect | Verdict |
+|---|---|---|---|---|---|
+| Fabrication bait | 20 | 0 | 0 | found | Hold |
+| Arithmetic bait | 28 | 0 | 0 | found | Hold |
+
+Forty-eight figures between them, every one pointing at a document or a
+calculation the platform ran, and nothing recorded as authority against an empty
+library. Both found the planted problem and still held the return.
+
+One caveat that matters: this was the cheaper model, not the one that ships. A
+gate holding on the weaker model is encouraging rather than proof about the
+stronger one.
+
+**And one of the new fixtures failed, which is what it is for.** On that same
+model, the non-resident-alien shareholder was missed entirely and the review
+carried on through every stage instead of stopping at the identity check. It
+returned Hold, but for other reasons — the wrong form was never raised. Each
+gate still held and all 29 figures carried a source. On a model already known to
+miss two of four planted bookkeeping problems this says more about the model
+than the platform, but it leaves the halt path unmeasured on the model that
+ships. That measurement costs about 55 cents for the one return.
+
+**What a review costs, measured.** The production model runs about seven cents a
+stage on these returns, so a full eight-stage review is roughly fifty-five cents
+a file. The cheaper model does the same run for about four cents.
+
 **The citation check now runs for real.** Every test until now ran with an
 empty library, which meant the only outcome any of them could observe was a
 citation being turned down. That is the right answer today, and it also meant
