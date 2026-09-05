@@ -161,9 +161,39 @@ Four more have since been finished:
   quoting the words it relies on. The platform checks both halves: that the
   citation is in the library and was in force for that year, and that the quoted
   words are really in the passage. A real section attached to words it does not
-  contain is refused too. Nothing is loaded yet, so nothing grounds — which is
-  the correct answer, not a broken one. Loading it is a firm decision about
-  licensed content, not a build task.
+  contain is refused too.
+
+  **The first content is now loadable, and it needed no licence.** IRS form
+  instructions and publications are works of the US government, so unlike a
+  commercial tax service there is nothing to buy or agree to. There is a script
+  that fetches them, splits them into passages by heading and loads them with
+  the revision date the IRS itself publishes — mechanically, with no model
+  anywhere in the path, because a library whose whole purpose is checking
+  quotations cannot be filled with a summary of the source. It shows what it
+  would load and writes nothing unless told to.
+
+  Reading the real text also found a bug in the check. The IRS publishes with
+  curly quotation marks; every model and every paste types straight ones, so a
+  *correct* quotation of the actual source was being refused. That is not a safe
+  failure — refusing correct work is exactly what teaches a reviewer to click
+  past the warning, which is how the fabricated citation gets through. Quotes,
+  dashes and non-breaking spaces are now folded on both sides. A wrong figure
+  still fails.
+
+  **The rest has an owner and a date.** The firm's separate knowledge-platform
+  programme carries a corpus plan whose Tier C is exactly this material — form
+  instructions for 5472, 5471, 1120, 1065 and 8804/8805, selected IRC sections
+  and regulations, US–India treaty articles, RBI ODI directions and CBDT/CBIC
+  circulars, each with an effective date. Twenty-five documents, selected by the
+  partner and ingested by a named person. So this is no longer an open question
+  about licensed content; it is scheduled work on another team's board.
+
+  Two things follow. The dated-source rule this platform enforces is the same
+  rule that plan requires, so the two are compatible by construction. And a
+  decision is worth taking before that ingest happens rather than after: either
+  that library writes into these tables, or this reads from that one. Two
+  libraries that disagree about what was in force in a given year is the one
+  outcome worse than an empty library.
 
 One is still part-done: **the thirty-return test set**. There is now a real
 harness with nine synthetic returns, each carrying known defects, plus a clean
@@ -369,7 +399,11 @@ firm's identity rather than to the code.
   pulled rather than uploaded. Now the most valuable thing on the list, because
   the return side cannot be hard-checked at all — see below.
 - **A verified library of tax law**, so the system can cite authority instead of
-  stating the principle and marking it "needs verifying".
+  stating the principle and marking it "needs verifying". The free half — IRS
+  form instructions and publications, which carry no copyright — is loadable
+  now. The rest is Tier C of the firm's knowledge-platform corpus plan, with a
+  partner selecting and a named person ingesting, so the open decision is where
+  it lives rather than whether it can be had.
 - **A wider test set** — around thirty returns with known answers, to measure
   whether it is getting better rather than just different.
 
