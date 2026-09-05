@@ -86,10 +86,12 @@ function buildStore() {
 
   for (const [src, out] of [
     ['lib/review-types.ts', 'review-types.js'],
+    ['lib/secrets.ts', 'secrets.js'],
     ['lib/review-engine/store.ts', 'store.js'],
     ['lib/review-engine/corpus.ts', 'corpus.js'],
     ['lib/review-engine/chart-of-accounts.ts', 'chart-of-accounts.js'],
     ['lib/review-engine/books.ts', 'books.js'],
+    ['lib/review-engine/books-oauth.ts', 'books-oauth.js'],
   ]) {
     const { outputText } = ts.transpileModule(readFileSync(path.join(ROOT, src), 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -101,6 +103,7 @@ function buildStore() {
         .replace(/^import ['"]server-only['"];?$/m, '')
         .replace(/from ['"]@\/lib\/db['"]/g, "from './db-shim.js'")
         .replace(/from ['"]@\/lib\/review-types['"]/g, "from './review-types.js'")
+        .replace(/from ['"]@\/lib\/secrets['"]/g, "from './secrets.js'")
         // TypeScript emits relative imports without an extension; Node's
         // loader requires one.
         .replace(/from ['"](\.\.?\/[^'"]*)['"]/g, (whole, spec) =>
@@ -137,6 +140,13 @@ const store = await import(pathToFileURL(path.join(dir, 'store.js')).href);
 const corpus = await import(pathToFileURL(path.join(dir, 'corpus.js')).href);
 const coa = await import(pathToFileURL(path.join(dir, 'chart-of-accounts.js')).href);
 const booksStore = await import(pathToFileURL(path.join(dir, 'books.js')).href);
+
+// Token encryption derives its key from AUTH_SECRET. Supplied here so the
+// connection tests exercise the real encrypt/decrypt path rather than a stub —
+// the point of storing a grant encrypted is that it comes back out again.
+process.env.AUTH_SECRET ||= envValue('AUTH_SECRET') || 'probe-secret-for-tests-only';
+const booksOauth = await import(pathToFileURL(path.join(dir, 'books-oauth.js')).href);
+
 const sql = postgres(DATABASE_URL, { prepare: false, max: 1, onnotice: () => {} });
 
 try {
@@ -803,6 +813,304 @@ try {
       check(
         'a finished run is',
         (await store.latestReviewedRun(priorYear.id))?.id === priorRun.id,
+      );
+
+      /* ------------------------------------- client books connections (v10) */
+
+      /**
+       * The OAuth dance, minus the network.
+       *
+       * The token exchange itself needs a vendor, so what is checked here is
+       * everything around it: that an authorisation is recorded before the
+       * browser leaves, that the URL carries what each vendor requires, and
+       * that a used or stale state cannot be presented twice.
+       */
+      const qbo = booksOauth.booksProvider('quickbooks');
+      const zoho = booksOauth.booksProvider('zoho');
+
+      check('every books provider is addressable by id', Boolean(qbo && zoho));
+      check(
+        'a provider with no credentials reports itself unconfigured',
+        booksOauth.isConfigured({ ...qbo, clientId: () => '', clientSecret: () => '' }) === false,
+      );
+
+      // Stand-in credentials: registering a real developer app is the firm's
+      // job, and none of this code path needs a real one to be exercised.
+      const fakeQbo = {
+        ...qbo,
+        clientId: () => 'test-client-id',
+        clientSecret: () => 'test-client-secret',
+      };
+      const fakeZoho = {
+        ...zoho,
+        clientId: () => 'test-client-id',
+        clientSecret: () => 'test-client-secret',
+      };
+
+      check(
+        'an unregistered provider refuses to start and says how to register it',
+        await (async () => {
+          try {
+            await booksOauth.startAuthorization({
+              provider: { ...qbo, clientId: () => '', clientSecret: () => '' },
+              clientKey: '00-0000000',
+              redirectUri: 'https://example.test/api/books/quickbooks/callback',
+            });
+            return false;
+          } catch (err) {
+            return /developer\.intuit\.com/.test(err.message);
+          }
+        })(),
+      );
+
+      const started = await booksOauth.startAuthorization({
+        provider: fakeQbo,
+        clientKey: '00-0000000',
+        engagementId: eng.id,
+        redirectUri: 'https://example.test/api/books/quickbooks/callback',
+        startedBy: USER,
+      });
+      const startedUrl = new URL(started.url);
+
+      check(
+        'the authorisation asks for the accounting scope and nothing wider',
+        startedUrl.searchParams.get('scope') === 'com.intuit.quickbooks.accounting',
+        startedUrl.searchParams.get('scope') ?? '',
+      );
+      check(
+        'the verifier never travels: only its hash is on the URL',
+        startedUrl.searchParams.get('code_challenge_method') === 'S256' &&
+          !started.url.includes(
+            (
+              await db.unsafe(`SELECT code_verifier FROM books_oauth_states WHERE state = $1`, [
+                started.state,
+              ])
+            )[0].code_verifier,
+          ),
+      );
+      check(
+        'Zoho is asked for offline access, or the grant dies in an hour',
+        await (async () => {
+          const z = await booksOauth.startAuthorization({
+            provider: fakeZoho,
+            clientKey: '00-0000000',
+            redirectUri: 'https://example.test/api/books/zoho/callback',
+            region: 'in',
+          });
+          const u = new URL(z.url);
+          return (
+            u.searchParams.get('access_type') === 'offline' &&
+            u.host === 'accounts.zoho.in'
+          );
+        })(),
+      );
+
+      check(
+        'an unknown state is refused',
+        await (async () => {
+          try {
+            await booksOauth.completeAuthorization({
+              state: 'never-issued',
+              code: 'x',
+              redirectUri: 'https://example.test/cb',
+              callbackParams: new URLSearchParams(),
+            });
+            return false;
+          } catch (err) {
+            return /not one this server started/.test(err.message);
+          }
+        })(),
+      );
+
+      check(
+        'presenting a state consumes it, so a code cannot be replayed',
+        await (async () => {
+          const pending = await booksOauth.startAuthorization({
+            provider: fakeQbo,
+            clientKey: '00-0000000',
+            redirectUri: 'https://example.test/cb',
+          });
+          // First attempt fails at the network, which is fine — what matters
+          // is that the row is gone afterwards.
+          await booksOauth
+            .completeAuthorization({
+              state: pending.state,
+              code: 'x',
+              redirectUri: 'https://example.test/cb',
+              callbackParams: new URLSearchParams(),
+            })
+            .catch(() => {});
+          const left = await db.unsafe(
+            `SELECT COUNT(*) AS n FROM books_oauth_states WHERE state = $1`,
+            [pending.state],
+          );
+          return Number(left[0].n) === 0;
+        })(),
+      );
+
+      check(
+        'a stale authorisation is refused rather than completed late',
+        await (async () => {
+          const pending = await booksOauth.startAuthorization({
+            provider: fakeQbo,
+            clientKey: '00-0000000',
+            redirectUri: 'https://example.test/cb',
+          });
+          await db.unsafe(`UPDATE books_oauth_states SET created_at = $1 WHERE state = $2`, [
+            Date.now() - 60 * 60 * 1000,
+            pending.state,
+          ]);
+          try {
+            await booksOauth.completeAuthorization({
+              state: pending.state,
+              code: 'x',
+              redirectUri: 'https://example.test/cb',
+              callbackParams: new URLSearchParams(),
+            });
+            return false;
+          } catch (err) {
+            return /took too long/.test(err.message);
+          }
+        })(),
+      );
+
+      /* -------------------------------- a stored grant, and how it goes bad */
+
+      const { encryptSecret } = await import(pathToFileURL(path.join(dir, 'secrets.js')).href);
+
+      const storeGrant = async (overrides = {}) => {
+        const row = {
+          id: crypto.randomUUID(),
+          client_key: '00-0000000',
+          provider: 'quickbooks',
+          external_id: '9130000000000000',
+          external_label: 'Probe Co',
+          data_region: null,
+          access_token: encryptSecret('live-access-token'),
+          refresh_token: encryptSecret('live-refresh-token'),
+          expires_at: Date.now() + 60 * 60 * 1000,
+          scope: 'com.intuit.quickbooks.accounting',
+          revoked_at: null,
+          last_error: null,
+          connected_by: USER,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+          ...overrides,
+        };
+        await db.unsafe(
+          `INSERT INTO books_connections
+             (id, client_key, provider, external_id, external_label, data_region,
+              access_token, refresh_token, expires_at, scope, revoked_at, last_error,
+              connected_by, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          Object.values(row),
+        );
+        return row;
+      };
+
+      const liveGrant = await storeGrant();
+      check(
+        'a stored grant comes back decrypted and usable',
+        (await booksOauth.resolveConnection(liveGrant)).accessToken === 'live-access-token',
+      );
+      check(
+        'the token is not readable from the row itself',
+        !JSON.stringify(liveGrant).includes('live-access-token'),
+      );
+
+      check(
+        'a withdrawn grant says reconnect rather than failing at import time',
+        await (async () => {
+          const revoked = await storeGrant({
+            id: crypto.randomUUID(),
+            external_id: '9130000000000001',
+            revoked_at: Date.now(),
+          });
+          try {
+            await booksOauth.resolveConnection(revoked);
+            return false;
+          } catch (err) {
+            return /Reconnect it before importing/.test(err.message);
+          }
+        })(),
+      );
+
+      /**
+       * The case that would otherwise look like a vendor outage: AUTH_SECRET
+       * was rotated, so the ciphertext is inert. That is the encryption working
+       * — and it has to read as "reconnect", not as a crash.
+       */
+      check(
+        'tokens encrypted under a rotated key read as needing reconnection',
+        await (async () => {
+          const stale = await storeGrant({
+            id: crypto.randomUUID(),
+            external_id: '9130000000000002',
+            access_token: 'not.valid.ciphertext',
+            refresh_token: null,
+            expires_at: Date.now() + 60 * 60 * 1000,
+          });
+          try {
+            await booksOauth.resolveConnection(stale);
+            return false;
+          } catch (err) {
+            return /could not be decrypted/.test(err.message);
+          }
+        })(),
+      );
+
+      check(
+        'a grant that failed is marked on the row, so the screen can explain it',
+        await (async () => {
+          const row = await db.unsafe(
+            `SELECT revoked_at, last_error FROM books_connections WHERE external_id = $1`,
+            ['9130000000000002'],
+          );
+          return row[0].revoked_at !== null && /rotated/.test(row[0].last_error ?? '');
+        })(),
+      );
+
+      /*
+       * The duplicate has to be attempted inside a savepoint.
+       *
+       * A constraint violation aborts the enclosing Postgres transaction, so
+       * catching the error in JavaScript is not enough — every later statement
+       * would fail with "current transaction is aborted" and the real failure
+       * would be buried under it.
+       */
+      check(
+        'one client cannot hold two grants for the same company twice over',
+        await (async () => {
+          let refused = false;
+          await db
+            .savepoint(async (sp) => {
+              await sp.unsafe(
+                `INSERT INTO books_connections
+                   (id, client_key, provider, external_id, access_token, scope,
+                    created_at, updated_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                [
+                  crypto.randomUUID(),
+                  '00-0000000',
+                  'quickbooks',
+                  '9130000000000000',
+                  encryptSecret('second-token'),
+                  '',
+                  Date.now(),
+                  Date.now(),
+                ],
+              );
+            })
+            .catch(() => {
+              refused = true;
+            });
+
+          const after = await db.unsafe(
+            `SELECT COUNT(*) AS n FROM books_connections WHERE external_id = $1`,
+            ['9130000000000000'],
+          );
+          return refused && Number(after[0].n) === 1;
+        })(),
       );
 
       throw new Error('__rollback__');

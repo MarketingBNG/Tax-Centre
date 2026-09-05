@@ -811,6 +811,74 @@ CREATE INDEX IF NOT EXISTS idx_booksaccounts_import ON books_accounts(import_id)
 -- already exist wherever this has been deployed.
 ALTER TABLE review_runs ADD COLUMN IF NOT EXISTS corpus_as_of      BIGINT;
 ALTER TABLE review_runs ADD COLUMN IF NOT EXISTS corpus_fingerprint TEXT;
+
+/* ================================================================ v10 =====
+   Books connections: a client's own accounting system, authorised by them.
+
+   Item 2 of the guidance. Deliberately NOT the oauth_accounts table above,
+   which is keyed (user_id, provider) because a Gmail account belongs to the
+   person who connected it. A client's QuickBooks does not belong to the
+   reviewer who happened to click Connect — it belongs to the client, and it
+   has to keep working when that reviewer leaves the firm or the engagement is
+   picked up by somebody else.
+
+   So the grant is held against the client, and connected_by records who
+   obtained it rather than who owns it.
+
+   external_id is the vendor's own identifier for the set of books: a
+   QuickBooks realmId, a Xero tenantId, a Zoho organization_id. Without it the
+   tokens are not enough to know which company was authorised — a firm with two
+   QuickBooks companies would otherwise be a coin toss.
+
+   data_region exists for Zoho, whose accounts live in one of several data
+   centres with different API hosts, and whose tokens are not valid across
+   them. Guessing .com for a client on .in fails with an error that looks like
+   a bad token rather than a wrong host.
+
+   Both tokens are encrypted through lib/secrets.ts, exactly as oauth_accounts
+   are: a refresh token here is a standing grant to read a client's books.
+*/
+
+CREATE TABLE IF NOT EXISTS books_connections (
+  id            TEXT PRIMARY KEY,
+  -- The client label an engagement carries, so one grant serves every year.
+  client_key    TEXT NOT NULL,
+  -- quickbooks | xero | zoho
+  provider      TEXT NOT NULL,
+  -- The vendor's id for the authorised company, and a name to show a person.
+  external_id   TEXT NOT NULL,
+  external_label TEXT,
+  data_region   TEXT,
+  access_token  TEXT NOT NULL,
+  refresh_token TEXT,
+  expires_at    BIGINT,
+  scope         TEXT NOT NULL DEFAULT '',
+  -- Set when the vendor stops accepting the grant, so the screen can say
+  -- "reconnect" rather than failing an import with a raw 401 months later.
+  revoked_at    BIGINT,
+  last_error    TEXT,
+  connected_by  TEXT,
+  created_at    BIGINT NOT NULL,
+  updated_at    BIGINT NOT NULL,
+  UNIQUE (client_key, provider, external_id)
+);
+CREATE INDEX IF NOT EXISTS idx_booksconn_client
+  ON books_connections(client_key, provider);
+
+-- An authorisation in flight. Separate from oauth_states because that table's
+-- rows are owned by a user and deleted with them; abandoning a books
+-- authorisation must not be able to cascade into a client's records.
+CREATE TABLE IF NOT EXISTS books_oauth_states (
+  state         TEXT PRIMARY KEY,
+  client_key    TEXT NOT NULL,
+  provider      TEXT NOT NULL,
+  engagement_id TEXT,
+  code_verifier TEXT NOT NULL,
+  redirect_to   TEXT,
+  started_by    TEXT,
+  created_at    BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_booksoauth_created ON books_oauth_states(created_at);
 `;
 
 /**
