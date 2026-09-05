@@ -1,0 +1,58 @@
+{
+  "id": "1120-foreign-owned-dormant-no-5472",
+  "note": "Derived from a real filed return, anonymised — name, EIN, address, officer name and email replaced, figures kept. The second real instance of the 25%-foreign-owned pattern, and the harder one: the return reports no activity at all, which is exactly the case where a preparer concludes there is nothing to report. Form 5472 is triggered by ownership and reportable transactions, not by income, so a nil return does not excuse it. The firm had the return and no books.",
+  "returnType": "1120",
+  "taxYear": 2025,
+  "booksAbsent": true,
+  "facts": {
+    "foreign_owner": true,
+    "foreign_owner_pct": 100,
+    "india_link": true,
+    "jurisdictions": ["US-FED", "US-FL"]
+  },
+  "documents": [
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": "Form 1120 U.S. Corporation Income Tax Return 2025\nFor tax year beginning 04-01-2025, ending 03-31-2026 (fiscal year)\nName: MERIDIAN STAFFING INC   EIN 00-0000000\n25 EXAMPLE AVE STE 0000, Miami FL 33131. Date incorporated 02-13-2024.\nTotal assets 0\n\n1a Gross receipts or sales 0\n1c Balance 0\n3 Gross profit 0\n11 Total income 0\n27 Total deductions 0\n28 Taxable income before NOL 0\n30 Taxable income 0\n31 Total tax (Schedule J line 12) 0\n33 Total payments and credits (Schedule J line 23) 0\n35 Amount owed 0\n\nSigned: ARJUN RAMANATHAN, PRESIDENT\nPaid preparer: (firm) 09-02-2026\n\nSchedule J\n1a Income tax 0\n11a Total tax before deferred taxes 0\n12 Total tax 0\n17 Tax deposited with Form 7004 0\n19 Total payments 0\n23 Total payments and credits 0\n\nSchedule K Other Information\n1 Accounting method: Accrual\n2a Business activity code 541519  2b IT CONSULTING & STAFFING SERVICES  2c SERVICE\n4b Did any individual or estate own directly 20% or more, or own, directly or indirectly, 50% or more of the total voting power of all classes of the corporation's stock entitled to vote? YES - see Schedule G Part II\n7 At any time during this tax year, did one foreign person own, directly or indirectly, at least 25% of the total voting power of all classes of the corporation's stock entitled to vote or at least 25% of the total value of all classes of the corporation's stock? YES\n   (a) Percentage owned 100   (b) Owner's country IN\n   (c) Number of Forms 5472 attached: 0\n10 Number of shareholders at end of tax year: 1\n13 Are total receipts and total assets less than $250,000? YES\n   Total cash distributions and book value of property distributions made during this tax year: 0\n15a Did the corporation make any payments that would require it to file Forms 1099? NO\n19 Did the corporation make any payments requiring Forms 1042 and 1042-S under chapter 3 or 4? NO\n21 Did the corporation pay or accrue interest or royalty disallowed under section 267A? NO\n\nSchedule G (Form 1120) Part II - Certain Individuals and Estates Owning the Corporation's Voting Stock\n(i) Name of individual: ARJUN RAMANATHAN\n(ii) Identifying number: (none)\n(iii) Country of citizenship: IN\n(iv) Percentage owned in voting stock: 100.000\n\nSchedule L Balance Sheets per Books\n                                    Beginning of tax year    End of tax year\n1 Cash                                        0                    0\n6 Other current assets (Statement #8)        100                   [blank]\n15 Total assets                               0                    0\n28 Total liabilities and shareholders' equity 0                    0\n\nStatement #8 - Schedule L Line 6 - Other Current Assets\nDescription                Beg Of Year    End Of Year\nAllotment Amount Pen           100          [blank]\nTotal                          100          [blank]\n\nSchedule M-1\n1 Net income (loss) per books 0\n6 Add lines 1 through 5: 0\n10 Income (page 1 line 28) less line 6 less line 9: 0\n\nSchedule M-2\n1 Balance at beginning of year 0\n8 Balance at end of year 0\n\nForm 7004 Application for Automatic Extension of Time To File\nForm code 12 (Form 1120). Tax year beginning 04-01-2025 ending 03-31-2026.\n6 Tentative total tax 0\n7 Total payments and credits 0\n8 Balance due 0\n\nFlorida Form F-1120 Corporate Income/Franchise Tax Return\n1 Federal taxable income 0\n10 Florida net income 0\n11 Tax due 5.5% of line 10: 0.00\n13 Total corporate income/franchise tax due 0.00\n15 Total of lines 13 and 14: 50.00\n17 Total amount due: 50.00\nQuestion L Type of federal return filed: 1120\nQuestion E Principal Business Activity Code: 541519\nQuestion H Location of corporate books: MIAMI FL 33131\n\nFlorida F-7004 Tentative Income/Franchise Tax Return and Application for Extension\nTentative tax due 50.00. Filing method: e-filed. Due date: 08-03-2026. Payment: $50.00.\nPrepared 09-02-2026.\n\nNotes about the return (Drake FLNOTES, not filed with the return)\n053 FL 1120: If the corporation received an F-1065 from a partnership, the F-1065 should be attached to the F-1120 filing.\n059 FL 1120: Line 14b is generating a late penalty. The penalty for a late filed return is 10% per month, or fraction thereof, not to exceed 50% of the tax due with the return. If no tax is due and you file late, the penalty is $50 per month or fraction thereof, not to exceed $300. If you filed an extension, select Y on the FL screen 1 and it will remove the late filing penalty; however, a penalty will calculate for any number of months past the due date of the extension.\n\n1120 TAX RETURN COMPARISON 2023 / 2024 / 2025\n                     2023 FEDERAL   2024 FEDERAL   2025 FEDERAL\nTotal income               0              0              0\nTotal deductions           0              0              0\nTaxable income             0              0              0\nTotal tax                  0              0              0\nAmount owed                0              0              0"
+    }
+  ],
+  "planted": [
+    {
+      "id": "no-5472-despite-sole-foreign-owner",
+      "what": "One foreign person owns 100% of the corporation and Schedule K question 7(c) states that zero Forms 5472 are attached. A 25%-or-more foreign-owned US corporation must file Form 5472 for its reportable transactions with the related party, and for a corporation with no other activity the formation, capital contributions and any amounts paid or advanced by the owner are themselves reportable. A nil return is not a reason not to file: the penalty runs per form per year whether or not any tax was due.",
+      "defectKinds": ["missing_form"],
+      "minSeverity": "Critical",
+      "stage": "S3-INTL",
+      "absence": true,
+      "mustMention": ["5472"]
+    },
+    {
+      "id": "nil-return-for-an-operating-business",
+      "what": "Every federal figure on the return is zero across three years, and the balance sheet is zero at both ends, while Schedule K declares an active trade or business (code 541519, IT consulting and staffing services) and Florida question H gives a location for the corporate books. Either the corporation genuinely had no activity, in which case nothing in the file says so, or activity exists and was not booked. There is no trial balance to test it against, so this cannot be resolved from the face of the return and has to be asked.",
+      "defectKinds": ["missing_evidence", "unsupported_position"],
+      "minSeverity": "High",
+      "stage": "S2",
+      "mustMention": ["541519"]
+    },
+    {
+      "id": "schedule-l-opening-balance-vanishes",
+      "what": "Schedule L line 6 other current assets, per Statement #8, opens the year at 100 and is blank at the close, with no distribution, write-off or other movement anywhere on the return: Schedule M-2 shows 0 at both ends and Schedule K question 13 reports zero distributions. An asset that disappears without a corresponding entry is an unexplained tie-out failure.",
+      "defectKinds": ["unexplained_tieout_failure"],
+      "minSeverity": "High",
+      "stage": "S3-FED",
+      "mustMention": ["100"]
+    },
+    {
+      "id": "florida-extension-prepared-after-its-own-due-date",
+      "what": "Form F-7004 carries a due date of 08-03-2026 and a preparation date of 09-02-2026, so the Florida extension was prepared a month after the date it had to be filed by. The preparer's own note 059 warns that a late-filed return with no tax due draws $50 per month to a $300 cap, and that a penalty still accrues for any month past the extension due date. The $50 shown as due is the minimum, not the penalty.",
+      "defectKinds": ["missing_form", "unsupported_position"],
+      "minSeverity": "Medium",
+      "stage": "S3-STATE",
+      "mustMention": ["F-7004"]
+    }
+  ],
+  "expect": {
+    "verdict": "hold"
+  }
+}
