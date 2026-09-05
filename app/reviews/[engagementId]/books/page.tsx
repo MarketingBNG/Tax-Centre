@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
 import { getEngagement } from '@/lib/review-engine/store';
 import { BooksPanel } from '@/components/reviews/BooksPanel';
+import { BooksConnections } from '@/components/reviews/BooksConnections';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,14 @@ export default async function BooksPage({ params }: Ctx) {
           &ldquo;Accounts Receivable&rdquo; or just 1200.
         </p>
       </header>
+
+      {/*
+        Connections first, then the upload.
+        Pulling the books is better than being sent them — the figures are
+        hard-checked rather than read — so the connected route is offered
+        before the manual one rather than beneath it.
+      */}
+      <BooksConnections engagementId={engagementId} isAdmin={user.role === 'admin'} />
 
       <BooksPanel engagementId={engagementId} />
     </div>
