@@ -1,0 +1,42 @@
+{
+  "id": "1120-foreign-owned-no-5472",
+  "note": "Derived from a real filed return, anonymised — names, EIN and address replaced, figures kept. The firm had the return and no books, which is the common case: this is what a review can and cannot say from the face of a return alone.",
+  "returnType": "1120",
+  "taxYear": 2025,
+  "booksAbsent": true,
+  "facts": {
+    "foreign_owner": true,
+    "foreign_owner_pct": 100,
+    "india_link": true,
+    "jurisdictions": ["US-FED"]
+  },
+  "documents": [
+    {
+      "filename": "return.pdf",
+      "docRole": "drake_export",
+      "text": "Form 1120 U.S. Corporation Income Tax Return 2025\nFor tax year beginning 06-23-2025, ending 03-31-2026 (initial return)\nName: NORTHBEAM ANALYTICS INC   EIN 00-0000000\n8 THE GREEN STE 0000, Dover DE 19901. Date incorporated 06-23-2025.\nTotal assets 134,310\n\n1c Gross receipts or sales 455,789\n3 Gross profit 455,789\n11 Total income 455,789\n13 Salaries and wages 33,642\n22 Advertising 148,485\n26 Other deductions (Statement #5) 146,232\n27 Total deductions 328,359\n28 Taxable income before NOL 127,430\n30 Taxable income 127,430\n31 Total tax (Schedule J line 12) 26,760\n33 Total payments, credits (Schedule J line 23) [blank]\n35 Amount owed 26,760\n\nSchedule J\n1a Income tax 26,760\n12 Total tax 26,760\n17 Tax deposited with Form 7004 [blank]\n19 Total payments [blank]\n23 Total payments and credits [blank]\n\nSchedule K Other Information\n1 Accounting method: Accrual\n2a Business activity code 513210  2b WEB BASED PERFORMANCE TOOL  2c SERVICE\n7 At any time during this tax year, did one foreign person own, directly or indirectly, at least 25% of the total voting power or at least 25% of the total value of all classes of the corporation's stock? YES\n   (a) Percentage owned 100   (b) Owner's country IN\n   (c) Number of Forms 5472 attached: 0\n10 Number of shareholders at end of tax year: 1\n13 Are total receipts and total assets less than $250,000? NO\n15a Did the corporation make any payments that would require it to file Forms 1099? NO\n19 Did the corporation make any payments requiring Forms 1042 and 1042-S under chapter 3 or 4? NO\n21 Did the corporation pay or accrue interest or royalty disallowed under section 267A? NO\n\nStatement #5 - Form 1120 Line 26 - Other Deductions\nBank charges 715\nCommissions 11,938\nConsulting 51,987\nGifts 1,408\nLegal and professional 275\nMeals 50% limit 105\nSoftware 61,514\nTravel 1,739\nDelaware Franchise Tax Expense 225\nIT and Internet Expenses 1,962\nOther Expenses 40\nSalary perks 855\nStaff Welfare 1,057\nStripe Fees 12,216\nFitness Exp 176\nExchange Gain or Loss 20\nTotal 146,232\n\nSchedule L Balance Sheets per Books (end of tax year)\n1 Cash 132,097\n2a Trade notes and accounts receivable 2,113\n6 Other current assets (Statement #8) 100\n15 Total assets 134,310\n16 Accounts payable 155\n18 Other current liabilities (Statement #11) 6,729\n21 Other liabilities (Statement #12) 26,760\n22b Common stock 100\n25 Retained earnings - Unappropriated 100,566\n28 Total liabilities and shareholders' equity 134,310\n\nSchedule M-1\n1 Net income (loss) per books 100,566\n2 Federal income tax per books 26,760\n5c Travel and entertainment 104\n6 Add lines 1 through 5: 127,430\n10 Income (page 1 line 28) less line 6 less line 9: 127,430\n\nForm 7004 Application for Automatic Extension\nTax year beginning 06-23-2025 ending 03-31-2026. Short tax year: initial return.\n6 Tentative total tax 26,760\n7 Total payments and credits 0\n8 Balance due 26,760\n\nCover letter: The corporation has an estimated balance due of $26,760 and is paying this amount with the extension."
+    }
+  ],
+  "planted": [
+    {
+      "id": "no-5472-for-the-foreign-owner",
+      "what": "A single foreign person owns 100% of the corporation and Schedule K question 7(c) states that zero Forms 5472 are attached. A 25%-or-more foreign-owned US corporation must file one for its reportable transactions.",
+      "defectKinds": ["missing_form"],
+      "minSeverity": "Critical",
+      "stage": "S3-INTL",
+      "absence": true,
+      "mustMention": ["5472"]
+    },
+    {
+      "id": "extension-payment-not-credited",
+      "what": "Form 7004 shows 26,760 due with the extension and the cover letter says it is being paid, but Schedule J line 17 is blank and total payments are blank, so the return still shows 26,760 owed. Either the payment is not credited or it will be paid twice.",
+      "defectKinds": ["wrong_amount", "missing_evidence", "unexplained_tieout_failure"],
+      "minSeverity": "High",
+      "stage": "S3-FED",
+      "mustMention": ["26,760"]
+    }
+  ],
+  "expect": {
+    "verdict": "hold"
+  }
+}

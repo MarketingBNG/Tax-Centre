@@ -112,17 +112,35 @@ if (!fixtures.length) {
 for (const fx of fixtures) {
   const label = `fixture ${fx.id}`;
   check(`${label}: has a return type and a year`, Boolean(fx.returnType && fx.taxYear));
-  check(
-    `${label}: carries the documents the input gate demands`,
-    ['trial_balance_cy', 'trial_balance_py', 'drake_export'].every((role) =>
-      fx.documents.some((d) => d.docRole === role),
-    ),
-    fx.documents.map((d) => d.docRole).join(', '),
-  );
-  check(
-    `${label}: the return itself is only readable visually, as a real one would be`,
-    fx.documents.some((d) => d.docRole === 'drake_export' && d.text === null),
-  );
+  /**
+   * A fixture marked `booksAbsent` is a return with no trial balance behind it.
+   *
+   * That is not a malformed fixture, it is a real and common situation: the
+   * firm has the filed return and nothing else. What it tests is different —
+   * whether the books stages say plainly that they could not check anything,
+   * and whether the return-side checks still find what is findable from the
+   * face of the return. So it is exempted from the document requirements
+   * rather than excused from them quietly.
+   */
+  if (fx.booksAbsent) {
+    check(
+      `${label}: a books-absent fixture still carries the return`,
+      fx.documents.some((d) => d.docRole === 'drake_export'),
+      fx.documents.map((d) => d.docRole).join(', '),
+    );
+  } else {
+    check(
+      `${label}: carries the documents the input gate demands`,
+      ['trial_balance_cy', 'trial_balance_py', 'drake_export'].every((role) =>
+        fx.documents.some((d) => d.docRole === role),
+      ),
+      fx.documents.map((d) => d.docRole).join(', '),
+    );
+    check(
+      `${label}: the return itself is only readable visually, as a real one would be`,
+      fx.documents.some((d) => d.docRole === 'drake_export' && d.text === null),
+    );
+  }
   check(
     `${label}: every planted defect says what would count as finding it`,
     (fx.planted ?? []).every(
