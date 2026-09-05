@@ -103,7 +103,7 @@ export function AdminPanel() {
             ['people', 'People'],
             ['skills', 'Skills'],
             ['connectors', 'Connectors'],
-            ['books', 'Client books'],
+            ['books', 'Connections'],
             ['audit', 'Audit log'],
           ] as [Tab, string][]
         ).map(([key, text]) => (
