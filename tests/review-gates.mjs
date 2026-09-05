@@ -512,6 +512,67 @@ try {
       return m.key === null && m.confidence === 0 && /does not match/.test(m.reason);
     })(),
   );
+  /**
+   * The parent group as evidence.
+   *
+   * This is what makes Tally usable at all: its party ledgers are named after
+   * the party, so "Acme Pvt Ltd" carries no signal and the group it sits under
+   * carries all of it.
+   */
+  check(
+    'a party ledger nothing recognises is mapped by the group it sits under',
+    (() => {
+      const m = coa.normaliseAccount({ name: 'Acme Pvt Ltd', group: 'Sundry Debtors' });
+      return m.key === 'trade_receivables' && m.confidence >= coa.WEAK_MAPPING_BELOW;
+    })(),
+    JSON.stringify(coa.normaliseAccount({ name: 'Acme Pvt Ltd', group: 'Sundry Debtors' })),
+  );
+  check(
+    'the reason says the grouping was the bookkeeper\'s own classification',
+    /grouping is the bookkeeper/i.test(
+      coa.normaliseAccount({ name: 'Acme Pvt Ltd', group: 'Sundry Debtors' }).reason,
+    ),
+  );
+  check(
+    'a group nothing recognises leaves the account unmapped rather than guessed',
+    (() => {
+      const m = coa.normaliseAccount({ name: 'Acme Pvt Ltd', group: 'Zylkon Holdings' });
+      return m.key === null && m.confidence === 0;
+    })(),
+  );
+  check(
+    'the unmapped reason names the group it tried, so a person can see what was read',
+    /Zylkon Holdings/.test(
+      coa.normaliseAccount({ name: 'Acme Pvt Ltd', group: 'Zylkon Holdings' }).reason,
+    ),
+  );
+  check(
+    'the ledger name still beats the group when the name is unambiguous',
+    coa.normaliseAccount({ name: 'Owner draws', group: 'Indirect Expenses' }).key ===
+      'distributions',
+    coa.normaliseAccount({ name: 'Owner draws', group: 'Indirect Expenses' }).key ?? 'null',
+  );
+  /**
+   * "Interest" alone is refused, because it is either side of the P&L. The
+   * group is what decides, and it decides in both directions — which is the
+   * evidence being real rather than a lean toward one answer.
+   */
+  check(
+    'a name that could be either side of the P&L is settled by its group, both ways',
+    (() => {
+      const bare = coa.normaliseAccount({ name: 'Interest', code: '' });
+      const expense = coa.normaliseAccount({ name: 'Interest', group: 'Interest Expense' });
+      const income = coa.normaliseAccount({ name: 'Interest', group: 'Other Income' });
+      return (
+        bare.key === null &&
+        expense.key === 'interest_expense' &&
+        income.key === 'other_income'
+      );
+    })(),
+    `${coa.normaliseAccount({ name: 'Interest', group: 'Interest Expense' }).key} / ` +
+      `${coa.normaliseAccount({ name: 'Interest', group: 'Other Income' }).key}`,
+  );
+
   check(
     'a code-only match is accepted but flagged as weak, not trusted',
     (() => {
@@ -1155,6 +1216,141 @@ try {
     'the summary reads the pattern as a process rather than counting mistakes',
     /process/i.test(recurrence.recurrenceSummary(across, 3)),
     recurrence.recurrenceSummary(across, 3),
+  );
+
+  /* ------------------------------------------------- the Tally adapter */
+
+  /**
+   * The adapter is written against a description of the 33 tools, not against
+   * their output, so what is tested here is the reading: amounts in Tally's
+   * various presentations, the envelope the records arrive in, and the refusal
+   * to treat prose as an empty ledger.
+   */
+  const tally = await load('books-tally.js');
+
+  check(
+    'Dr and Cr become a sign, so the normaliser sees one convention',
+    tally.parseTallyAmount('1,25,000.50 Dr') === 125000.5 &&
+      tally.parseTallyAmount('4,000 Cr') === -4000,
+    `${tally.parseTallyAmount('1,25,000.50 Dr')} / ${tally.parseTallyAmount('4,000 Cr')}`,
+  );
+  check(
+    'a balance nobody could read is null, not zero',
+    tally.parseTallyAmount('n/a') === null && tally.parseTallyAmount('') === null,
+  );
+  check(
+    'a plain negative and a bracketed one agree',
+    tally.parseTallyAmount(-250) === -250 && tally.parseTallyAmount('(250)') === -250,
+  );
+  check(
+    'the ledger array is found whatever envelope it arrives in',
+    (() => {
+      const rows = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
+      return (
+        tally.findRecords(rows).length === 3 &&
+        tally.findRecords({ ledgers: rows }).length === 3 &&
+        tally.findRecords({ data: { items: rows }, meta: { company: 'X' } }).length === 3
+      );
+    })(),
+  );
+  check(
+    'a Tally ledger is read into the shape the chart of accounts expects',
+    (() => {
+      const a = tally.toSourceAccount({
+        name: 'Acme Pvt Ltd',
+        parent: 'Sundry Debtors',
+        closingBalance: '75,000 Dr',
+      });
+      return a.name === 'Acme Pvt Ltd' && a.group === 'Sundry Debtors' && a.balance === 75000;
+    })(),
+    JSON.stringify(
+      tally.toSourceAccount({ name: 'Acme Pvt Ltd', parent: 'Sundry Debtors', closingBalance: '75,000 Dr' }),
+    ),
+  );
+  check(
+    'field names are matched however the server cases or separates them',
+    (() => {
+      const a = tally.toSourceAccount({
+        LEDGER_NAME: 'Acme Pvt Ltd',
+        'parent group': 'Sundry Debtors',
+        'closing.balance': 100,
+      });
+      return a && a.group === 'Sundry Debtors' && a.balance === 100;
+    })(),
+  );
+  check(
+    'a Tally ledger carries no invented code',
+    tally.toSourceAccount({ name: 'Acme Pvt Ltd', parent: 'Sundry Debtors' }).code === null,
+  );
+  check(
+    'a row with no readable name is skipped rather than imported blank',
+    tally.toSourceAccount({ parent: 'Sundry Debtors', closingBalance: 1 }) === null,
+  );
+  check(
+    'prose is not parsed as an empty ledger',
+    tally.parseToolText('TallyPrime is not running on port 9000.') === null,
+  );
+  check(
+    'JSON inside a fenced block is still read',
+    (() => {
+      const parsed = tally.parseToolText('```json\n[{"name":"A"}]\n```');
+      return Array.isArray(parsed) && parsed[0].name === 'A';
+    })(),
+  );
+
+  /**
+   * End to end on a recorded response: the point of the adapter is that a Tally
+   * party ledger, which says nothing in its name, arrives mapped.
+   */
+  check(
+    'a recorded Tally response maps end to end',
+    await (async () => {
+      const response = JSON.stringify({
+        company: 'Demo Exports Pvt Ltd',
+        ledgers: [
+          { name: 'Acme Pvt Ltd', parent: 'Sundry Debtors', closingBalance: '75,000 Dr' },
+          { name: 'HDFC Current A/c', parent: 'Bank Accounts', closingBalance: '2,10,000 Dr' },
+          { name: 'Zylkon reserve movement', parent: 'Suspense A/c', closingBalance: '900 Cr' },
+        ],
+      });
+      const source = tally.tallySource(async () => response);
+      const { accounts, skipped } = await source.fetch({ engagementId: 'e', ref: 'Demo Exports Pvt Ltd' });
+      const books = coa.normaliseBooks(accounts);
+      return (
+        accounts.length === 3 &&
+        skipped === 0 &&
+        books.accounts[0].key === 'trade_receivables' &&
+        books.accounts[1].key === 'cash' &&
+        // Tally files unclassified entries under Suspense, and that group is
+        // itself the answer: the line maps, and Stage 1 has an open suspense
+        // account to raise rather than an unmapped row nobody explains.
+        books.accounts[2].key === 'suspense'
+      );
+    })(),
+  );
+  check(
+    'an unreachable Tally fails with something a person can act on',
+    await (async () => {
+      const source = tally.tallySource(async () => 'TallyPrime is not running.');
+      try {
+        await source.fetch({ engagementId: 'e', ref: 'X' });
+        return false;
+      } catch (err) {
+        return /did not return readable data/i.test(err.message);
+      }
+    })(),
+  );
+  check(
+    'an empty company is refused rather than imported as clean books',
+    await (async () => {
+      const source = tally.tallySource(async () => '{"ledgers":[]}');
+      try {
+        await source.fetch({ engagementId: 'e', ref: 'X' });
+        return false;
+      } catch (err) {
+        return /no ledger accounts/i.test(err.message);
+      }
+    })(),
   );
 } catch (err) {
   failures.push(`threw: ${err.message}`);

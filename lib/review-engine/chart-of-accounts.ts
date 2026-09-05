@@ -325,6 +325,16 @@ export interface SourceAccount {
   name: string;
   /** Signed balance in the source's own presentation. */
   balance?: number | null;
+  /**
+   * The source system's own classification of this account, where it has one —
+   * Tally's parent group, for instance.
+   *
+   * This is better evidence than a code range and worse than an unambiguous
+   * name. A Tally ledger called "Acme Pvt Ltd" says nothing on its own, but its
+   * parent group "Sundry Debtors" is the classification the bookkeeper actually
+   * chose, not an inference drawn from spelling.
+   */
+  group?: string | null;
 }
 
 export interface MappedAccount extends SourceAccount {
@@ -337,6 +347,15 @@ export interface MappedAccount extends SourceAccount {
 /** What a name match is worth against what a code-range hint is worth. */
 const NAME_CONFIDENCE = 0.9;
 const CODE_CONFIDENCE = 0.55;
+/**
+ * A parent-group match sits between the two, and nearer the top.
+ *
+ * The group is a classification somebody chose in the source system, so it is
+ * evidence rather than a guess — but it is one level coarser than the ledger
+ * name, and a misfiled ledger carries its group's answer with it. High enough
+ * to rely on, low enough that it is worth saying where the answer came from.
+ */
+const GROUP_CONFIDENCE = 0.85;
 
 /**
  * Maps one source account into the taxonomy.
@@ -349,8 +368,10 @@ const CODE_CONFIDENCE = 0.55;
 export function normaliseAccount(account: SourceAccount): MappedAccount {
   const name = (account.name ?? '').trim();
   const code = (account.code ?? '').toString().trim();
+  const group = (account.group ?? '').toString().trim();
 
   const byName = CHART.filter((entry) => entry.patterns.some((p) => p.test(name)));
+  const byGroup = group ? CHART.filter((entry) => entry.patterns.some((p) => p.test(group))) : [];
 
   if (byName.length === 1) {
     return {
@@ -363,6 +384,22 @@ export function normaliseAccount(account: SourceAccount): MappedAccount {
   }
 
   if (byName.length > 1) {
+    // Two keys both claim it. The source system's own grouping settles it if it
+    // picks out exactly one of them — that is a person's classification, not a
+    // second guess at the same spelling.
+    const agreeingGroup = byGroup.filter((entry) => byName.includes(entry));
+    if (agreeingGroup.length === 1) {
+      return {
+        ...account,
+        name,
+        key: agreeingGroup[0].key,
+        confidence: GROUP_CONFIDENCE,
+        reason:
+          `"${name}" could be ${byName.map((e) => e.label).join(' or ')}; its group ` +
+          `"${group}" points at ${agreeingGroup[0].label}.`,
+      };
+    }
+
     // Two keys both claim it. The code decides only if it agrees with one of
     // them; otherwise this is exactly the line a person should look at.
     const agreeing = byName.filter((entry) => entry.codeHints?.some((h) => h.test(code)));
@@ -389,6 +426,22 @@ export function normaliseAccount(account: SourceAccount): MappedAccount {
     };
   }
 
+  // Nothing in the name matched. The parent group is the next best evidence,
+  // and in a Tally ledger it is usually the only evidence: party accounts are
+  // named after the party, and "Acme Pvt Ltd" is a receivable solely because of
+  // the group it sits under.
+  if (byGroup.length === 1) {
+    return {
+      ...account,
+      name,
+      key: byGroup[0].key,
+      confidence: GROUP_CONFIDENCE,
+      reason:
+        `Nothing in "${name}" matched, but it sits under "${group}", which is ` +
+        `${byGroup[0].label}. The grouping is the bookkeeper's own classification.`,
+    };
+  }
+
   const byCode = code ? CHART.filter((entry) => entry.codeHints?.some((h) => h.test(code))) : [];
   if (byCode.length === 1) {
     return {
@@ -408,9 +461,9 @@ export function normaliseAccount(account: SourceAccount): MappedAccount {
     key: null,
     confidence: 0,
     reason:
-      `"${name}"${code ? ` (code ${code})` : ''} does not match any standard account. Left ` +
-      'unmapped rather than guessed: a receivable filed as revenue is worse than a line ' +
-      'somebody has to look at.',
+      `"${name}"${code ? ` (code ${code})` : ''}${group ? ` under "${group}"` : ''} does not ` +
+      'match any standard account. Left unmapped rather than guessed: a receivable filed as ' +
+      'revenue is worse than a line somebody has to look at.',
   };
 }
 
