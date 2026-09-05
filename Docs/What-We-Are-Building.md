@@ -200,9 +200,21 @@ harness with nine synthetic returns, each carrying known defects, plus a clean
 return — a reviewer that finds three problems where there are none is as wrong
 as one that misses three — and two bait returns that invite an invented citation
 and a made-up figure. It scores what was found and refuses vague credit: a
-finding only counts if it names the account or form. The set is nine, not
-thirty, and all of it is synthetic, so it catches regressions rather than
-proving readiness. The rest have to be real returns with known answers.
+finding only counts if it names the account or form. The set is fourteen, not
+thirty, and all but two of them are synthetic, so it catches regressions rather
+than proving readiness. The rest have to be real returns with known answers.
+
+**Two of them now are.** Both are real filed 1120s, anonymised — name, EIN,
+address and officer replaced, figures kept — and both are the same pattern: a
+US corporation wholly owned by one Indian person, declaring on Schedule K that
+it owns 100%, and entering zero Forms 5472 attached. The return states the
+trigger and then reports nothing. That is worth two fixtures rather than one,
+because the second is the harder case: it reports zero on every federal line
+across three years and a zero balance sheet, which is exactly where a preparer
+concludes there is nothing to report. Form 5472 is triggered by ownership and
+reportable transactions, not by income, and for a company with no other
+activity the formation and anything the owner advanced are themselves
+reportable.
 
 Running it immediately paid for itself, in a way worth spelling out because it
 went both ways.
@@ -336,19 +348,53 @@ fixed rules. What it does separate is a finding that was settled in an earlier
 year and came back — the fix did not hold — from one that has simply stayed
 open, because those are different conversations.
 
-Two things are not started, and both wait on something from outside the code:
-three of the four books connectors (a developer app each for QuickBooks, Zoho
-and Xero — Tally is settled, the firm's existing connector will be reused), and
-the structured Drake and ProConnect parsers, which need one real export file
-each to read.
+**The books connectors are now built, and waiting on paperwork rather than on
+code.** A client authorises their own QuickBooks, Xero or Zoho Books: the
+reviewer clicks Connect, the client consents on the vendor's own screen, and
+the grant is stored encrypted. The firm registers one developer app per vendor,
+once, for every client at once; clients register nothing.
 
-A "developer app" is not a build task. QuickBooks, Zoho and Xero only let
-software connect through OAuth, and OAuth requires the app to be registered in
-each vendor's own developer portal first: the firm signs up, registers "Tax
-Review Center", and the vendor issues a client ID, a secret and an approved
-redirect URL. Until those exist there is nothing to authenticate with, so the
-connector cannot be written or tested. It is a form to fill in, tied to the
-firm's identity rather than to the code.
+Three decisions in that are worth stating, because they are the ones that would
+be expensive to change later.
+
+The grant is held against the **client**, not against the reviewer who clicked.
+A person's own mailbox belongs to them; a client's ledger does not, and a
+connection that dies when a reviewer leaves the firm dies at the worst possible
+moment. Which client is decided the way prior-year comparison already decides
+it — the EIN where there is one, the exact label only where there is not — so
+tidying up a client's name does not silently break their books.
+
+**The report parsing is deliberately absent.** Each vendor returns its trial
+balance in a different shape, and those shapes are not guessable. A parser
+written against an imagined response is code that looks finished and fails on
+the first real company, so each provider instead carries a probe that prints
+what the vendor actually sent. The parser gets written from that, once, with a
+real connection in front of it.
+
+And one thing stated plainly rather than implied: **Intuit publishes no
+read-only accounting scope**. Xero and Zoho are read-only by grant; QuickBooks
+is read-only because this code never calls an endpoint that writes.
+
+**Tally is built too, and is the odd one out.** The firm's existing read-only
+MCP server is reachable by an adapter over the same books interface, and the
+account mapping now reads the parent group — which is what makes Tally usable
+at all, because it names party ledgers after the party. "Acme Pvt Ltd" carries
+no signal; the group it sits under, "Sundry Debtors", carries all of it, and
+that group is a classification a bookkeeper chose rather than a guess drawn
+from spelling.
+
+What Tally does not have is a route. It is desktop software reading a company
+file on a machine in the office, and a cloud deployment cannot reach it —
+moving the app to another host does not change that, and moving the MCP server
+to a host moves it away from the data it reads. Exposing Tally's own HTTP
+interface to the internet is the one option that should not be taken: it has no
+authentication at all. So the choice is an agent on the office machine dialling
+outward, or running the app inside the office. Nothing needs to be re-written
+either way; only the transport changes.
+
+Still not started: the structured Drake and ProConnect parsers. Drake is
+settled rather than pending — see the section below. ProConnect needs one real
+export file, which is a file to fetch rather than a decision to take.
 
 ## What is left
 
@@ -384,14 +430,17 @@ firm's identity rather than to the code.
 3. **One real client return.** A test file is small and tidy. A real Drake PDF
    is neither, and figures read off a page are the weakest input the system has.
 
-**Two need something from outside the code**
+**Three need something from outside the code**
 
-- **Books connectors** need app credentials — a QuickBooks, Zoho and Xero
-  developer app each. Tally is decided: the firm's existing connector will be
-  reused rather than a second one built.
+- **Books connectors** are built and need credentials — one QuickBooks, Xero
+  and Zoho developer app, registered once by the firm. Leave a pair of keys
+  blank and that vendor simply reads as "not set up"; nothing else breaks.
+  After the first real connection, each needs its report parser written from
+  what the probe returns.
+- **Tally** is built and needs a route: an agent on the office machine dialling
+  outward, or the app running inside the office. Not a code decision.
 - **Structured return parsers** are off the table for Drake: it cannot reach our
-  server, so there is no export to parse. See the section below for what that
-  costs and what is left to try.
+  server, so there is no export to parse. ProConnect needs one export file.
 
 **After that, in rough order of value**
 
