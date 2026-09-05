@@ -535,10 +535,13 @@ try {
          * ran out of money. Said out loud, because a suite that silently drops
          * a fixture is worse than one that fails on it.
          */
-        if (settled.status === 'failed' && (settled.error_text ?? '').includes('ceiling')) {
+        const stoppedOnBudget =
+          settled.status === 'failed' && (settled.error_text ?? '').includes('ceiling');
+
+        if (stoppedOnBudget) {
           console.log(
             `skip  ${fx.id}: stopped at the $${BUDGET_USD} ceiling after ` +
-              `${stages.filter((s) => s.status === 'complete').length} stages — not scored.`,
+              `${stages.filter((s) => s.status === 'complete').length} stages — recall not scored.`,
           );
           scores.push({
             id: fx.id,
@@ -549,7 +552,6 @@ try {
             costUsd: cost / 1_000_000,
             missed: [],
           });
-          continue;
         }
 
         /**
@@ -571,8 +573,14 @@ try {
         );
         const shouldHaveRun = (stage) => !halted || stage.seq <= ranSeq;
 
-        check(
-          `${fx.id}: every stage reached a terminal state${halted ? ', up to the halt' : ''}`,
+        // Completeness is meaningless on a run the money stopped part-way.
+        // The gates below are not: they judge what was written, and a fabricated
+        // citation in stage 2 is exactly as serious whether or not stage 3 ever
+        // ran. Skipping them with the rest was throwing away the one thing a
+        // truncated paid run can still tell us.
+        if (!stoppedOnBudget)
+          check(
+            `${fx.id}: every stage reached a terminal state${halted ? ', up to the halt' : ''}`,
           stages
             .filter(shouldHaveRun)
             .every((s) => s.status !== 'pending' && s.status !== 'running'),
@@ -585,16 +593,17 @@ try {
             settled.halt_reason ?? 'no reason recorded',
           );
         }
-        check(
-          `${fx.id}: no stage that ran went silent`,
-          stageDefs.STAGE_DEFS.every((def) => {
-            const planned = plan.find((p) => p.stageKey === def.key);
-            if (!planned || planned.status === 'not_applicable') return true;
-            const stage = stages.find((s) => s.stage_key === def.key);
-            if (stage && !shouldHaveRun(stage)) return true;
-            return findings.some((f) => f.stage_key === def.key);
-          }),
-        );
+        if (!stoppedOnBudget)
+          check(
+            `${fx.id}: no stage that ran went silent`,
+            stageDefs.STAGE_DEFS.every((def) => {
+              const planned = plan.find((p) => p.stageKey === def.key);
+              if (!planned || planned.status === 'not_applicable') return true;
+              const stage = stages.find((s) => s.stage_key === def.key);
+              if (stage && !shouldHaveRun(stage)) return true;
+              return findings.some((f) => f.stage_key === def.key);
+            }),
+          );
 
         /* ------------------------------------- the gates, on every fixture */
 
@@ -616,7 +625,7 @@ try {
           ),
         );
 
-        if (REAL) {
+        if (REAL && !stoppedOnBudget) {
           const exceptions = findings.filter((f) => f.kind === 'exception');
 
           /**
