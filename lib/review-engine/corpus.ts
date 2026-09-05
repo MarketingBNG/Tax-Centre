@@ -284,8 +284,31 @@ export interface RefusedCitation {
   reason: string;
 }
 
-/** Words, lowercased, so quoting across a line break or a double space still matches. */
-const words = (text: string): string => text.toLowerCase().replace(/\s+/g, ' ').trim();
+/**
+ * Words, lowercased, so quoting across a line break or a double space still
+ * matches — and with typography folded, so it matches a real publication.
+ *
+ * The IRS publishes with curly quotes, en dashes and non-breaking spaces.
+ * Everything that quotes it back — a model, a paste through a text box, a
+ * reviewer retyping a clause — emits the straight ASCII equivalents. Matching
+ * those as different characters would refuse correct quotations of the actual
+ * source text, and this module exists on the premise that refusing a correct
+ * citation is not a safe failure: it teaches a reviewer to click past the
+ * warning, which is how the fabricated one gets through.
+ *
+ * This folds presentation only, and folds both sides identically. Two passages
+ * that differ in a word still differ; two that differ in a quotation mark were
+ * never different.
+ */
+const words = (text: string): string =>
+  text
+    .toLowerCase()
+    .replace(/[‘’‚‛′]/g, "'")
+    .replace(/[“”„‟″]/g, '"')
+    .replace(/[‐‑‒–—―−]/g, '-')
+    .replace(/ /g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /**
  * Whether a citation may be recorded as authority.

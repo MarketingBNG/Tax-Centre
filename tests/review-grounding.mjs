@@ -305,6 +305,130 @@ try {
         ],
       });
 
+      /*
+       * A passage as the IRS actually publishes it.
+       *
+       * Everything above is test-written text, which is typed the way a test
+       * author types. This is copied verbatim from the Form 5472 instructions,
+       * curly quotation marks and all, because that is what scripts/
+       * load-irs-corpus.mjs puts in the corpus — and the quoting check has to
+       * hold against real publication typography rather than against tidy
+       * ASCII.
+       */
+      const REAL_5472_PENALTIES = [
+        'Penalties for failure to file Form 5472.',
+        'A penalty of $25,000 will be assessed on any reporting corporation that fails to ' +
+          'file Form 5472 when due and in the manner prescribed. The penalty also applies for ' +
+          'failure to maintain records as required by Regulations section 1.6038A-3.',
+        'Note',
+        'Filing a substantially incomplete Form 5472 constitutes a failure to file Form 5472.',
+        'If the failure continues for more than 90 days after notification by the IRS, an ' +
+          'additional penalty of $25,000 will apply. This penalty applies with respect to each ' +
+          'related party for which a failure occurs for each 30-day period (or part of a ' +
+          '30-day period) during which the failure continues after the 90-day period ends.',
+      ].join('\n');
+
+      // The section 318 modification, which is where the IRS uses curly quotes.
+      const REAL_5472_SHAREHOLDER =
+        'Generally, a foreign person (defined later) is a 25% foreign shareholder if the ' +
+        'person owns, directly or indirectly, at least 25% of either:\n' +
+        'The total voting power of all classes of stock entitled to vote, or\n' +
+        'The total value of all classes of stock of the corporation.\n' +
+        'The constructive ownership rules of section 318 apply with the following ' +
+        'modifications to determine if a corporation is 25% foreign owned. Substitute ' +
+        '“10%” for “50%” in section 318(a)(2)(C).';
+
+      await corpus.ingestSource(USER, {
+        kind: 'form_instructions',
+        title: 'Instructions for Form 5472 (Rev. December 2024)',
+        citationRoot: 'Instructions for Form 5472',
+        versionLabel: 'Rev. 12/2024',
+        effectiveFrom: Date.UTC(2024, 11, 1),
+        sourceUrl: 'https://www.irs.gov/instructions/i5472',
+        passages: [
+          {
+            citation: 'Instructions for Form 5472, Penalties',
+            heading: 'Penalties',
+            body: REAL_5472_PENALTIES,
+          },
+          {
+            citation: 'Instructions for Form 5472, 25% foreign shareholder',
+            heading: '25% foreign shareholder',
+            body: REAL_5472_SHAREHOLDER,
+          },
+        ],
+      });
+
+      check(
+        'a real IRS passage grounds a citation quoted from it',
+        await (async () => {
+          const v = await corpus.verifyCitation({
+            citation: 'Instructions for Form 5472, Penalties',
+            quote:
+              'A penalty of $25,000 will be assessed on any reporting corporation that fails ' +
+              'to file Form 5472 when due and in the manner prescribed.',
+            asOf: Date.UTC(2025, 11, 31),
+          });
+          return v.ok === true;
+        })(),
+      );
+
+      /*
+       * The case that would otherwise refuse correct work: the IRS writes
+       * “10%” with curly quotes, and everything that quotes it back types "10%".
+       */
+      check(
+        'a correct quote is not refused over curly versus straight quotation marks',
+        await (async () => {
+          const v = await corpus.verifyCitation({
+            citation: 'Instructions for Form 5472, 25% foreign shareholder',
+            quote: 'Substitute "10%" for "50%" in section 318(a)(2)(C).',
+            asOf: Date.UTC(2025, 11, 31),
+          });
+          return v.ok === true;
+        })(),
+      );
+
+      check(
+        'folding typography does not let a different figure through',
+        await (async () => {
+          const v = await corpus.verifyCitation({
+            citation: 'Instructions for Form 5472, 25% foreign shareholder',
+            quote: 'Substitute "20%" for "50%" in section 318(a)(2)(C).',
+            asOf: Date.UTC(2025, 11, 31),
+          });
+          return v.ok === false;
+        })(),
+      );
+
+      check(
+        'a plausible sentence the instructions do not contain is still refused',
+        await (async () => {
+          const v = await corpus.verifyCitation({
+            citation: 'Instructions for Form 5472, Penalties',
+            quote:
+              'A penalty of $10,000 will be assessed on any reporting corporation that fails ' +
+              'to file Form 5472 when due and in the manner prescribed.',
+            asOf: Date.UTC(2025, 11, 31),
+          });
+          return v.ok === false;
+        })(),
+      );
+
+      check(
+        'the 2024 revision is not authority for a 2023 return',
+        await (async () => {
+          const v = await corpus.verifyCitation({
+            citation: 'Instructions for Form 5472, Penalties',
+            quote:
+              'A penalty of $25,000 will be assessed on any reporting corporation that fails ' +
+              'to file Form 5472 when due and in the manner prescribed.',
+            asOf: Date.UTC(2023, 11, 31),
+          });
+          return v.ok === false;
+        })(),
+      );
+
       check(
         'the corpus reports content as of the review date',
         (await corpus.corpusHasContent(AS_OF)) === true,
