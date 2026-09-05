@@ -328,16 +328,15 @@ firm's identity rather than to the code.
 - **Books connectors** need app credentials — a QuickBooks, Zoho and Xero
   developer app each. Tally is decided: the firm's existing connector will be
   reused rather than a second one built.
-- **Structured return parsers** need one real Drake export and one ProConnect
-  export to read. The format cannot be guessed, and guessing it would produce a
-  parser that works on nothing.
+- **Structured return parsers** are off the table for Drake: it cannot reach our
+  server, so there is no export to parse. See the section below for what that
+  costs and what is left to try.
 
 **After that, in rough order of value**
 
-- **Structured Drake / ProConnect exports** instead of page images — the single
-  biggest gain available, and the open question below.
 - **Books connections** (Tally, QuickBooks, Zoho, Xero) so the trial balance is
-  pulled rather than uploaded.
+  pulled rather than uploaded. Now the most valuable thing on the list, because
+  the return side cannot be hard-checked at all — see below.
 - **A verified library of tax law**, so the system can cite authority instead of
   stating the principle and marking it "needs verifying".
 - **A wider test set** — around thirty returns with known answers, to measure
@@ -346,12 +345,40 @@ firm's identity rather than to the code.
 Client-facing anything stays off the list deliberately. Emails to clients are
 written by a person.
 
-## One open question
+## The open question, answered
 
-**Can we get structured exports from Drake and ProConnect, or only PDFs?**
+**Can we get structured exports from Drake, or only PDFs?**
 
-Today the system reads returns by looking at the pages, like a person. Nothing
-can independently check a figure read that way, so those are marked unverified.
-Excel trial balances *are* checked properly. A structured export would turn the
-tie-outs from "the AI says these agree" into "the software confirmed it" — the
-single biggest improvement available to how much this can be trusted.
+Only PDFs. Drake cannot reach our server — the encryption sits in the way — so
+the structured export the brief hoped for is not available, and this reads
+returns by looking at the pages, like a person.
+
+That is settled rather than solved, and it has a consequence worth stating
+plainly. Nothing can independently check a figure read off a page, so every
+return-side figure stays unverified and every return-side tie-out stays "the AI
+says these agree" rather than "the software confirmed it". The per-figure
+confirmation queue — where a serious finding resting on a page read goes to a
+person, who confirms it against the page by name — is therefore not a stopgap
+until the exports arrive. It is the permanent mechanism, and the record keeps
+saying the figure was read visually, because that is why it needed confirming.
+
+Two things follow from it.
+
+The books side matters more than it did. Excel trial balances and anything the
+platform computes itself *are* hard-checked, so the further the review can lean
+on the books rather than the face of the return, the more of it is verified
+rather than read. That raises the value of the connectors from convenience to
+substance.
+
+And the Drake MCP the firm already has may still be a route. The blocker
+described is Drake reaching our server; a connector running where the Drake data
+already is, and handing over structured figures, is a different shape and may
+not hit the same wall. Worth testing before accepting page images as final.
+
+## Still open
+
+**How the firm's Tally connector is called.** It is an MCP server, which is the
+answer that makes it easy — but it is not attached to this workspace, so its
+tools cannot be seen. Add it to the project's MCP configuration, or send the
+tool names and what they return, and the adapter behind the existing books
+interface is a small piece of work.
