@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Mark } from './Mark';
 import { ConnectorsTab } from './ConnectorsTab';
+import { BooksProvidersTab } from './BooksProvidersTab';
 import { SkillsManager } from './SkillsManager';
 import { VERDICT_WORD } from './reviews/chips';
 import type { Verdict } from '@/lib/review-types';
 
-type Tab = 'prompt' | 'costs' | 'people' | 'skills' | 'connectors' | 'audit';
+type Tab = 'prompt' | 'costs' | 'people' | 'skills' | 'connectors' | 'books' | 'audit';
 
 interface PromptSettings {
   basePrompt: string;
@@ -102,6 +103,7 @@ export function AdminPanel() {
             ['people', 'People'],
             ['skills', 'Skills'],
             ['connectors', 'Connectors'],
+            ['books', 'Client books'],
             ['audit', 'Audit log'],
           ] as [Tab, string][]
         ).map(([key, text]) => (
@@ -133,6 +135,7 @@ export function AdminPanel() {
         </div>
       ) : null}
       {tab === 'connectors' ? <ConnectorsTab /> : null}
+      {tab === 'books' ? <BooksProvidersTab /> : null}
       {tab === 'audit' ? <AuditTab /> : null}
     </div>
   );
