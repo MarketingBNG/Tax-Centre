@@ -1,4 +1,5 @@
 import { currentUser, unauthorized, badRequest, notFound } from '@/lib/auth';
+import { spendState, capMessage } from '@/lib/spend';
 import { one, run } from '@/lib/db';
 import { attachFiles, generateTitle, runTurn } from '@/lib/chat';
 import { getMessage, insertMessage } from '@/lib/thread';
@@ -32,6 +33,17 @@ export async function POST(req: Request) {
   const action: Action = ACTIONS.includes(body.action as Action) ? (body.action as Action) : 'send';
   const attached: string[] = Array.isArray(fileIds) ? (fileIds as string[]) : [];
   const asked = typeof question === 'string' ? question.trim() : '';
+
+  // The monthly cap, before anything is persisted or streamed. 402 rather than
+  // 429: this is not rate limiting and a retry will not clear it, so the UI
+  // should show the sentence rather than back off and try again.
+  const spend = await spendState();
+  if (spend.exceeded) {
+    return Response.json(
+      { error: capMessage(spend), monthToDateUsd: spend.monthToDateUsd, capUsd: spend.capUsd },
+      { status: 402 },
+    );
+  }
 
   if (action === 'send' && !asked && !attached.length) return badRequest('Empty message');
   if (action === 'edit' && !asked) return badRequest('An edited message cannot be empty');

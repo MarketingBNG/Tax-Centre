@@ -46,6 +46,11 @@ export function ApprovalBar({
           {approval.registerVersionSeen}. Any later change to the register lapses this
           automatically.
         </div>
+        {approval.selfApproved && (
+          <div className="mt-1 text-[11.5px] text-ink-faint">
+            Signed off by the person who started the run.
+          </div>
+        )}
       </section>
     );
   }

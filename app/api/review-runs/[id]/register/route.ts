@@ -1,5 +1,7 @@
 import { currentUser, unauthorized, notFound } from '@/lib/auth';
+import { logClientOpen, logRegisterExport } from '@/lib/access-log';
 import { buildRegister } from '@/lib/review-engine/register';
+import { getRun } from '@/lib/review-engine/store';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -20,6 +22,23 @@ export async function GET(req: Request, ctx: Ctx) {
 
   const body = JSON.stringify(register, null, 2);
   const download = new URL(req.url).searchParams.get('download') === '1';
+
+  // This route is the only place the whole register leaves as data, and it was
+  // the one client read that loaded no run at all — so it needs the run fetched
+  // rather than a check swapped in.
+  const run = await getRun(id);
+  if (run) {
+    await logClientOpen(user.id, { engagementId: run.engagement_id, runId: run.id });
+    // Reading the page and walking away with a copy are different acts, and the
+    // second is the one an enquiry asks about. Not deduplicated.
+    if (download) {
+      await logRegisterExport(user.id, {
+        runId: run.id,
+        engagementId: run.engagement_id,
+        registerVersion: run.register_version ?? null,
+      });
+    }
+  }
 
   const engagement = register.engagement as { entity_name?: string | null; tax_year?: number | null };
   const name = [

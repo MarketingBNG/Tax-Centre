@@ -32,7 +32,12 @@ function HeaderBand({ detail }: { detail: RunDetail }) {
     ['Run', `${run.runNumber}`],
     ['Register version', `${run.registerVersion}`],
     ['Run date', new Date(run.createdAt).toLocaleDateString()],
-    ['Reviewer', approval?.approvedBy ?? 'not yet signed off'],
+    [
+      'Reviewer',
+      approval
+        ? approval.approvedBy + (approval.selfApproved ? ' (started this run)' : '')
+        : 'not yet signed off',
+    ],
     // In front of the people running reviews, not only in an admin total a
     // month later: a review is the most expensive thing here and the cost is
     // per return.

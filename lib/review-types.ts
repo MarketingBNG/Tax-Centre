@@ -26,6 +26,33 @@ export const RETURN_TYPES = [
 export type ReturnType = (typeof RETURN_TYPES)[number];
 
 /**
+ * An EIN in one shape: XX-XXXXXXX.
+ *
+ * Two reasons this is normalised on write rather than left as typed. A client's
+ * cross-year history is found by matching this value exactly, so `12-3456789`
+ * and `123456789` were two different clients to the prior-year lookup and a
+ * rollforward check would silently find nothing. And the dashed form is the one
+ * the identifier tokeniser recognises unambiguously, so a masked prompt and a
+ * masked document agree.
+ *
+ * Returns null for empty input, and `{ error }` for anything that is not nine
+ * digits — refusing beats storing something that will not match later.
+ */
+export function normaliseEin(input: unknown): { ein: string | null } | { error: string } {
+  const raw = String(input ?? '').trim();
+  if (!raw) return { ein: null };
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length !== 9) return { error: 'An EIN is nine digits, e.g. 12-3456789.' };
+  return { ein: `${digits.slice(0, 2)}-${digits.slice(2)}` };
+}
+
+/** The last four digits, for a comparison that needs no identifier. */
+export function einLast4(ein: string | null | undefined): string | null {
+  const digits = String(ein ?? '').replace(/\D/g, '');
+  return digits.length === 9 ? digits.slice(-4) : null;
+}
+
+/**
  * The stage sequence, in the only order it may run.
  *
  * Stage 3 is four units rather than one so that each fits comfortably inside a

@@ -248,6 +248,16 @@ function build() {
   );
 
   writeFileSync(path.join(dir, 'chat-stub.js'), `export async function recordUsage() {}`);
+  // The cap is not what these fixtures are about; spendState is stubbed under it
+  // so a run is never stopped for budget here. tests/review-lifecycle.mjs is
+  // where the cap itself is exercised.
+  writeFileSync(
+    path.join(dir, 'spend-stub.js'),
+    `export async function spendState() {
+       return { monthToDateUsd: 0, capUsd: 0, capped: false, exceeded: false };
+     }
+     export const capMessage = () => 'not reached in this suite';`,
+  );
   writeFileSync(
     path.join(dir, 'providers/index.js'),
     `import { openaiProvider } from './openai.js';
@@ -316,6 +326,7 @@ function build() {
         .replace(/from ['"]@\/lib\/config['"]/g, `from '${depth}config-stub.js'`)
         .replace(/from ['"]\.\.?\/config['"]/g, `from '${depth}config-stub.js'`)
         .replace(/from ['"]@\/lib\/chat['"]/g, `from '${depth}chat-stub.js'`)
+        .replace(/from ['"]@\/lib\/spend['"]/g, `from '${depth}spend-stub.js'`)
         .replace(/from ['"]\.\.?\/storage['"]/g, `from '${depth}storage-stub.js'`)
         .replace(/from ['"]\.\.?\/pii['"]/g, `from '${depth}pii-stub.js'`)
         .replace(/from ['"]@\/lib\/ingest['"]/g, `from '${depth}engine/ingest.js'`)

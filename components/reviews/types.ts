@@ -127,6 +127,8 @@ export interface RunDetail {
     approvedAt: number;
     registerVersionSeen: number;
     verdictSeen: Verdict;
+    /** The approver started this run themselves. Shown, not prevented. */
+    selfApproved: boolean;
   } | null;
   derived: {
     categories: Record<string, { open: number; worst: Severity | null; label: string }>;

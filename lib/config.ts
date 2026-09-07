@@ -139,7 +139,7 @@ export const CONNECTORS_ENABLED = process.env.CONNECTORS_ENABLED !== 'false';
  * incomparable. A finding questioned six months from now has to be explainable
  * by what the engine was at the time, not by what it is today.
  */
-export const REVIEW_PROMPT_VERSION = process.env.REVIEW_PROMPT_VERSION || 'trr-1.0';
+export const REVIEW_PROMPT_VERSION = process.env.REVIEW_PROMPT_VERSION || 'trr-1.1';
 
 /** The model a review runs on. Reviews default higher than chat does. */
 export const REVIEW_MODEL = process.env.REVIEW_MODEL || 'gpt-5.6-terra';
@@ -180,3 +180,32 @@ export const REVIEW_MAX_TOOL_ROUNDS = Number(process.env.REVIEW_MAX_TOOL_ROUNDS 
  * a plain message rather than continuing quietly.
  */
 export const REVIEW_COST_CEILING_USD = Number(process.env.REVIEW_COST_CEILING_USD || 8);
+
+/**
+ * Who may sign a review off.
+ *
+ * Unset — anyone signed in, which is what this has always done. Set to 'admin'
+ * and only admins may sign off.
+ *
+ * Deliberately a switch rather than a new role. A sign-off is the firm's
+ * IRS-facing attestation and some firms will want it restricted; others run
+ * flat and a restriction would just block the work. The 'reviewer' role was
+ * removed from this schema once already (see the migration in db.ts), and
+ * re-introducing one to answer this question is a bigger decision than the
+ * question deserves. Two existing values, one `if`, no migration.
+ */
+export const REVIEW_APPROVER_ROLE = (process.env.REVIEW_APPROVER_ROLE || '').trim();
+
+/**
+ * How long one 'client.opened' audit line stands for.
+ *
+ * Reads are logged so the firm can answer who looked at which client file and
+ * when. Logging every read would not do that: the run page polls every four
+ * seconds, so a reviewer with a tab open writes thousands of rows a day and
+ * buries the question in its own answer. One row per person, per client, per
+ * window is the honest granularity, and the window is stated here rather than
+ * implied so nobody has to infer it from row counts later.
+ */
+export const ACCESS_LOG_WINDOW_MINUTES = Number(
+  process.env.ACCESS_LOG_WINDOW_MINUTES || 30,
+);

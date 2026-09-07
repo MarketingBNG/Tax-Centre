@@ -126,6 +126,15 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
+-- Reads of a client's review are logged once per person per window, which means
+-- every logged read first asks "did I already record this one". That lookup is
+-- by actor, action and target, and it happens on the hot path.
+CREATE INDEX IF NOT EXISTS idx_audit_actor_target
+  ON audit_log(actor_id, action, target_id, at DESC);
+-- The admin audit tab filters by action and counts rows grouped by action on
+-- every page load. Without this that is a sequential scan over the whole log,
+-- so the tool for reading the log gets slower exactly as the log gets useful.
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action, at DESC);
 
 -- The 'reviewer' role predates this being a general assistant. Rename it in
 -- place: the CHECK constraint is part of the table, so CREATE TABLE IF NOT
@@ -413,8 +422,22 @@ CREATE TABLE IF NOT EXISTS engagements (
   -- Free text until there is a clients table to point at.
   client_label  TEXT NOT NULL,
   entity_name   TEXT,
-  -- Tokenised where PII_MODE=tokenize, exactly as it is in extracted document
-  -- text, so a Stage 0 comparison between the two still matches.
+  -- Held as entered, normalised to dashed form (XX-XXXXXXX) on write.
+  --
+  -- Not tokenised, and the earlier comment here claiming it was described
+  -- something no code ever did. Tokenising this column would be actively
+  -- dangerous: priorYearEngagements joins a client's cross-year history on
+  -- this value, so client identity would come to depend on the HMAC key in
+  -- settings.pii_token_key -- a secret minted on first use, never rotated,
+  -- never exported, with no reverse function anywhere. One lost row would
+  -- erase every client's prior-year history irrecoverably.
+  --
+  -- The identifier is masked at the provider boundary instead, by
+  -- lib/providers/redact.ts, which is what keeps it out of a prompt while
+  -- leaving it readable to the colleague who typed it.
+  --
+  -- Normalising matters on its own: 12-3456789 and 123456789 were two
+  -- different clients to the prior-year join.
   ein           TEXT,
   return_type   TEXT,
   tax_year      INTEGER,

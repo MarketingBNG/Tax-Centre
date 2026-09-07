@@ -1,4 +1,5 @@
 import { currentUser, unauthorized, notFound, badRequest } from '@/lib/auth';
+import { logClientOpen } from '@/lib/access-log';
 import {
   assertFact,
   getEngagement,
@@ -6,7 +7,7 @@ import {
   listRuns,
   updateEngagement,
 } from '@/lib/review-engine/store';
-import { RETURN_TYPES, type ReturnType } from '@/lib/review-types';
+import { RETURN_TYPES, normaliseEin, type ReturnType } from '@/lib/review-types';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -19,6 +20,8 @@ export async function GET(_req: Request, ctx: Ctx) {
   if (!engagement) return notFound();
 
   const [facts, runs] = await Promise.all([listCurrentFactRows(id), listRuns(id)]);
+
+  await logClientOpen(user.id, { engagementId: engagement.id, clientLabel: engagement.client_label });
 
   return Response.json({
     id: engagement.id,
@@ -76,7 +79,11 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const patch: Parameters<typeof updateEngagement>[2] = {};
   if (body.clientLabel !== undefined) patch.clientLabel = String(body.clientLabel).trim();
   if (body.entityName !== undefined) patch.entityName = body.entityName ? String(body.entityName) : null;
-  if (body.ein !== undefined) patch.ein = body.ein ? String(body.ein) : null;
+  if (body.ein !== undefined) {
+    const ein = normaliseEin(body.ein);
+    if ('error' in ein) return badRequest(ein.error);
+    patch.ein = ein.ein;
+  }
   if (body.returnType !== undefined) patch.returnType = body.returnType as ReturnType | null;
   if (body.taxYear !== undefined) patch.taxYear = body.taxYear === null ? null : Number(body.taxYear);
   if (body.periodStart !== undefined) patch.periodStart = body.periodStart ?? null;

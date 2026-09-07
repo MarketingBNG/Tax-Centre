@@ -95,6 +95,21 @@ function build() {
      export const ROOT = ${JSON.stringify(ROOT)};`,
   );
 
+  // The monthly cap, drivable from the test. A live binding rather than a
+  // constant so one suite can run a review both under and over the cap.
+  writeFileSync(
+    path.join(dir, 'spend-stub.js'),
+    `let exceeded = false;
+     export const setExceeded = (value) => { exceeded = value; };
+     export async function spendState() {
+       return { monthToDateUsd: exceeded ? 250 : 12, capUsd: 200, capped: true, exceeded };
+     }
+     export const capMessage = (s) =>
+       \`This month's model spend has reached $\${s.monthToDateUsd.toFixed(2)} against a \` +
+       \`$\${s.capUsd.toFixed(2)} cap, so nothing further will run. An admin can raise the \` +
+       'cap in Admin → Usage & cost.';`,
+  );
+
   writeFileSync(
     path.join(dir, 'return-data-stub.js'),
     `export const ModelVisualParser = {
@@ -180,6 +195,7 @@ function build() {
         .replace(/from ['"]\.\/config['"]/g, "from '../config-stub.js'")
         .replace(/from ['"]@\/lib\/providers['"]/g, "from '../providers-stub.js'")
         .replace(/from ['"]@\/lib\/chat['"]/g, "from '../chat-stub.js'")
+        .replace(/from ['"]@\/lib\/spend['"]/g, "from '../spend-stub.js'")
         .replace(/from ['"]@\/lib\/tools['"]/g, "from './tools.js'")
         .replace(/from ['"]\.\/return-data['"]/g, "from '../return-data-stub.js'")
         .replace(/from ['"]\.\/prompts['"]/g, "from '../prompts-stub.js'")
@@ -212,6 +228,7 @@ const questions = await import(pathToFileURL(path.join(dir, 'engine/questions.js
 const versioning = await import(pathToFileURL(path.join(dir, 'engine/versioning.js')).href);
 const verdictMod = await import(pathToFileURL(path.join(dir, 'engine/verdict.js')).href);
 const register = await import(pathToFileURL(path.join(dir, 'engine/register.js')).href);
+const spend = await import(pathToFileURL(path.join(dir, 'spend-stub.js')).href);
 
 const v7 = (() => {
   const dbTs = readFileSync(path.join(ROOT, 'lib/db.ts'), 'utf8');
@@ -648,6 +665,55 @@ try {
 
       await store.requestAbort(USER, run2.id);
       check('a stop request is recorded and readable', await store.isAbortRequested(run2.id));
+
+      /* ---------------------------------------------------- the monthly cap */
+
+      // The cap was reported by the admin screens for a long time and enforced
+      // nowhere. Halted rather than failed, because nothing about the review is
+      // wrong — the firm is out of budget for the month, and a halted run is one
+      // that can carry on once somebody raises the cap.
+      const capped = await store.createRun(USER, {
+        engagementId: engagement.id,
+        runNumber: await store.nextRunNumber(engagement.id),
+        status: 'pending',
+        promptVersion: 'trr-1.1',
+        model: 'stub',
+        corpusHash: 'cap-probe',
+        factsSnapshot: {},
+      });
+      await store.createStages(
+        capped.id,
+        stageDefs.planStages({ returnType: '1065', facts: {} }),
+      );
+
+      spend.setExceeded(true);
+      const stopped = await orchestrator.advanceRun({
+        runId: capped.id,
+        actorId: USER,
+        onEvent: () => {},
+      });
+      spend.setExceeded(false);
+
+      check(
+        'a run stops when the month is over its cap',
+        stopped.runFinished === true && stopped.runStatus === 'halted',
+        String(stopped.runStatus),
+      );
+      check(
+        'and says so in a sentence with the numbers in it',
+        /cap/i.test(stopped.message ?? '') && /\$/.test(stopped.message ?? ''),
+        stopped.message ?? '(no message)',
+      );
+      const cappedRow = await store.getRun(capped.id);
+      check(
+        'the reason it stopped is on the run, not only in the response',
+        cappedRow?.halt_reason === 'monthly_cap',
+        String(cappedRow?.halt_reason),
+      );
+      check(
+        'no stage was claimed, so nothing was left half done',
+        (await store.listStages(capped.id)).every((st) => st.status !== 'running'),
+      );
 
       throw new Error('__rollback__');
     })

@@ -1,4 +1,5 @@
-import { currentUser, unauthorized, notFound, badRequest } from '@/lib/auth';
+import { currentUser, unauthorized, notFound, badRequest, forbidden } from '@/lib/auth';
+import { REVIEW_APPROVER_ROLE } from '@/lib/config';
 import {
   currentApproval,
   currentFacts,
@@ -30,10 +31,22 @@ type Ctx = { params: Promise<{ id: string }> };
  * Nothing here overrides the register. A Hold cannot be approved away; the
  * platform's job is to make the senior review faster, not to provide a way
  * around it.
+ *
+ * Who may sign off is a firm's decision, not this file's. REVIEW_APPROVER_ROLE
+ * unset means anyone signed in, which is what this route has always done; set
+ * to 'admin' it restricts. Either way the approval records who took it, and
+ * whether that was the same person who started the run.
  */
 export async function POST(req: Request, ctx: Ctx) {
   const user = await currentUser();
   if (!user) return unauthorized();
+
+  if (REVIEW_APPROVER_ROLE && user.role !== REVIEW_APPROVER_ROLE) {
+    return forbidden(
+      'Signing a review off is restricted on this deployment. Ask an admin to sign off, ' +
+        'or clear REVIEW_APPROVER_ROLE to let any reviewer do it.',
+    );
+  }
 
   const { id } = await ctx.params;
   const run = await getRun(id);
@@ -91,10 +104,12 @@ export async function POST(req: Request, ctx: Ctx) {
     );
   }
 
+  const selfApproved = run.created_by === user.id;
   await recordApproval(user.id, id, {
     registerVersionSeen: seen,
     verdictSeen: result,
     note: body.note ? String(body.note).slice(0, 2000) : null,
+    selfApproved,
   });
 
   const standing = await currentApproval(id);
@@ -105,6 +120,7 @@ export async function POST(req: Request, ctx: Ctx) {
       approvedAt: standing.approved_at,
       registerVersionSeen: standing.register_version_seen,
       verdictSeen: standing.verdict_seen,
+      selfApproved,
     },
   });
 }

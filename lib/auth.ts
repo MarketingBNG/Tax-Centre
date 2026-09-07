@@ -218,7 +218,12 @@ export const isAuthConfigured = (): boolean =>
 /* --------------------------------------------------- route-handler guards */
 
 export const unauthorized = () => Response.json({ error: 'Not signed in' }, { status: 401 });
-export const forbidden = () => Response.json({ error: 'Admins only' }, { status: 403 });
+// The default is what the 22 admin-only routes already say. A caller with a
+// better sentence — "you have no Box access to this client, ask whoever owns
+// it to add you" — passes its own, because a 403 that misdescribes why sends
+// somebody to a developer instead of to the person who can actually fix it.
+export const forbidden = (message = 'Admins only') =>
+  Response.json({ error: message }, { status: 403 });
 export const notFound = () => Response.json({ error: 'Not found' }, { status: 404 });
 export const badRequest = (message: string) => Response.json({ error: message }, { status: 400 });
 

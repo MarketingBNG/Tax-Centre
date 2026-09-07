@@ -1,6 +1,12 @@
 import { currentUser, unauthorized, badRequest } from '@/lib/auth';
-import { createEngagement, listEngagementSummaries, assertFact } from '@/lib/review-engine/store';
-import { RETURN_TYPES, type ReturnType } from '@/lib/review-types';
+import { logRosterRead } from '@/lib/access-log';
+import {
+  countEngagements,
+  createEngagement,
+  listEngagementSummaries,
+  assertFact,
+} from '@/lib/review-engine/store';
+import { RETURN_TYPES, normaliseEin, type ReturnType } from '@/lib/review-types';
 
 /**
  * Engagements are firm-visible.
@@ -13,10 +19,19 @@ export async function GET() {
   const user = await currentUser();
   if (!user) return unauthorized();
 
-  const rows = await listEngagementSummaries();
+  const LIMIT = 200;
+  const [rows, total] = await Promise.all([listEngagementSummaries(LIMIT), countEngagements()]);
+  await logRosterRead(user.id, total);
 
-  return Response.json(
-    rows.map((row) => ({
+  // The list has always stopped at 200. Saying so is the whole change: a
+  // truncated list that does not mention it is indistinguishable from a
+  // complete one, and the client it dropped is indistinguishable from a client
+  // that does not exist.
+  return Response.json({
+    total,
+    shown: rows.length,
+    truncated: total > rows.length,
+    engagements: rows.map((row) => ({
       id: row.id,
       clientLabel: row.client_label,
       entityName: row.entity_name,
@@ -36,7 +51,7 @@ export async function GET() {
           }
         : null,
     })),
-  );
+  });
 }
 
 const isReturnType = (value: unknown): value is ReturnType =>
@@ -71,10 +86,13 @@ export async function POST(req: Request) {
     }
   }
 
+  const ein = normaliseEin(body.ein);
+  if ('error' in ein) return badRequest(ein.error);
+
   const engagement = await createEngagement(user.id, {
     clientLabel,
     entityName: body.entityName ? String(body.entityName).trim() : null,
-    ein: body.ein ? String(body.ein).trim() : null,
+    ein: ein.ein,
     returnType,
     taxYear,
     periodStart: body.periodStart ? String(body.periodStart) : null,

@@ -1352,6 +1352,56 @@ try {
       }
     })(),
   );
+
+  /* ================================================ EIN normalisation */
+
+  // The EIN is what a client's cross-year history is matched on, so the shape
+  // it is stored in decides whether a rollforward check finds last year at all.
+  const rtypes = await load('review-types.js');
+
+  check(
+    'a dashed EIN is kept as it is',
+    rtypes.normaliseEin('12-3456789').ein === '12-3456789',
+  );
+  check(
+    'a bare nine-digit EIN becomes dashed',
+    rtypes.normaliseEin('123456789').ein === '12-3456789',
+  );
+  check(
+    'the two forms of one EIN normalise to the same value',
+    rtypes.normaliseEin('123456789').ein === rtypes.normaliseEin('12-3456789').ein,
+    'this is the prior-year lookup bug',
+  );
+  check(
+    'surrounding punctuation and spaces do not make a different client',
+    rtypes.normaliseEin(' 12 3456789 ').ein === '12-3456789',
+  );
+  check('an empty EIN is null, not an error', rtypes.normaliseEin('').ein === null);
+  check('a missing EIN is null, not an error', rtypes.normaliseEin(undefined).ein === null);
+  check(
+    'an EIN with too few digits is refused rather than stored',
+    Boolean(rtypes.normaliseEin('12-345').error),
+  );
+  check(
+    'an EIN with too many digits is refused rather than truncated',
+    Boolean(rtypes.normaliseEin('12-34567890').error),
+  );
+
+  check('the last four of an EIN are the last four', rtypes.einLast4('12-3456789') === '6789');
+  check(
+    'the last four are read from an un-normalised EIN too',
+    rtypes.einLast4('123456789') === '6789',
+  );
+  check('no EIN yields no last four', rtypes.einLast4(null) === null);
+  check(
+    'a malformed EIN yields no last four rather than a wrong four',
+    rtypes.einLast4('12-345') === null,
+  );
+  check(
+    'the last four is all that leaves — never the identifier',
+    !String(rtypes.einLast4('12-3456789')).includes('3456'),
+    'a four-character answer cannot carry the other five digits',
+  );
 } catch (err) {
   failures.push(`threw: ${err.message}`);
   console.error('\n' + (err.stack ?? err.message));

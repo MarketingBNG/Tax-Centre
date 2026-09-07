@@ -1,4 +1,5 @@
 import { currentUser, unauthorized, notFound } from '@/lib/auth';
+import { logClientOpen } from '@/lib/access-log';
 import { all } from '@/lib/db';
 import {
   currentApproval,
@@ -49,6 +50,15 @@ export async function GET(_req: Request, ctx: Ctx) {
     currentApproval(id),
     listRunDocuments(id),
   ]);
+
+  // Opening a client's review is the read worth recording. This route is also
+  // the four-second poll, so the window inside logClientOpen is what keeps one
+  // open tab from becoming a thousand rows.
+  await logClientOpen(user.id, {
+    engagementId: run.engagement_id,
+    clientLabel: engagement?.client_label ?? null,
+    runId: run.id,
+  });
 
   // Filenames, so a finding's evidence can be named and opened rather than
   // shown as a file id nobody recognises.
@@ -187,6 +197,10 @@ export async function GET(_req: Request, ctx: Ctx) {
       approvedAt: approval.approved_at,
       registerVersionSeen: approval.register_version_seen,
       verdictSeen: approval.verdict_seen,
+      // Derived, not stored: it is a comparison between two columns that
+      // already exist, and deriving it means an approval cannot record a
+      // stale answer to the question.
+      selfApproved: approval.approved_by === run.created_by,
     },
     derived,
   });

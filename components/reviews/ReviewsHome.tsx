@@ -36,6 +36,7 @@ const RUN_STATUS_LABEL: Record<RunStatus, string> = {
 
 export function ReviewsHome() {
   const [engagements, setEngagements] = useState<EngagementSummary[] | null>(null);
+  const [omitted, setOmitted] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,7 +45,10 @@ export function ReviewsHome() {
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
         return res.json();
       })
-      .then(setEngagements)
+      .then((data: { engagements: EngagementSummary[]; total: number; shown: number }) => {
+        setEngagements(data.engagements);
+        setOmitted(Math.max(0, data.total - data.shown));
+      })
       .catch((err: Error) => setError(err.message));
   }, []);
 
@@ -97,6 +101,16 @@ export function ReviewsHome() {
             Start the first one
           </Link>
         </div>
+      )}
+
+      {/* A truncated list that does not say so reads exactly like a complete
+          one, and the client it dropped reads exactly like a client that does
+          not exist. */}
+      {omitted > 0 && (
+        <p className="mb-3 rounded-[9px] border border-line-soft bg-raised px-3 py-2 text-[12.5px] text-ink-dim">
+          Showing the {engagements?.length} most recent of {omitted + (engagements?.length ?? 0)}{' '}
+          engagements. {omitted} older {omitted === 1 ? 'one is' : 'ones are'} not listed here.
+        </p>
       )}
 
       {engagements && engagements.length > 0 && (

@@ -180,7 +180,7 @@ export interface EngagementSummaryRow extends EngagementRow {
  * the list exists to show, and fetching it per engagement would make opening
  * the page cost a round trip per client.
  */
-export const listEngagementSummaries = () =>
+export const listEngagementSummaries = (limit = 200) =>
   all<EngagementSummaryRow>(
     `SELECT e.*,
             (SELECT COUNT(*) FROM review_runs rr WHERE rr.engagement_id = e.id) AS run_count,
@@ -201,8 +201,21 @@ export const listEngagementSummaries = () =>
           ORDER BY run_number DESC LIMIT 1
        ) r ON TRUE
       ORDER BY e.created_at DESC
-      LIMIT 200`,
+      LIMIT ?`,
+    limit,
   );
+
+/**
+ * How many engagements exist, so a truncated list can say so.
+ *
+ * The list above has always stopped at 200. That was invisible, which was fine
+ * while the number of engagements was the number somebody had typed in, and
+ * stops being fine the moment clients arrive from a repository holding two
+ * thousand of them: a list that silently omits a client reads exactly like a
+ * list that has no such client.
+ */
+export const countEngagements = async (): Promise<number> =>
+  Number((await one<{ c: number }>(`SELECT COUNT(*)::int AS c FROM engagements`))?.c ?? 0);
 
 export async function updateEngagement(
   actorId: string,
@@ -1046,7 +1059,13 @@ export async function recordAnswer(
 export async function recordApproval(
   actorId: string,
   runId: string,
-  input: { registerVersionSeen: number; verdictSeen: Verdict; note?: string | null },
+  input: {
+    registerVersionSeen: number;
+    verdictSeen: Verdict;
+    note?: string | null;
+    /** True when the approver is the person who started the run. */
+    selfApproved?: boolean;
+  },
 ): Promise<RunApprovalRow> {
   const id = uuid();
   await exec(
@@ -1064,6 +1083,9 @@ export async function recordApproval(
   await audit(actorId, 'review.approved', 'review_run', runId, {
     registerVersion: input.registerVersionSeen,
     verdict: input.verdictSeen,
+    // Recorded rather than refused. A firm where one person prepares and signs
+    // off is a real firm, and the answer to that is that the sign-off says so.
+    selfApproved: input.selfApproved ?? false,
   });
   return (await one<RunApprovalRow>(`SELECT * FROM run_approvals WHERE id = ?`, id))!;
 }

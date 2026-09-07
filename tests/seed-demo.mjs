@@ -114,6 +114,16 @@ function build() {
      });`,
   );
   writeFileSync(path.join(dir, 'chat-stub.js'), `export async function recordUsage() {}`);
+  // The cap is not what these fixtures are about; spendState is stubbed under it
+  // so a run is never stopped for budget here. tests/review-lifecycle.mjs is
+  // where the cap itself is exercised.
+  writeFileSync(
+    path.join(dir, 'spend-stub.js'),
+    `export async function spendState() {
+       return { monthToDateUsd: 0, capUsd: 0, capped: false, exceeded: false };
+     }
+     export const capMessage = () => 'not reached in this suite';`,
+  );
   writeFileSync(
     path.join(dir, 'return-data-stub.js'),
     `export const ModelVisualParser = { id: 'model-visual', async parse() { return { parts: [], index: [], documents: [] }; } };`,
@@ -147,6 +157,7 @@ function build() {
         .replace(/from ['"]\.\/config['"]/g, "from '../config-stub.js'")
         .replace(/from ['"]@\/lib\/providers['"]/g, "from '../providers-stub.js'")
         .replace(/from ['"]@\/lib\/chat['"]/g, "from '../chat-stub.js'")
+        .replace(/from ['"]@\/lib\/spend['"]/g, "from '../spend-stub.js'")
         .replace(/from ['"]@\/lib\/tools['"]/g, "from './tools.js'")
         .replace(/from ['"]\.\/return-data['"]/g, "from '../return-data-stub.js'")
         .replace(/from ['"]\.\/prompts['"]/g, "from '../prompts-stub.js'")

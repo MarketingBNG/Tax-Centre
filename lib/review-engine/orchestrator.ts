@@ -1,5 +1,6 @@
 import 'server-only';
 import { REVIEW_COST_CEILING_USD } from '@/lib/config';
+import { spendState, capMessage } from '@/lib/spend';
 import * as store from './store';
 import { runStage, type StageEvent } from './stage-runner';
 import { computeVerdict, verdictFindingsFrom, type VerdictResult } from './verdict';
@@ -142,6 +143,19 @@ export async function advanceRun(input: {
     await store.setRunStatus(runId, 'failed', { errorText: message });
     await emit({ type: 'error', message });
     return { outcome: 'nothing_to_do', runFinished: true, runStatus: 'failed', message };
+  }
+
+  // The firm's monthly cap, checked in the same place and for the same reason
+  // as the per-run ceiling above. A run stopped here is halted rather than
+  // failed: nothing about the review is wrong, the firm has simply run out of
+  // budget for the month, and a resumable run is what lets it continue once an
+  // admin raises the cap.
+  const spend = await spendState();
+  if (spend.exceeded) {
+    const message = capMessage(spend);
+    await store.setRunStatus(runId, 'halted', { haltReason: 'monthly_cap' });
+    await emit({ type: 'error', message });
+    return { outcome: 'nothing_to_do', runFinished: true, runStatus: 'halted', message };
   }
 
   const engagement = await store.getEngagement(run.engagement_id);

@@ -1,6 +1,7 @@
 import 'server-only';
 import { REVIEW_CONFIDENCE_THRESHOLD } from '@/lib/config';
 import type { Part, Turn } from '@/lib/providers/types';
+import { einLast4 } from '@/lib/review-types';
 import type { EngagementRow, StageKey } from '@/lib/review-types';
 import { referencesFor, stageDef } from './stage-defs';
 import { indiaExpectations } from './india';
@@ -77,7 +78,12 @@ function engagementBlock(
     '',
     `Client: ${engagement.client_label}`,
     `Entity: ${engagement.entity_name ?? '(not recorded)'}`,
-    `EIN: ${engagement.ein ?? '(not recorded)'}`,
+    // The last four only. A full EIN is a taxpayer identifier and the review
+    // does not need one: the only thing any stage does with it is check that
+    // the return under review belongs to the engagement it was filed under,
+    // and four digits settle that. Sending nine put the identifier into every
+    // stage prompt of every run to buy nothing.
+    `EIN: ${einLast4(engagement.ein) ? `ends ${einLast4(engagement.ein)}` : '(not recorded)'}`,
     `Return type: ${engagement.return_type ?? '(not recorded)'}`,
     `Tax year: ${engagement.tax_year ?? '(not recorded)'}`,
     `Period: ${engagement.period_start ?? '?'} to ${engagement.period_end ?? '?'}${engagement.short_year ? ' (short year)' : ''}`,
@@ -124,6 +130,7 @@ function stageInstruction(stageKey: StageKey, facts: Record<string, unknown>): s
 Confirm what is being reviewed before any content review starts.
 
 - Do the entity name, EIN, period, entity type and return type agree between the return and the engagement record above?
+- The engagement record gives the EIN as its last four digits only. Compare those four against the last four of the EIN on the return. Agreeing on four digits is what you can check, so report it as that and nothing more. Do not record a mismatch merely because the record shows four digits and the return shows nine.
 - Is the return type the right one at all? An LLC taxed as a partnership filing an 1120, or a foreign-owned single-member LLC with no 5472 attached, is a Stage 0 failure and everything else waits.
 - Is the period right — short year, first year, final year, fiscal year?
 - List every form and schedule the return actually contains.
