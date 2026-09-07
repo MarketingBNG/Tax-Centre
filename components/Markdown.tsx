@@ -1,12 +1,41 @@
 'use client';
 
-import { Children, cloneElement, isValidElement, useMemo, useState, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useMemo, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
+// The stylesheet stays eager: it is a fraction of the size of the library, and
+// loading it late would leave a rendered equation unstyled for a frame.
 import 'katex/dist/katex.min.css';
 import { Mermaid } from './Mermaid';
+
+/**
+ * KaTeX is loaded on first sight of maths, not with the page.
+ *
+ * The library and its stylesheet are about a quarter of a megabyte, and a tax
+ * thread almost never contains LaTeX — `shieldCurrency` below exists precisely
+ * because the `$` in these conversations is nearly always money. Mermaid was
+ * already deferred for the same reason; this brings maths into line.
+ *
+ * The promise is cached at module scope, so a thread with twenty equations
+ * fetches once and every later message renders synchronously.
+ */
+type RehypePlugin = Parameters<typeof ReactMarkdown>[0]['rehypePlugins'];
+
+let katexPromise: Promise<unknown> | null = null;
+let katexPlugin: unknown = null;
+
+function loadKatex(): Promise<unknown> {
+  katexPromise ??= import('rehype-katex').then((mod) => (katexPlugin = mod.default));
+  return katexPromise;
+}
+
+/**
+ * Cheap enough to run on every render: a `$` already escaped by
+ * `shieldCurrency` cannot match, so this only fires on real delimiters.
+ */
+const hasMaths = (text: string): boolean =>
+  /(?<!\\)\$\$?[^$]/.test(text) || text.includes('\\(') || text.includes('\\begin{');
 
 /**
  * Renders model output as markdown — tables, lists, code blocks, links, maths
@@ -184,13 +213,31 @@ export function Markdown({
   const { body, citations } = useMemo(() => extract(shieldCurrency(text)), [text]);
   const byId = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources]);
 
+  // Re-render once the plugin lands. Until then the maths shows as its source,
+  // which is also what it looks like mid-stream, so nothing jumps oddly.
+  const maths = hasMaths(body);
+  const [katexReady, setKatexReady] = useState(katexPlugin !== null);
+
+  useEffect(() => {
+    if (!maths || katexReady) return;
+    let live = true;
+    loadKatex().then(() => live && setKatexReady(true));
+    return () => {
+      live = false;
+    };
+  }, [maths, katexReady]);
+
   const cite = (node: ReactNode) => decorate(node, citations, byId);
 
   return (
     <div className="trc-md break-words">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'htmlAndMathml' }]]}
+        rehypePlugins={
+          maths && katexReady
+            ? ([[katexPlugin, { throwOnError: false, output: 'htmlAndMathml' }]] as RehypePlugin)
+            : undefined
+        }
         components={{
           h1: ({ children }) => <h3 className="mt-5 mb-2 text-[16px] font-semibold">{cite(children)}</h3>,
           h2: ({ children }) => <h3 className="mt-5 mb-2 text-[15px] font-semibold">{cite(children)}</h3>,
