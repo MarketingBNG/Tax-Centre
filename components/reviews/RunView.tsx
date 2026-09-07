@@ -9,6 +9,7 @@ import { QuestionsPanel } from './QuestionsPanel';
 import { RunCompare } from './RunCompare';
 import { ApprovalBar } from './ApprovalBar';
 import { useRunAdvance } from './useRunAdvance';
+import { SkeletonRows } from '../ui';
 import type { FindingView, RunDetail } from './types';
 
 /**
@@ -78,8 +79,8 @@ export function RunView({ runId }: { runId: string }) {
 
   if (loadError) {
     return (
-      <div className="mx-auto max-w-[900px] px-6 py-6">
-        <div className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+      <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6">
+        <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
           {loadError}
         </div>
       </div>
@@ -87,7 +88,11 @@ export function RunView({ runId }: { runId: string }) {
   }
 
   if (!detail) {
-    return <div className="mx-auto max-w-[900px] px-6 py-6 text-[13px] text-ink-faint">Loading…</div>;
+    return (
+      <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6">
+        <SkeletonRows rows={5} className="[&>*]:h-16" />
+      </div>
+    );
   }
 
   const { run } = detail;
@@ -97,8 +102,8 @@ export function RunView({ runId }: { runId: string }) {
   const finished = ['complete', 'halted', 'failed', 'cancelled'].includes(run.status) && !running;
 
   return (
-    <div className="mx-auto max-w-[900px] px-6 py-6">
-      <div className="trc-print-hide mb-3 flex items-center justify-between">
+    <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6">
+      <div className="trc-print-hide mb-3 flex flex-wrap items-center justify-between gap-2">
         <Link
           href={`/reviews/${run.engagementId}`}
           className="text-[12.5px] text-ink-dim no-underline hover:text-accent"
@@ -172,7 +177,7 @@ export function RunView({ runId }: { runId: string }) {
       )}
 
       {error && (
-        <div className="mb-4 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+        <div role="alert" className="mb-4 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
           {error}
         </div>
       )}
@@ -191,7 +196,7 @@ export function RunView({ runId }: { runId: string }) {
 
       {(inFlight || notStarted) && (
         <section className="trc-print-hide mb-4 rounded-xl border border-line-soft bg-panel px-4 py-3">
-          <ol className="space-y-1">
+          <ol className="space-y-1" aria-live="polite" aria-busy={inFlight}>
             {detail.stages.map((stage) => {
               const state = STAGE_STATUS[stage.status] ?? { label: stage.status, tone: 'text-ink-faint' };
               return (

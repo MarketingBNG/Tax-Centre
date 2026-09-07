@@ -105,7 +105,7 @@ function AnswerForm({
         </div>
       )}
 
-      {error && <div className="mt-1.5 text-[11.5px] text-sev-critical">{error}</div>}
+      {error && <div role="alert" className="mt-1.5 text-[11.5px] text-sev-critical">{error}</div>}
 
       <div className="mt-2 flex items-center gap-2">
         <input

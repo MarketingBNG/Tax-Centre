@@ -9,6 +9,7 @@ import { ToolPanel } from './ToolPanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ProjectPanel } from './ProjectPanel';
 import { ComposerMenu } from './ComposerMenu';
+import { useConfirm } from './ui';
 import { doSignOut } from '../app/actions';
 import { APP_NAME } from '../lib/app';
 import type { ToolRun } from '../lib/types';
@@ -151,6 +152,10 @@ export function Chat({ me }: { me: Me }) {
   const [openProject, setOpenProject] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
+  // Below md the sidebar is a drawer over the thread rather than a column
+  // beside it; there is not room for both on a phone.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { ask, confirmDialog } = useConfirm();
 
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -248,6 +253,7 @@ export function Chat({ me }: { me: Me }) {
   const openConversation = useCallback(
     async (id: string) => {
       setConversationId(id);
+      setSidebarOpen(false);
       setAttachments([]);
       setBanner(null);
       setStreamText(null);
@@ -343,6 +349,7 @@ export function Chat({ me }: { me: Me }) {
 
   function startNew() {
     setConversationId(null);
+    setSidebarOpen(false);
     setMessages([]);
     setFiles([]);
     setAttachments([]);
@@ -807,9 +814,26 @@ export function Chat({ me }: { me: Me }) {
     ) : null;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-dvh overflow-hidden">
+      {/* The drawer backdrop. Only ever present below md, where the sidebar
+          floats over the thread instead of sitting beside it. */}
+      {sidebarOpen ? (
+        <button
+          type="button"
+          aria-label="Close the menu"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/55 md:hidden"
+        />
+      ) : null}
+
+      {confirmDialog}
+
       {/* ------------------------------------------------------ sidebar */}
-      <aside className="flex w-72 shrink-0 flex-col gap-2.5 border-r border-line-soft bg-panel p-3">
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] shrink-0 flex-col gap-2.5 border-r border-line-soft bg-panel p-3 transition-transform duration-200 md:static md:z-auto md:max-w-none md:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="flex items-center gap-2.5 px-1.5 pt-1 pb-2.5 text-[16.5px] font-semibold tracking-tight">
           <Mark size={19} />
           {APP_NAME}
@@ -859,6 +883,7 @@ export function Chat({ me }: { me: Me }) {
           <span>Projects</span>
           <button
             title="New project"
+            aria-label="New project"
             onClick={async () => {
               const name = prompt('Name this project');
               if (!name?.trim()) return;
@@ -900,6 +925,7 @@ export function Chat({ me }: { me: Me }) {
               <button
                 onClick={() => setOpenProject(p.id)}
                 title="Project settings"
+                aria-label="Project settings"
                 className="px-1 text-ink-faint opacity-0 group-hover:opacity-100 hover:text-accent"
               >
                 ⚙
@@ -985,12 +1011,20 @@ export function Chat({ me }: { me: Me }) {
                       </button>
                       <button
                         onClick={async () => {
-                          if (!confirm(`Delete "${c.title}"? This cannot be undone.`)) return;
-                          await fetch(`/api/conversations/${c.id}`, { method: 'DELETE' });
-                          if (conversationId === c.id) startNew();
-                          loadConversations();
+                          ask({
+                            title: `Delete "${c.title}"?`,
+                            body: 'The whole thread goes, including anything attached to it. This cannot be undone.',
+                            confirmLabel: 'Delete',
+                            destructive: true,
+                            onConfirm: async () => {
+                              await fetch(`/api/conversations/${c.id}`, { method: 'DELETE' });
+                              if (conversationId === c.id) startNew();
+                              loadConversations();
+                            },
+                          });
                         }}
                         title="Delete"
+                        aria-label="Delete"
                         className="px-1 text-ink-faint opacity-0 group-hover:opacity-100 hover:text-sev-blocking"
                       >
                         ×
@@ -1018,6 +1052,7 @@ export function Chat({ me }: { me: Me }) {
             <button
               type="submit"
               title="Sign out"
+              aria-label="Sign out"
               className="grid h-7.5 w-7.5 place-items-center rounded-lg border border-line text-ink-dim hover:bg-raised hover:text-ink"
             >
               ⏻
@@ -1049,8 +1084,26 @@ export function Chat({ me }: { me: Me }) {
           uploadFiles([...e.dataTransfer.files]);
         }}
       >
+        {/* The phone header. The drawer has no other way in, so unlike the
+            context strip below it this bar is always present. */}
+        <div className="flex items-center gap-2.5 border-b border-line-soft px-4 py-2 md:hidden">
+          <button
+            type="button"
+            aria-label="Open the menu"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+            className="grid h-8 w-8 place-items-center rounded-lg border border-line text-ink-dim hover:bg-raised hover:text-ink"
+          >
+            ☰
+          </button>
+          <span className="flex items-center gap-2 text-[14px] font-semibold tracking-tight">
+            <Mark size={16} />
+            {APP_NAME}
+          </span>
+        </div>
+
         {conversationId || currentProject ? (
-          <div className="flex items-center gap-2.5 border-b border-line-soft px-6 py-2 text-[12.5px] text-ink-faint">
+          <div className="flex items-center gap-2.5 border-b border-line-soft px-4 py-2 text-[12.5px] text-ink-faint sm:px-6">
             {currentProject ? (
               <button onClick={() => setOpenProject(currentProject.id)} className="hover:text-ink">
                 ▤ {currentProject.name}
@@ -1071,7 +1124,7 @@ export function Chat({ me }: { me: Me }) {
           </div>
         ) : null}
 
-        <div ref={threadRef} className="flex-1 overflow-y-auto px-6 pt-7 pb-2">
+        <div ref={threadRef} className="flex-1 overflow-y-auto px-4 pt-7 pb-2 sm:px-6">
           <div className="mx-auto max-w-[780px]">
             {messages.length === 0 && streamText === null ? (
               <div className="grid h-full place-content-center pb-24 text-center">
@@ -1198,6 +1251,7 @@ export function Chat({ me }: { me: Me }) {
                       <button
                         onClick={() => vote(m.id, 1)}
                         title="Good answer"
+                        aria-label="Good answer"
                         className={`rounded border border-line px-1.5 py-0.5 text-[11px] hover:text-ink ${
                           m.vote === 1 ? 'text-accent' : 'text-ink-faint'
                         }`}
@@ -1207,6 +1261,7 @@ export function Chat({ me }: { me: Me }) {
                       <button
                         onClick={() => vote(m.id, -1)}
                         title="Bad answer"
+                        aria-label="Bad answer"
                         className={`rounded border border-line px-1.5 py-0.5 text-[11px] hover:text-ink ${
                           m.vote === -1 ? 'text-sev-blocking' : 'text-ink-faint'
                         }`}
@@ -1239,9 +1294,10 @@ export function Chat({ me }: { me: Me }) {
         </div>
 
         {/* ---------------------------------------------------- composer */}
-        <div className="px-6 pt-2.5 pb-5">
+        <div className="px-4 pt-2.5 pb-5 sm:px-6">
           {banner ? (
             <div
+              role="alert"
               className={`mx-auto mb-2.5 flex max-w-[780px] items-start gap-3 rounded-lg border px-3 py-2 text-[13px] ${
                 banner.kind === 'warn'
                   ? 'border-sev-math/35 bg-sev-math/10 text-[#dcc79a]'
@@ -1249,7 +1305,7 @@ export function Chat({ me }: { me: Me }) {
               }`}
             >
               <span className="flex-1">{banner.text}</span>
-              <button onClick={() => setBanner(null)} className="opacity-60 hover:opacity-100">
+              <button onClick={() => setBanner(null)} aria-label="Dismiss" className="opacity-60 hover:opacity-100">
                 ×
               </button>
             </div>
@@ -1362,6 +1418,7 @@ export function Chat({ me }: { me: Me }) {
                 <button
                   onClick={toggleDictation}
                   title="Dictate"
+                  aria-label="Dictate"
                   className={`grid h-7.5 w-7.5 place-items-center rounded-lg border text-[13px] leading-none hover:bg-raised ${
                     listening ? 'border-accent text-accent' : 'border-line text-ink-dim hover:text-ink'
                   }`}

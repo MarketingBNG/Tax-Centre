@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useDialog } from '../useDialog';
 
 /**
  * Opens one of a review's documents, at a page where we know one.
@@ -28,13 +28,7 @@ export function DocumentViewer({
   page: number | null;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const panelRef = useDialog(onClose);
 
   const base = `/api/review-runs/${runId}/docs/${fileId}/raw`;
   const src = `${base}?inline=1${page ? `#page=${page}` : ''}`;
@@ -43,6 +37,10 @@ export function DocumentViewer({
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black/70 p-4" onClick={onClose}>
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className="mx-auto flex h-full w-full max-w-[1100px] flex-col overflow-hidden rounded-xl border border-line bg-panel"
         onClick={(e) => e.stopPropagation()}
       >

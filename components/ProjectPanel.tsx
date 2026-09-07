@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDialog } from './useDialog';
 
 interface ProjectFile {
   id: string;
@@ -60,13 +61,7 @@ export function ProjectPanel({
     load();
   }, [load]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const panelRef = useDialog(onClose);
 
   async function save() {
     await fetch(`/api/projects/${projectId}`, {
@@ -111,8 +106,12 @@ export function ProjectPanel({
   if (!project) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-3 sm:p-6" onClick={onClose}>
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Project settings"
         onClick={(e) => e.stopPropagation()}
         className="flex h-[620px] max-h-full w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-line bg-canvas"
       >
@@ -163,7 +162,7 @@ export function ProjectPanel({
             </div>
 
             {error ? (
-              <div className="mb-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[12.5px] text-[#e8b0b0]">
+              <div role="alert" className="mb-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[12.5px] text-[#e8b0b0]">
                 {error}
               </div>
             ) : null}

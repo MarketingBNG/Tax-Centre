@@ -51,12 +51,12 @@ export default async function LoginPage({
         </p>
 
         {!databaseReachable ? (
-          <div className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+          <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
             Cannot reach the database. Set <code>DATABASE_URL</code> to a pooled Postgres
             connection string (Vercel → Storage → Postgres, or neon.tech) and redeploy.
           </div>
         ) : !configured ? (
-          <div className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#f0a9a9]">
+          <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#f0a9a9]">
             Google sign-in is not set up yet. Add <code>AUTH_GOOGLE_ID</code>,{' '}
             <code>AUTH_GOOGLE_SECRET</code> and <code>AUTH_SECRET</code> to <code>.env</code>,
             then restart. The steps are in that file.

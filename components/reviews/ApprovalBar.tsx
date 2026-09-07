@@ -90,7 +90,7 @@ export function ApprovalBar({
 
   return (
     <section className="trc-print-hide rounded-xl border border-line-soft bg-panel px-4 py-3">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <div className="text-[13px]">Not yet signed off</div>
           <div className="mt-0.5 text-[11.5px] text-ink-faint">
@@ -146,7 +146,7 @@ export function ApprovalBar({
           />
 
           {error && (
-            <div className="mt-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-2.5 py-1.5 text-[12px] text-[#e8b0b0]">
+            <div role="alert" className="mt-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-2.5 py-1.5 text-[12px] text-[#e8b0b0]">
               {error}
             </div>
           )}

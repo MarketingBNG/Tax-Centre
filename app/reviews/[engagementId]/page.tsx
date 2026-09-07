@@ -54,12 +54,12 @@ export default async function EngagementPage({ params }: Ctx) {
   const plan = planStages({ returnType: engagement.return_type, facts });
 
   return (
-    <div className="mx-auto max-w-[1000px] px-6 py-6">
+    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
       <Link href="/reviews" className="text-[12.5px] text-ink-dim no-underline hover:text-accent">
         ← All reviews
       </Link>
 
-      <header className="mt-3 mb-6 flex items-start justify-between gap-4">
+      <header className="mt-3 mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
         <h1 className="text-[21px] font-semibold tracking-tight">
           {engagement.entity_name || engagement.client_label}

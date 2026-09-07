@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SeverityChip, StatusChip } from './chips';
+import { SkeletonRows } from '../ui';
 import type { Category, FindingStatus, Severity, StageKey } from '@/lib/review-types';
 
 /**
@@ -67,12 +68,12 @@ export function RecurrencePanel({ engagementId }: { engagementId: string }) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
+      <div role="alert" className="rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
         {error}
       </div>
     );
   }
-  if (!data) return <div className="text-[13px] text-ink-faint">Loading…</div>;
+  if (!data) return <SkeletonRows rows={3} />;
 
   // Oldest first across the row, so a history reads left to right.
   const columns = data.years.map((year) => year.taxYear).sort((a, b) => a - b);

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { SkillsManager } from './SkillsManager';
+import { useDialog } from './useDialog';
+import { useConfirm } from './ui';
 
 interface PickerModel {
   id: string;
@@ -90,13 +92,8 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
     load();
   }, [load]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const panelRef = useDialog(onClose);
+  const { ask, confirmDialog } = useConfirm();
 
   const patch = useCallback(
     async (body: Record<string, unknown>) => {
@@ -119,27 +116,32 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-3 sm:p-6"
       onClick={onClose}
     >
+      {confirmDialog}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[600px] max-h-full w-full max-w-[760px] overflow-hidden rounded-2xl border border-line bg-canvas"
+        className="flex h-[600px] max-h-full w-full max-w-[760px] flex-col overflow-hidden rounded-2xl border border-line bg-canvas sm:flex-row"
       >
-        <nav className="flex w-44 shrink-0 flex-col gap-px border-r border-line-soft bg-panel p-2.5">
-          <div className="px-2.5 pt-1 pb-2.5 text-[15px] font-semibold tracking-tight">Settings</div>
+        <nav className="flex w-full shrink-0 flex-row items-center gap-px overflow-x-auto border-b border-line-soft bg-panel p-2.5 sm:w-44 sm:flex-col sm:items-stretch sm:overflow-x-visible sm:border-r sm:border-b-0">
+          <div className="hidden px-2.5 pt-1 pb-2.5 text-[15px] font-semibold tracking-tight sm:block">Settings</div>
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`rounded-lg px-2.5 py-1.5 text-left text-[13.5px] ${
+              className={`shrink-0 rounded-lg px-2.5 py-1.5 text-left text-[13.5px] ${
                 tab === t.id ? 'bg-raised text-ink' : 'text-ink-dim hover:bg-raised hover:text-ink'
               }`}
             >
               {t.label}
             </button>
           ))}
-          <div className="mt-auto flex items-center justify-between px-2.5 pt-2 text-[11.5px] text-ink-faint">
+          <div className="ml-auto flex shrink-0 items-center gap-2 px-2.5 text-[11.5px] text-ink-faint sm:mt-auto sm:ml-0 sm:justify-between sm:pt-2">
             <span>{saved ? 'Saved' : ''}</span>
             <button onClick={onClose} className="hover:text-ink">
               Close
@@ -147,7 +149,7 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
           </div>
         </nav>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
           {tab === 'instructions' ? (
             <section>
               <h2 className="mb-1 text-[15px] font-semibold">Your instructions</h2>
@@ -361,11 +363,18 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
 
                       {a.connected ? (
                         <button
-                          onClick={async () => {
-                            if (!confirm(`Disconnect ${a.label}?`)) return;
-                            await fetch(`/api/accounts/${a.id}`, { method: 'DELETE' });
-                            load();
-                          }}
+                          onClick={() =>
+                            ask({
+                              title: `Disconnect ${a.label}?`,
+                              body: 'The stored token is deleted. You can connect it again later.',
+                              confirmLabel: 'Disconnect',
+                              destructive: true,
+                              onConfirm: async () => {
+                                await fetch(`/api/accounts/${a.id}`, { method: 'DELETE' });
+                                load();
+                              },
+                            })
+                          }
                           className="rounded-[9px] border border-line px-3 py-1.5 text-[13px] hover:border-sev-blocking hover:text-sev-blocking"
                         >
                           Disconnect
@@ -452,11 +461,18 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
 
               {memories.length ? (
                 <button
-                  onClick={async () => {
-                    if (!confirm('Forget everything? This cannot be undone.')) return;
-                    await fetch('/api/memories', { method: 'DELETE' });
-                    load();
-                  }}
+                  onClick={() =>
+                    ask({
+                      title: 'Forget everything?',
+                      body: `All ${memories.length} remembered item(s) are deleted. This cannot be undone.`,
+                      confirmLabel: 'Forget everything',
+                      destructive: true,
+                      onConfirm: async () => {
+                        await fetch('/api/memories', { method: 'DELETE' });
+                        load();
+                      },
+                    })
+                  }
                   className="mt-3 rounded-[9px] border border-line px-3 py-1.5 text-[13px] text-ink-dim hover:border-sev-blocking hover:text-sev-blocking"
                 >
                   Forget everything

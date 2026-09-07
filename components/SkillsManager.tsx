@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useConfirm } from './ui';
 
 interface SkillFile {
   path: string;
@@ -86,9 +87,11 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
   }
 
   const shown = skills.filter((s) => s.scope === scope);
+  const { ask, confirmDialog } = useConfirm();
 
   return (
     <div>
+      {confirmDialog}
       <div className="mb-3 flex flex-wrap items-center gap-2.5">
         <button
           className={btnPrimary}
@@ -147,11 +150,18 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
                 </button>
                 <button
                   className={`${btnSm} hover:text-sev-blocking`}
-                  onClick={async () => {
-                    if (!confirm(`Delete the "${s.name}" skill?`)) return;
-                    await fetch(`/api/skills/${s.id}`, { method: 'DELETE' });
-                    load();
-                  }}
+                  onClick={() =>
+                    ask({
+                      title: `Delete the "${s.name}" skill?`,
+                      body: 'It stops being offered to the model straight away. This cannot be undone.',
+                      confirmLabel: 'Delete',
+                      destructive: true,
+                      onConfirm: async () => {
+                        await fetch(`/api/skills/${s.id}`, { method: 'DELETE' });
+                        load();
+                      },
+                    })
+                  }
                 >
                   Delete
                 </button>

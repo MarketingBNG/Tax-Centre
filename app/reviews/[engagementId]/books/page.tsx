@@ -18,7 +18,7 @@ export default async function BooksPage({ params }: Ctx) {
   if (!engagement) redirect('/reviews');
 
   return (
-    <div className="mx-auto max-w-[1000px] px-6 py-6">
+    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
       <Link
         href={`/reviews/${engagementId}`}
         className="text-[12.5px] text-ink-dim no-underline hover:text-accent"

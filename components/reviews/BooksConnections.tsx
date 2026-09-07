@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { SkeletonRows } from '../ui';
 
 /**
  * The client's own accounting systems, and how to connect them.
@@ -133,10 +134,10 @@ export function BooksConnections({
   }
 
   if (error && !providers) {
-    return <p className="text-[12.5px] text-rose-400">{error}</p>;
+    return <p role="alert" className="text-[12.5px] text-rose-400">{error}</p>;
   }
   if (!providers) {
-    return <p className="text-[12.5px] text-ink-faint">Loading…</p>;
+    return <SkeletonRows rows={2} />;
   }
 
   return (
@@ -150,7 +151,7 @@ export function BooksConnections({
       </p>
 
       {note && <p className="mt-3 text-[12.5px] text-accent">{note}</p>}
-      {error && <p className="mt-3 text-[12.5px] text-rose-400">{error}</p>}
+      {error && <p role="alert" className="mt-3 text-[12.5px] text-rose-400">{error}</p>}
 
       <div className="mt-4 space-y-3">
         {providers.map((provider) => (

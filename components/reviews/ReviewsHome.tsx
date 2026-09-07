@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { VerdictChip } from './chips';
+import { SkeletonRows } from '../ui';
 import type { ReturnType, RunStatus, Verdict } from '@/lib/review-types';
 
 interface EngagementSummary {
@@ -53,8 +54,8 @@ export function ReviewsHome() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-[1000px] px-6 py-6">
-      <header className="mb-6 flex items-center justify-between">
+    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
+      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[21px] font-semibold tracking-tight">Reviews</h1>
           <p className="mt-1 text-[13px] text-ink-dim">
@@ -79,12 +80,12 @@ export function ReviewsHome() {
       </header>
 
       {error && (
-        <div className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+        <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
           {error}
         </div>
       )}
 
-      {!engagements && !error && <div className="text-[13px] text-ink-faint">Loading…</div>}
+      {!engagements && !error && <SkeletonRows rows={4} className="[&>*]:h-[74px]" />}
 
       {engagements?.length === 0 && (
         <div className="rounded-xl border border-dashed border-line p-8 text-center">

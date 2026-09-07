@@ -219,7 +219,7 @@ export function NewReviewWizard() {
   }
 
   return (
-    <div className="mx-auto max-w-[780px] px-6 py-6">
+    <div className="mx-auto max-w-[780px] px-4 py-6 sm:px-6">
       <h1 className="text-[21px] font-semibold tracking-tight">New review</h1>
       <p className="mt-1 mb-6 text-[13px] text-ink-dim">
         The engagement facts decide which checks run — an Indian link or a foreign owner turns on
@@ -228,7 +228,7 @@ export function NewReviewWizard() {
       </p>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+        <div role="alert" className="mb-4 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
           {error}
         </div>
       )}
@@ -238,7 +238,7 @@ export function NewReviewWizard() {
       <section className="mb-6 rounded-xl border border-line-soft bg-panel p-4">
         <h2 className="mb-3 text-[14px] font-medium">Engagement</h2>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className={label}>Client *</label>
             <input className={input} value={clientLabel} onChange={(e) => setClientLabel(e.target.value)} />

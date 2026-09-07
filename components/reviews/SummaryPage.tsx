@@ -46,7 +46,7 @@ function HeaderBand({ detail }: { detail: RunDetail }) {
 
   return (
     <section className="trc-print-zone rounded-xl border border-line-soft bg-panel px-4 py-3">
-      <div className="grid grid-cols-4 gap-x-4 gap-y-2">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
         {facts.map(([label, value]) => (
           <div key={label}>
             <div className="text-[10.5px] tracking-wide text-ink-faint uppercase">{label}</div>
@@ -79,8 +79,15 @@ function VerdictBanner({ detail }: { detail: RunDetail }) {
   const blockers = detail.run.verdictDetail?.blockers ?? [];
 
   return (
+    // Sticky, because the register below it runs to a screen or three and the
+    // verdict is the fact every one of those lines is being read against.
+    //
+    // The opaque wrapper is not decoration: the banner's own background is a
+    // 10% tint, so without something solid behind it the register would scroll
+    // visibly through the verdict. Print resets both (trc-print-sticky).
+    <div className="trc-print-sticky sticky top-0 z-10 bg-canvas py-1">
     <section className={`trc-print-zone rounded-xl border px-4 py-3.5 ${verdict ? style : 'border-line text-ink-dim'}`}>
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="text-[22px] font-semibold tracking-tight">
           {verdict ? VERDICT_WORD[verdict] : 'Not yet decided'}
         </div>
@@ -99,6 +106,7 @@ function VerdictBanner({ detail }: { detail: RunDetail }) {
         </ul>
       )}
     </section>
+    </div>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Mark } from './Mark';
+import { useConfirm, Alert, SkeletonRows } from './ui';
 import { ConnectorsTab } from './ConnectorsTab';
 import { BooksProvidersTab } from './BooksProvidersTab';
 import { SkillsManager } from './SkillsManager';
@@ -79,7 +80,7 @@ export function AdminPanel() {
   const [tab, setTab] = useState<Tab>('prompt');
 
   return (
-    <div className="mx-auto max-w-[1000px] px-6 pt-7 pb-16">
+    <div className="mx-auto max-w-[1000px] px-4 pt-7 pb-16 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2.5 text-[21px] font-medium">
           <Mark size={20} />
@@ -236,6 +237,7 @@ function CostsTab() {
   const [cap, setCap] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const { ask, confirmDialog } = useConfirm();
 
   const load = useCallback(async () => {
     const [c, r] = await Promise.all([
@@ -253,13 +255,14 @@ function CostsTab() {
     load();
   }, [load]);
 
-  if (!data) return <div className="p-6 text-center text-ink-faint">Loading…</div>;
+  if (!data) return <SkeletonRows rows={4} className="p-6" />;
 
   const pct = data.capUsd ? Math.min(100, (data.monthToDateUsd / data.capUsd) * 100) : 0;
   const cacheLow = data.cacheHitRate < 0.3;
 
   return (
     <>
+      {confirmDialog}
       <div className="mb-4 flex flex-wrap gap-3.5">
         <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-3.5">
           <div className="mb-1.5 text-[12px] text-ink-faint">Spend this month</div>
@@ -325,7 +328,7 @@ function CostsTab() {
             disabled={busy}
             className={btn}
           >
-            Save
+            {busy ? 'Saving…' : 'Save'}
           </button>
           {note ? <span className="text-[13px] text-ink-dim">{note}</span> : null}
         </div>
@@ -342,16 +345,22 @@ function CostsTab() {
             retention now.
           </p>
           <button
-            onClick={async () => {
-              if (!confirm(`Purge ${retention.dueFiles} expired document(s)? This deletes the stored files.`))
-                return;
-              setBusy(true);
-              const res = await fetch('/api/admin/retention', { method: 'POST' });
-              const result = await res.json();
-              setBusy(false);
-              setNote(`Purged ${result.deleted} file(s), freed ${mb(result.freedBytes)}.`);
-              load();
-            }}
+            onClick={() =>
+              ask({
+                title: `Purge ${retention.dueFiles} expired document(s)?`,
+                body: `This deletes ${mb(retention.dueBytes)} of stored client files. It cannot be undone.`,
+                confirmLabel: 'Purge',
+                destructive: true,
+                onConfirm: async () => {
+                  setBusy(true);
+                  const res = await fetch('/api/admin/retention', { method: 'POST' });
+                  const result = await res.json();
+                  setBusy(false);
+                  setNote(`Purged ${result.deleted} file(s), freed ${mb(result.freedBytes)}.`);
+                  load();
+                },
+              })
+            }
             disabled={busy || retention.dueFiles === 0}
             className={btn}
           >
@@ -443,6 +452,7 @@ function PeopleTab() {
   const [people, setPeople] = useState<Person[]>([]);
   const [form, setForm] = useState({ displayName: '', email: '', role: 'member' });
   const [message, setMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -523,7 +533,7 @@ function PeopleTab() {
 
           <div className="mt-4 flex items-center gap-3">
             <button type="submit" disabled={busy} className={btnPrimary}>
-              Create account
+              {busy ? 'Creating…' : 'Create account'}
             </button>
             {message ? <span className="text-[13px] text-ink-dim">{message}</span> : null}
           </div>
@@ -532,6 +542,7 @@ function PeopleTab() {
 
       <div className={panel}>
         <h2 className="mb-3 text-[15px] font-semibold">People</h2>
+        {error ? <Alert className="mb-3">{error}</Alert> : null}
         <Table
           head={['Name', 'Email', 'Role', 'Status', '']}
           rows={people.map((u) => [
@@ -549,9 +560,10 @@ function PeopleTab() {
                 });
                 if (!res.ok) {
                   const d = await res.json().catch(() => ({}));
-                  alert(d.error ?? 'Could not change');
+                  setError(d.error ?? 'Could not change that person.');
                   return;
                 }
+                setError(null);
                 load();
               }}
               className={btnSm}

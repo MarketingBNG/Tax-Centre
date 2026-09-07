@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from './ui';
 
 interface Tool {
   name: string;
@@ -92,8 +93,11 @@ export function ConnectorsTab() {
     await load();
   }
 
+  const { ask, confirmDialog } = useConfirm();
+
   return (
     <div>
+      {confirmDialog}
       <div className={panel}>
         <h2 className="mb-1 text-[15px] font-semibold">Connectors</h2>
         <p className="mb-3 text-[13px] text-ink-dim">
@@ -148,18 +152,25 @@ export function ConnectorsTab() {
             </button>
             <button
               className={`${btnSm} hover:text-sev-blocking`}
-              onClick={async () => {
-                if (!confirm(`Delete the "${c.name}" connector?`)) return;
-                await fetch(`/api/admin/connectors/${c.id}`, { method: 'DELETE' });
-                load();
-              }}
+              onClick={() =>
+                ask({
+                  title: `Delete the "${c.name}" connector?`,
+                  body: 'Every chat that had it switched on loses those tools. This cannot be undone.',
+                  confirmLabel: 'Delete',
+                  destructive: true,
+                  onConfirm: async () => {
+                    await fetch(`/api/admin/connectors/${c.id}`, { method: 'DELETE' });
+                    load();
+                  },
+                })
+              }
             >
               Delete
             </button>
           </div>
 
           {c.lastError ? (
-            <div className="mt-2.5 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[12.5px] text-[#e8b0b0]">
+            <div role="alert" className="mt-2.5 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[12.5px] text-[#e8b0b0]">
               Last attempt failed: {c.lastError}
             </div>
           ) : null}
@@ -231,7 +242,7 @@ export function ConnectorsTab() {
                   <input
                     type="password"
                     placeholder={c.hasSecret ? 'stored — type to replace' : 'Bearer …'}
-                    className={`${field} w-[280px]`}
+                    className={`${field} w-full sm:w-[280px]`}
                     onBlur={(e) => {
                       if (e.target.value) {
                         patch(c.id, { authValue: e.target.value });
@@ -282,7 +293,7 @@ export function ConnectorsTab() {
               className={field}
             />
           </div>
-          <div className="w-[320px]">
+          <div className="w-full sm:w-[320px]">
             <label className={label}>Value (optional)</label>
             <input
               type="password"

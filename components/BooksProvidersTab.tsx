@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { SkeletonRows } from './ui';
 
 /**
  * Everything this server can be connected to, in one place.
@@ -88,8 +89,8 @@ export function BooksProvidersTab() {
       .catch((err) => setError((err as Error).message));
   }, []);
 
-  if (error) return <p className="text-[13px] text-rose-400">{error}</p>;
-  if (!groups) return <p className="text-[13px] text-ink-faint">Loading…</p>;
+  if (error) return <p role="alert" className="text-[13px] text-rose-400">{error}</p>;
+  if (!groups) return <SkeletonRows rows={2} />;
 
   const ready = groups.flatMap((g) => g.items).filter((i) => i.state === 'ready').length;
   const total = groups.flatMap((g) => g.items).length;

@@ -140,7 +140,7 @@ export function CorpusPanel() {
   const ready = title.trim() && effectiveFrom && passages.length > 0 && !busy;
 
   return (
-    <div className="mx-auto max-w-[1000px] px-6 py-6">
+    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
       <header className="mb-6">
         <h1 className="text-[21px] font-semibold tracking-tight">The citation library</h1>
         <p className="mt-1 max-w-[640px] text-[13px] text-ink-dim">
@@ -299,7 +299,7 @@ export function CorpusPanel() {
           </div>
         )}
         {error && (
-          <div className="mt-3 rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
+          <div role="alert" className="mt-3 rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
             {error}
           </div>
         )}

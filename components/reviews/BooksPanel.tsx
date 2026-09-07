@@ -196,7 +196,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
           </div>
         )}
         {error && (
-          <div className="mt-3 rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
+          <div role="alert" className="mt-3 rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
             {error}
           </div>
         )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useDialog } from '../useDialog';
 import { AuthorityChip, SeverityChip, StatusChip } from './chips';
 import { DocumentViewer } from './DocumentViewer';
 import type { FindingView } from './types';
@@ -49,6 +50,7 @@ export function FindingDetail({
     null,
   );
   const [confirming, setConfirming] = useState<string | null>(null);
+  const panelRef = useDialog<HTMLElement>(onClose);
 
   async function confirm(label: string) {
     setConfirming(label);
@@ -70,6 +72,10 @@ export function FindingDetail({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/55" onClick={onClose}>
       <aside
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Finding ${finding.code}: ${finding.title}`}
         className="h-full w-[520px] max-w-full overflow-y-auto border-l border-line bg-panel"
         onClick={(e) => e.stopPropagation()}
       >
@@ -142,6 +148,7 @@ export function FindingDetail({
           {finding.amounts.length > 0 && (
             <section>
               <h3 className="mb-1.5 text-[11px] tracking-wide text-ink-faint uppercase">Figures</h3>
+              <div className="overflow-x-auto">
               <table className="w-full text-[12.5px]">
                 <tbody>
                   {finding.amounts.map((amount, i) => (
@@ -197,6 +204,7 @@ export function FindingDetail({
                   ))}
                 </tbody>
               </table>
+              </div>
               {finding.amounts.some((a) => a.needs_confirmation) && (
                 <p className="mt-1.5 text-[11.5px] text-ink-faint">
                   Figures read off a page image cannot be checked by anything here. Open the page,
