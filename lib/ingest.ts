@@ -264,15 +264,44 @@ export async function ingestFile(input: {
   let extracted: string | null = null;
 
   if (sniffed.kind === 'pdf') {
+    let pdf: PDFDocument;
     try {
-      const pdf = await PDFDocument.load(buffer as unknown as ArrayBuffer, {
+      // ignoreEncryption lets us LOAD an encrypted file rather than accept one.
+      // Without it pdf-lib throws on encryption and we could not tell a locked
+      // PDF apart from a broken one, which are different problems with
+      // different remedies. The isEncrypted check below is what refuses it.
+      pdf = await PDFDocument.load(buffer as unknown as ArrayBuffer, {
         ignoreEncryption: true,
       });
       pageCount = pdf.getPageCount();
     } catch {
       throw new Error(
-        `"${filename}" could not be opened as a PDF. If it is password-protected, ` +
-          `remove the password and upload again.`,
+        `"${filename}" could not be opened as a PDF. The file may be truncated or ` +
+          `not really a PDF despite its name.`,
+      );
+    }
+
+    // Refused here, because the alternative is failing several steps later for
+    // reasons nobody can act on.
+    //
+    // A PDF's page tree is not encrypted even when its content streams are, so
+    // the load above succeeds and the page count is correct. The bytes then go
+    // to the model, which cannot read them, and the answer comes back as
+    // "badly formatted or corrupted" naming no file — so with several documents
+    // attached, one locked file fails the whole message and the unlocked ones
+    // take the blame. pdf-lib cannot decrypt (it has no password option at
+    // all), so this is a refusal rather than something we can quietly fix.
+    //
+    // Worth saying in the message: most of these open with no password prompt.
+    // A permissions lock encrypts the content while leaving the open password
+    // empty, which is why a file that looks fine is rejected here.
+    if (pdf.isEncrypted) {
+      throw new Error(
+        `"${filename}" is encrypted, so the model cannot read it. It may well open ` +
+          `without asking for a password — a permissions lock does that, and the ` +
+          `content is still encrypted. Open it in a PDF reader, re-save it with ` +
+          `Print to PDF, and upload that copy. If it does ask for a password, ` +
+          `remove the password first.`,
       );
     }
     if (pageCount > MAX_PDF_PAGES) {

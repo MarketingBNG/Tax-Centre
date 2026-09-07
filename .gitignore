@@ -12,3 +12,8 @@ tsconfig.tsbuildinfo
 .trc-live-*/
 .trc-golden-*/
 .trc-corpus-*/
+
+# Test harnesses compile the real modules into a scratch dir inside the
+# project, because npm packages resolve by walking up from the importing file.
+# Removed on exit; ignored in case a run is interrupted.
+.tmp-*/
