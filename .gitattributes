@@ -1,0 +1,16 @@
+# Line-ending conversion must never touch a document.
+#
+# Git guesses binary by looking for NUL bytes. A real PDF has compressed
+# streams and so is guessed correctly, but a small uncompressed one is pure
+# ASCII and gets treated as text — and tests/fixtures/encrypted-minimal.pdf is
+# exactly that. Expanding its LFs to CRLFs on checkout shifts every byte offset
+# in its xref table, so the file would arrive corrupt on a fresh clone and the
+# test that depends on it would fail for reasons nobody would look for here.
+*.pdf  binary
+*.docx binary
+*.xlsx binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
