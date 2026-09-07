@@ -160,6 +160,13 @@ function summarise(name: string, args: Record<string, unknown>): string {
   if (name === 'remember') return `Remembered: ${String(args.fact ?? '').slice(0, 80)}`;
   if (name === 'forget') return 'Forgot a remembered fact';
 
+  // Without these the row falls through to the tool name and the panel shows
+  // it twice — once as the badge, once as the summary — which is how eight
+  // skill reads became eight identical lines saying nothing.
+  if (name === 'read_skill_file') return String(args.path ?? 'a skill file');
+  if (name === 'load_skill') return String(args.name ?? 'a skill');
+  if (name === 'search_authority') return String(args.citation ?? args.query ?? 'authority');
+
   // mcp__<connector>__<tool> reads badly in a header; show the two halves.
   const parts = name.split('__');
   if (parts[0] === 'mcp' && parts.length >= 3) {

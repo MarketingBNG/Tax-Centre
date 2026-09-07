@@ -1227,7 +1227,7 @@ export function Chat({ me }: { me: Me }) {
                   Assistant
                 </div>
                 <Thinking text={streamThinking} streaming={!streamText} />
-                <ToolPanel runs={streamTools} />
+                <ToolPanel runs={streamTools} streaming={!streamText} />
                 {streamText ? (
                   <Markdown text={streamText} streaming sources={sources} />
                 ) : streamThinking ? null : (
