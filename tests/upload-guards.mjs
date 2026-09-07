@@ -56,12 +56,15 @@ function build() {
     [
       `export const written = [];`,
       `export async function run(q, ...p) { written.push(p); }`,
-      `// The dedupe lookup must miss, or ingestFile hands back the existing row`,
-      `// and never reaches the PDF checks at all. Only the read-back after the`,
-      `// insert returns a row.`,
+      `// The dedupe lookup is drivable, because whether it hits decides whether`,
+      `// the old code reached the PDF checks at all.`,
+      `let dedupeHit = false;`,
+      `export const setDedupeHit = (v) => { dedupeHit = v; };`,
+      `const row = { id: 'file-1', filename: 'x', kind: 'pdf', page_count: 1,`,
+      `              conversation_id: 'c1', project_id: null };`,
       `export async function one(q) {`,
-      `  if (/sha256/.test(q)) return null;`,
-      `  return { id: 'file-1', filename: 'x', kind: 'pdf', page_count: 1 };`,
+      `  if (/sha256/.test(q)) return dedupeHit ? row : null;`,
+      `  return row;`,
       `}`,
       `export const reset = () => { written.length = 0; };`,
     ].join('\n'),
@@ -107,6 +110,7 @@ function build() {
 const dir = build();
 const ingest = await import(pathToFileURL(path.join(dir, 'ingest.js')).href);
 const store = await import(pathToFileURL(path.join(dir, 'storage-stub.js')).href);
+const db = await import(pathToFileURL(path.join(dir, 'db-stub.js')).href);
 
 const upload = (filename, buffer) =>
   ingest.ingestFile({ userId: 'u1', conversationId: 'c1', filename, buffer });
@@ -190,6 +194,37 @@ try {
     /truncated|not really a PDF/i.test(broken ?? '') && !/encrypt/i.test(broken ?? ''),
     'two problems, two remedies',
   );
+
+  /* --------------------------- the same file, already stored (the real bug) */
+
+  // The first version of this guard sat after the dedupe lookup, so a file
+  // already in the table was handed straight back and never re-checked. The
+  // encrypted return was already stored, so re-uploading it in the same chat
+  // returned the old row, attached fine, and failed again on send with the
+  // same unattributable error.
+  db.setDedupeHit(true);
+  store.reset();
+
+  let refusedAgain = null;
+  try {
+    await upload('2025 Client Copy.pdf', enc);
+  } catch (err) {
+    refusedAgain = err.message;
+  }
+  check(
+    'an encrypted PDF already in the table is still refused',
+    refusedAgain !== null && /encrypt/i.test(refusedAgain ?? ''),
+    'validation runs before dedupe, so a later check reaches older rows',
+  );
+
+  // The dedupe path itself must still work, or every re-upload stores the
+  // same bytes twice.
+  store.reset();
+  const again = await upload('clean.pdf', await cleanPdf(3));
+  check('an unencrypted PDF already in the table is deduped, not stored twice',
+    again?.deduped === true && store.stored.length === 0);
+
+  db.setDedupeHit(false);
 } catch (err) {
   failures.push(`threw: ${err.message}`);
   console.error('\n' + (err.stack ?? err.message));
