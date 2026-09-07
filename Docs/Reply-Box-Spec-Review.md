@@ -291,7 +291,30 @@ Two days of work, no Box involved, all of it shippable now:
   invisibly. That was fine when the number of clients was the number somebody had
   typed in. With 2,000 arriving from Box, a list that silently omits a client
   reads exactly like a list that has no such client.
+- **A locked PDF is refused at upload.** An encrypted client copy uploaded
+  cleanly, reported a correct page count, and then failed several steps later
+  with the model saying "badly formatted or corrupted" and naming no file — so
+  with a few documents attached, one locked file failed the whole message and
+  the unlocked ones took the blame. Most of these open with no password prompt,
+  because a permissions lock leaves the open password empty, so the file looks
+  fine to whoever is uploading it. The refusal says that and names the file.
+  Of the eight PDFs already stored, one is encrypted and would now be refused —
+  **it still needs re-uploading**, since this only stops new ones.
+- **Validation now runs before the deduplication lookup.** That guard did not
+  fire on the file that prompted it: the check sat after the dedupe lookup, so
+  re-uploading a file already stored matched on hash and never reached it. The
+  general form is worth stating, because it will recur — a check placed after
+  dedupe only ever sees bytes we have not stored before, so anything added
+  later is silently inapplicable to everything already in the table. Whether a
+  file is new is a storage question; whether we can read it is not.
+- **The working collapses into one row.** A review stage reads eight or nine
+  skill files, and each one rendered as its own box, so the working stopped
+  being glanceable at exactly the point there was enough of it to matter. It
+  now summarises — "8 skill files, 1 calculation" — and expands to the steps,
+  which still expand to the exact code and output. A failed step is never
+  hidden: it opens the panel and says so in the header.
 
-Tests: 39 new assertions across the pure suite and two database suites, and the
-existing suites still pass. The database suites run in a schema of their own and
-roll back, so they are safe against the live database.
+Tests: 39 new assertions across the pure suite and two database suites, plus
+tests for the upload guards and the dedupe path, and the existing suites still
+pass. The database suites run in a schema of their own and roll back, so they
+are safe against the live database.
