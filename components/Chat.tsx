@@ -155,6 +155,18 @@ export function Chat({ me }: { me: Me }) {
   // Below md the sidebar is a drawer over the thread rather than a column
   // beside it; there is not room for both on a phone.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Desktop only: the drawer above handles small screens. Read after mount so
+  // the server render and the first client render agree.
+  const [collapsed, setCollapsed] = useState(false);
+  const [accountMenu, setAccountMenu] = useState(false);
+
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem('trc-sidebar') === 'collapsed');
+    } catch {
+      /* no stored preference; start expanded */
+    }
+  }, []);
   const { ask, confirmDialog } = useConfirm();
 
   const threadRef = useRef<HTMLDivElement>(null);
@@ -337,6 +349,20 @@ export function Chat({ me }: { me: Me }) {
       } else if (meta && e.shiftKey && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         startNew();
+      } else if (meta && e.key === ',') {
+        e.preventDefault();
+        setShowSettings(true);
+      } else if (meta && e.key === '\\') {
+        // The usual binding for "show/hide the panel", in most editors.
+        e.preventDefault();
+        setCollapsed((v) => {
+          try {
+            localStorage.setItem('trc-sidebar', v ? 'open' : 'collapsed');
+          } catch {
+            /* nothing to persist to; the toggle still works for this session */
+          }
+          return !v;
+        });
       } else if (e.key === 'Escape' && chatAbort.current) {
         chatAbort.current.abort();
       }
@@ -832,7 +858,7 @@ export function Chat({ me }: { me: Me }) {
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] shrink-0 flex-col gap-3 border-r border-line-soft bg-panel p-3 transition-transform duration-200 md:static md:z-auto md:max-w-none md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        } ${collapsed ? 'md:hidden' : ''}`}
       >
         <div className="flex items-center gap-3 px-2 pt-1 pb-3 text-[16px] font-semibold tracking-tight">
           <Mark size={19} />
@@ -875,7 +901,7 @@ export function Chat({ me }: { me: Me }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search chats…"
-          className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] outline-none placeholder:text-ink-faint focus:border-[#3c4653]"
+          className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] outline-none placeholder:text-ink-faint focus:border-focus-line"
         />
 
         {/* -------------------------------------------------- projects */}
@@ -1040,26 +1066,120 @@ export function Chat({ me }: { me: Me }) {
           )}
         </div>
 
-        <div className="flex items-center gap-3 border-t border-line-soft pt-3 text-[13px]">
-          <div className="grid h-6.5 w-6.5 place-items-center rounded-full bg-accent text-[13px] font-bold text-accent-ink">
-            {initial}
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <div className="truncate font-medium">{me.displayName}</div>
-            <div className="text-ink-faint">{me.role === 'admin' ? 'Admin' : 'Member'}</div>
-          </div>
-          <form action={doSignOut}>
-            <button
-              type="submit"
-              title="Sign out"
-              aria-label="Sign out"
-              className="grid h-7.5 w-7.5 place-items-center rounded-lg border border-line text-ink-dim hover:bg-raised hover:text-ink"
-            >
-              ⏻
-            </button>
-          </form>
+        {/* The account row. A single power icon was the whole account surface
+            before, which meant the only thing you could do from here was the
+            one thing you can never undo. */}
+        <div className="relative flex items-center gap-2 border-t border-line-soft pt-3 text-[13px]">
+          {accountMenu ? (
+            <>
+              {/* Catches the click that dismisses the menu, including on a
+                  touch screen where there is no stray click to rely on. */}
+              <button
+                type="button"
+                aria-label="Close the account menu"
+                onClick={() => setAccountMenu(false)}
+                className="fixed inset-0 z-40 cursor-default"
+              />
+              <div
+                role="menu"
+                aria-label="Account"
+                className="absolute bottom-full left-0 z-50 mb-2 w-[248px] overflow-hidden rounded-xl border border-line bg-panel shadow-xl"
+              >
+                <div className="truncate border-b border-line-soft px-3 py-2 text-[11.5px] text-ink-faint">
+                  {me.email}
+                </div>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setAccountMenu(false);
+                    setShowSettings(true);
+                  }}
+                  className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-raised"
+                >
+                  Settings
+                  <span className="text-[11.5px] text-ink-faint">Ctrl ,</span>
+                </button>
+                {me.role === 'admin' ? (
+                  <Link
+                    role="menuitem"
+                    href="/admin"
+                    onClick={() => setAccountMenu(false)}
+                    className="flex w-full items-center px-3 py-2 text-ink no-underline hover:bg-raised"
+                  >
+                    Admin
+                  </Link>
+                ) : null}
+                <Link
+                  role="menuitem"
+                  href="/reviews"
+                  onClick={() => setAccountMenu(false)}
+                  className="flex w-full items-center px-3 py-2 text-ink no-underline hover:bg-raised"
+                >
+                  Reviews
+                </Link>
+                <form action={doSignOut} className="border-t border-line-soft">
+                  <button
+                    role="menuitem"
+                    type="submit"
+                    className="flex w-full items-center px-3 py-2 text-left hover:bg-raised"
+                  >
+                    Log out
+                  </button>
+                </form>
+              </div>
+            </>
+          ) : null}
+
+          <button
+            onClick={() => setAccountMenu((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={accountMenu}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left hover:bg-raised"
+          >
+            <div className="grid h-6.5 w-6.5 shrink-0 place-items-center rounded-full bg-accent text-[13px] font-bold text-accent-ink">
+              {initial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">{me.displayName}</div>
+              <div className="text-ink-faint">{me.role === 'admin' ? 'Admin' : 'Member'}</div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              setCollapsed(true);
+              try {
+                localStorage.setItem('trc-sidebar', 'collapsed');
+              } catch {
+                /* not persisted, but still collapsed for this session */
+              }
+            }}
+            title="Hide the sidebar (Ctrl \)"
+            aria-label="Hide the sidebar"
+            className="hidden h-7.5 w-7.5 shrink-0 place-items-center rounded-lg text-ink-faint hover:bg-raised hover:text-ink md:grid"
+          >
+            ▨
+          </button>
         </div>
       </aside>
+
+      {collapsed ? (
+        <button
+          onClick={() => {
+            setCollapsed(false);
+            try {
+              localStorage.setItem('trc-sidebar', 'open');
+            } catch {
+              /* not persisted, but open for this session */
+            }
+          }}
+          title="Show the sidebar (Ctrl \)"
+          aria-label="Show the sidebar"
+          className="absolute top-3 left-3 z-20 hidden h-8 w-8 place-items-center rounded-lg border border-line bg-panel text-ink-dim hover:text-ink md:grid"
+        >
+          ▨
+        </button>
+      ) : null}
 
       {/* --------------------------------------------------------- main */}
       <main
@@ -1300,8 +1420,8 @@ export function Chat({ me }: { me: Me }) {
               role="alert"
               className={`mx-auto mb-3 flex max-w-[780px] items-start gap-3 rounded-lg border px-3 py-2 text-[13px] ${
                 banner.kind === 'warn'
-                  ? 'border-sev-math/35 bg-sev-math/10 text-[#dcc79a]'
-                  : 'border-sev-blocking/35 bg-sev-blocking/10 text-[#e8b0b0]'
+                  ? 'border-sev-math/35 bg-sev-math/10 text-alert-warn-ink'
+                  : 'border-sev-blocking/35 bg-sev-blocking/10 text-alert-error-ink'
               }`}
             >
               <span className="flex-1">{banner.text}</span>
@@ -1311,7 +1431,7 @@ export function Chat({ me }: { me: Me }) {
             </div>
           ) : null}
 
-          <div className="mx-auto max-w-[780px] rounded-2xl border border-line bg-panel px-4 py-3 focus-within:border-[#3c4653]">
+          <div className="mx-auto max-w-[780px] rounded-2xl border border-line bg-panel px-4 py-3 focus-within:border-focus-line">
             {attachments.length ? (
               <div className="mb-3 flex flex-wrap gap-2">
                 {attachments.map((f) => (

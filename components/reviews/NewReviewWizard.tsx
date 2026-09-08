@@ -106,7 +106,7 @@ const isBlocking = (slot: SlotDef, returnType: ReturnType | ''): boolean =>
     Boolean(slot.conditionalFor?.includes(returnType as ReturnType)));
 
 const input =
-  'w-full rounded-[9px] border border-line bg-canvas px-3 py-2 text-[13px] text-ink outline-none focus:border-[#3c4653]';
+  'w-full rounded-[9px] border border-line bg-canvas px-3 py-2 text-[13px] text-ink outline-none focus:border-focus-line';
 const label = 'mb-1 block text-[13px] text-ink-dim';
 
 export function NewReviewWizard() {
@@ -230,7 +230,7 @@ export function NewReviewWizard() {
       </p>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+        <div role="alert" className="mb-4 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-alert-error-ink">
           {error}
         </div>
       )}

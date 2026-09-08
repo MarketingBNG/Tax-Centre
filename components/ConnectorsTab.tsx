@@ -24,7 +24,7 @@ interface Connector {
 }
 
 const field =
-  'w-full rounded-[9px] border border-line bg-panel px-3 py-2 outline-none focus:border-[#55534c]';
+  'w-full rounded-[9px] border border-line bg-panel px-3 py-2 outline-none focus:border-focus-line';
 const btn =
   'rounded-[9px] border border-line bg-raised px-4 py-2 font-medium hover:bg-raised-hover disabled:opacity-50';
 const btnPrimary =
@@ -116,7 +116,7 @@ export function ConnectorsTab() {
           time to use one is in a thread with no client documents in it.
         </p>
         {!globallyEnabled ? (
-          <div className="rounded-lg border border-sev-math/35 bg-sev-math/10 px-3 py-2 text-[13px] text-[#dcc79a]">
+          <div className="rounded-lg border border-sev-math/35 bg-sev-math/10 px-3 py-2 text-[13px] text-alert-warn-ink">
             CONNECTORS_ENABLED is false in the environment, so none of these are in
             play regardless of what is configured here.
           </div>
@@ -170,7 +170,7 @@ export function ConnectorsTab() {
           </div>
 
           {c.lastError ? (
-            <div role="alert" className="mt-3 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+            <div role="alert" className="mt-3 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-alert-error-ink">
               Last attempt failed: {c.lastError}
             </div>
           ) : null}
@@ -210,7 +210,7 @@ export function ConnectorsTab() {
                                 read only
                               </span>
                             ) : (
-                              <span className="rounded border border-sev-math/40 px-1 text-[11.5px] font-normal text-[#dcc79a]">
+                              <span className="rounded border border-sev-math/40 px-1 text-[11.5px] font-normal text-alert-warn-ink">
                                 may write
                               </span>
                             )}

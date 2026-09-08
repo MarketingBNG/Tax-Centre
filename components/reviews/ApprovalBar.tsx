@@ -147,7 +147,7 @@ export function ApprovalBar({
           />
 
           {error && (
-            <div role="alert" className="mt-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+            <div role="alert" className="mt-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-alert-error-ink">
               {error}
             </div>
           )}

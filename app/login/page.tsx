@@ -52,12 +52,12 @@ export default async function LoginPage({
         </p>
 
         {!databaseReachable ? (
-          <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+          <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-alert-error-ink">
             Cannot reach the database. Set <code>DATABASE_URL</code> to a pooled Postgres
             connection string (Vercel → Storage → Postgres, or neon.tech) and redeploy.
           </div>
         ) : !configured ? (
-          <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#f0a9a9]">
+          <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-alert-error-ink">
             Google sign-in is not set up yet. Add <code>AUTH_GOOGLE_ID</code>,{' '}
             <code>AUTH_GOOGLE_SECRET</code> and <code>AUTH_SECRET</code> to <code>.env</code>,
             then restart. The steps are in that file.
@@ -93,13 +93,13 @@ export default async function LoginPage({
         )}
 
         {error ? (
-          <div className="mt-3 text-[13px] text-[#f0a9a9]">
+          <div className="mt-3 text-[13px] text-alert-error-ink">
             {ERRORS[error] ?? `Sign-in failed (${error}).`}
           </div>
         ) : null}
 
 {configured && isFirstRun && ADMIN_EMAILS.length === 0 ? (
-          <div className="mt-4 rounded-lg border border-sev-math/35 bg-sev-math/10 px-3 py-2 text-[13px] text-[#dcc79a]">
+          <div className="mt-4 rounded-lg border border-sev-math/35 bg-sev-math/10 px-3 py-2 text-[13px] text-alert-warn-ink">
             No admins are configured yet, so nobody can sign in. Add your team&apos;s
             addresses to <code>ADMIN_EMAILS</code> in <code>.env</code> and restart.
           </div>

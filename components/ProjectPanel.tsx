@@ -142,7 +142,7 @@ export function ProjectPanel({
               onBlur={save}
               rows={7}
               placeholder="This project covers the 2025 return for a two-partner LLC in Texas. Amounts are in USD. When I ask about a schedule, assume the federal one unless I say state."
-              className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-3 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
+              className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-3 text-[13px] leading-[1.55] outline-none focus:border-focus-line"
             />
           </section>
 
@@ -163,7 +163,7 @@ export function ProjectPanel({
             </div>
 
             {error ? (
-              <div role="alert" className="mb-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+              <div role="alert" className="mb-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-alert-error-ink">
                 {error}
               </div>
             ) : null}

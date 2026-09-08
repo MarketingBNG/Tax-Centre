@@ -272,7 +272,7 @@ export function ComposerMenu(props: ComposerMenuProps) {
                   </div>
                 ) : null}
                 {props.hasDocuments && activeCount ? (
-                  <div className="mt-1 border-t border-line-soft bg-sev-math/10 px-3 py-2 text-[11.5px] text-[#dcc79a]">
+                  <div className="mt-1 border-t border-line-soft bg-sev-math/10 px-3 py-2 text-[11.5px] text-alert-warn-ink">
                     Documents are in this chat and it can reach an outside system.
                     Nothing is sent out unless you ask, and every call is logged.
                   </div>

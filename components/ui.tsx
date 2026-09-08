@@ -31,10 +31,10 @@ export function Alert({
 }) {
   const tone =
     kind === 'warn'
-      ? 'border-sev-math/35 bg-sev-math/10 text-[#dcc79a]'
+      ? 'border-sev-math/35 bg-sev-math/10 text-alert-warn-ink'
       : kind === 'info'
         ? 'border-line bg-raised text-ink-dim'
-        : 'border-sev-blocking/35 bg-sev-blocking/10 text-[#e8b0b0]';
+        : 'border-sev-blocking/35 bg-sev-blocking/10 text-alert-error-ink';
 
   return (
     // role=alert so the text is announced, not only drawn.
@@ -155,7 +155,7 @@ function ConfirmDialog({
             // it deliberately is not — Cancel takes focus on a destructive box.
             className={`rounded-[9px] px-3 py-2 text-[13px] font-medium disabled:opacity-40 ${
               request.destructive
-                ? 'bg-sev-blocking text-[#2a0f0f] hover:brightness-110'
+                ? 'bg-sev-blocking text-on-critical hover:brightness-110'
                 : 'bg-accent text-accent-ink hover:bg-accent-hover'
             }`}
           >

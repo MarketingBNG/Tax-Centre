@@ -65,7 +65,7 @@ interface Retention {
 }
 
 const field =
-  'w-full rounded-[9px] border border-line bg-panel px-3 py-2 outline-none focus:border-[#55534c]';
+  'w-full rounded-[9px] border border-line bg-panel px-3 py-2 outline-none focus:border-focus-line';
 const btn =
   'rounded-[9px] border border-line bg-raised px-4 py-2 font-medium hover:bg-raised-hover disabled:opacity-50';
 const btnPrimary =

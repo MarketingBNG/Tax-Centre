@@ -5,66 +5,168 @@
  * deliberately unbranded — nothing here borrows another product's look.
  */
 @theme {
-  --color-canvas: #1a1f26;
-  --color-panel: #151a20;
-  --color-raised: #212832;
-  --color-raised-hover: #2a323d;
-  --color-line: #2c3542;
-  --color-line-soft: #232a34;
   /*
-   * The three text weights, each a measured step apart and each legible on the
-   * darkest surface it can land on.
+   * Every colour is an indirection.
    *
-   * ink-faint was #67737f, which is 3.07:1 on raised — under the 4.5 needed for
-   * normal text, in 223 places, most of them small. ink-dim moved up with it so
-   * the ladder keeps its spacing rather than collapsing into two shades that
-   * only differ on paper. Worst case against canvas, panel, raised and
-   * raised-hover: 10.6, 7.0 and 4.5.
+   * Tailwind bakes @theme values at build time, so a token that names a hex
+   * here can never change at runtime. Naming a second variable instead means
+   * `bg-canvas` compiles to var(--color-canvas) -> var(--c-canvas), and the
+   * palettes below only have to redefine --c-*. One set of utilities, three
+   * appearances.
    */
-  --color-ink: #e4e9ef;
-  --color-ink-dim: #b7c0c9;
-  --color-ink-faint: #8f9aa4;
-  --color-accent: #6aa79b;
-  --color-accent-hover: #7dbcaf;
-  --color-accent-ink: #0d1614;
+  --color-canvas: var(--c-canvas);
+  --color-panel: var(--c-panel);
+  --color-raised: var(--c-raised);
+  --color-raised-hover: var(--c-raised-hover);
+  --color-line: var(--c-line);
+  --color-line-soft: var(--c-line-soft);
+  --color-ink: var(--c-ink);
+  --color-ink-dim: var(--c-ink-dim);
+  --color-ink-faint: var(--c-ink-faint);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-ink: var(--c-accent-ink);
 
-  /* Softened status colours: distinguishable at a glance, but muted so a screen
-     with a dozen warnings does not read as an emergency.
+  --color-sev-blocking: var(--c-sev-critical);
+  --color-sev-risk: var(--c-sev-high);
+  --color-sev-math: var(--c-sev-medium);
+  --color-sev-opportunity: var(--c-verdict-clear);
+  --color-sev-doc: var(--c-sev-doc);
+  --color-sev-nit: var(--c-sev-low);
 
-     These six kept their original names because the app leans on two of them —
-     sev-blocking for anything destructive, sev-math for anything cautionary —
-     in about twenty places that have nothing to do with a tax review. Renaming
-     them to suit the review engine would have churned nine unrelated
-     components. */
-  --color-sev-blocking: #d68282;
-  --color-sev-risk: #d3a06f;
-  --color-sev-math: #c4b477;
-  --color-sev-opportunity: #7fae91;
-  --color-sev-doc: #7fa0c2;
-  --color-sev-nit: #919aa4;
+  --color-sev-critical: var(--c-sev-critical);
+  --color-sev-high: var(--c-sev-high);
+  --color-sev-medium: var(--c-sev-medium);
+  --color-sev-low: var(--c-sev-low);
+  --color-verdict-clear: var(--c-verdict-clear);
 
-  /* The review engine's four severities, aliased onto the same palette so a
-     finding and a warning elsewhere in the app look like the same product.
-
-     Colour is never the only signal: every chip and banner carries the word as
-     well, so the summary reads correctly printed in black and white and to
-     anyone who does not separate red from amber. */
-  --color-sev-critical: #d68282;
-  --color-sev-high: #d3a06f;
-  --color-sev-medium: #c4b477;
-  --color-sev-low: #919aa4;
-
-  /* Verdicts. Hold takes the Critical colour and Release-with-conditions takes
-     High, so the banner and the counts beneath it cannot contradict each other. */
-  --color-verdict-clear: #7fae91;
+  /* Alert body text, the focus border, and the ink that sits ON a filled
+     severity button. Each was a hardcoded hex chosen for a dark ground: pale
+     pink text is 1.36:1 on white, i.e. invisible. */
+  --color-alert-error-ink: var(--c-alert-error-ink);
+  --color-alert-warn-ink: var(--c-alert-warn-ink);
+  --color-focus-line: var(--c-focus-line);
+  --color-on-critical: var(--c-on-critical);
 
   --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
 }
 
-:root {
+/*
+ * Dark, the palette this app was designed in and still its default.
+ *
+ * The three text weights are a measured ladder: each step is about 1.5x the
+ * next and every one of them clears 4.5:1 on all four surfaces, so the small
+ * print is legible on the lightest panel it can land on. Colour is never the
+ * only signal — every chip carries its word too.
+ */
+:root,
+:root[data-theme='dark'] {
   color-scheme: dark;
+
+  --c-canvas: #1a1f26;
+  --c-panel: #151a20;
+  --c-raised: #212832;
+  --c-raised-hover: #2a323d;
+  --c-line: #2c3542;
+  --c-line-soft: #232a34;
+
+  --c-ink: #e4e9ef;
+  --c-ink-dim: #b7c0c9;
+  --c-ink-faint: #8f9aa4;
+
+  --c-accent: #6aa79b;
+  --c-accent-hover: #7dbcaf;
+  --c-accent-ink: #0d1614;
+
+  --c-sev-critical: #d68282;
+  --c-sev-high: #d3a06f;
+  --c-sev-medium: #c4b477;
+  --c-sev-low: #919aa4;
+  --c-sev-doc: #7fa0c2;
+  --c-verdict-clear: #7fae91;
+
+  --c-alert-error-ink: #e8b0b0;
+  --c-alert-warn-ink: #dcc79a;
+  --c-focus-line: #3c4653;
+  --c-on-critical: #2a0f0f;
 }
+
+/*
+ * Light: paper, not a photographic negative.
+ *
+ * The surfaces are a warm-neutral off-white rather than pure white, and panel
+ * is the *lightest* surface here where in dark it is the darkest — raising a
+ * card off the page is what the two have in common, not the direction. The
+ * severity colours are re-picked rather than reused: #d68282 is a considered
+ * red on a dark ground and pale pink on a white one. Same ladder arithmetic,
+ * same 4.5:1 floor, checked against all four light surfaces.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --c-canvas: #f7f8fa;
+  --c-panel: #ffffff;
+  --c-raised: #eef1f4;
+  --c-raised-hover: #e3e8ed;
+  --c-line: #d3dae1;
+  --c-line-soft: #e6eaee;
+
+  --c-ink: #141a21;
+  --c-ink-dim: #434c59;
+  --c-ink-faint: #5f6977;
+
+  --c-accent: #2f6f62;
+  --c-accent-hover: #245549;
+  --c-accent-ink: #ffffff;
+
+  --c-sev-critical: #a33c3c;
+  --c-sev-high: #8a5518;
+  --c-sev-medium: #6f6215;
+  --c-sev-low: #5c6570;
+  --c-sev-doc: #3a5f85;
+  --c-verdict-clear: #2f6b4a;
+
+  --c-alert-error-ink: #8f2f2f;
+  --c-alert-warn-ink: #6b5416;
+  --c-focus-line: #94a2b0;
+  --c-on-critical: #ffffff;
+}
+
+/* "System" is the absence of a choice: no data-theme attribute, follow the OS. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+
+    --c-canvas: #f7f8fa;
+    --c-panel: #ffffff;
+    --c-raised: #eef1f4;
+    --c-raised-hover: #e3e8ed;
+    --c-line: #d3dae1;
+    --c-line-soft: #e6eaee;
+
+    --c-ink: #141a21;
+    --c-ink-dim: #434c59;
+    --c-ink-faint: #5f6977;
+
+    --c-accent: #2f6f62;
+    --c-accent-hover: #245549;
+    --c-accent-ink: #ffffff;
+
+    --c-sev-critical: #a33c3c;
+    --c-sev-high: #8a5518;
+    --c-sev-medium: #6f6215;
+    --c-sev-low: #5c6570;
+    --c-sev-doc: #3a5f85;
+    --c-verdict-clear: #2f6b4a;
+
+    --c-alert-error-ink: #8f2f2f;
+    --c-alert-warn-ink: #6b5416;
+    --c-focus-line: #94a2b0;
+    --c-on-critical: #ffffff;
+  }
+}
+
 
 html,
 body {

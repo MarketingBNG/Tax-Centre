@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SkillsManager } from './SkillsManager';
 import { useDialog } from './useDialog';
-import { btn, useConfirm } from './ui';
+import { btn, field, useConfirm } from './ui';
+import { ThemeToggle } from './theme';
 
 interface PickerModel {
   id: string;
@@ -50,6 +51,16 @@ interface Memory {
 
 type Tab = 'instructions' | 'defaults' | 'styles' | 'skills' | 'accounts' | 'memory' | 'data';
 
+const TAB_KEYWORDS: Record<Tab, string> = {
+  instructions: 'appearance theme dark light system tone prompt about you',
+  defaults: 'model effort reasoning temperature',
+  styles: 'voice writing tone template',
+  skills: 'tools abilities',
+  accounts: 'google connections sign in oauth',
+  memory: 'remember forget facts',
+  data: 'export delete download privacy',
+};
+
 const TABS: { id: Tab; label: string }[] = [
   { id: 'instructions', label: 'Instructions' },
   { id: 'defaults', label: 'Defaults' },
@@ -64,6 +75,15 @@ const when = (ms: number) => new Date(ms).toLocaleDateString();
 
 export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [tab, setTab] = useState<Tab>('instructions');
+  const [query, setQuery] = useState('');
+
+  // Section names alone are a poor index — nobody looks for the appearance
+  // control under "Instructions". These are the words people actually type.
+  const shownTabs = TABS.filter((t) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (t.label + ' ' + (TAB_KEYWORDS[t.id] ?? '')).toLowerCase().includes(q);
+  });
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -126,11 +146,23 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
         aria-modal="true"
         aria-label="Settings"
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[600px] max-h-full w-full max-w-[760px] flex-col overflow-hidden rounded-2xl border border-line bg-canvas sm:flex-row"
+        className="flex h-[640px] max-h-full w-full max-w-[1000px] flex-col overflow-hidden rounded-2xl border border-line bg-canvas sm:flex-row"
       >
-        <nav className="flex w-full shrink-0 flex-row items-center gap-px overflow-x-auto border-b border-line-soft bg-panel p-3 sm:w-44 sm:flex-col sm:items-stretch sm:overflow-x-visible sm:border-r sm:border-b-0">
-          <div className="hidden px-3 pt-1 pb-3 text-[16px] font-semibold tracking-tight sm:block">Settings</div>
-          {TABS.map((t) => (
+        <nav className="flex w-full shrink-0 flex-row items-center gap-px overflow-x-auto border-b border-line-soft bg-panel p-3 sm:w-56 sm:flex-col sm:items-stretch sm:overflow-x-visible sm:border-r sm:border-b-0">
+          {/* Seven sections is past the point where reading the list beats
+              typing at it. Filters by section name and by the words inside
+              each section, so "dark" finds Appearance under Instructions. */}
+          <div className="hidden sm:block">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search"
+              aria-label="Search settings"
+              className={`${field} mb-3`}
+            />
+          </div>
+
+          {shownTabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
@@ -141,17 +173,41 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
               {t.label}
             </button>
           ))}
-          <div className="ml-auto flex shrink-0 items-center gap-2 px-3 text-[11.5px] text-ink-faint sm:mt-auto sm:ml-0 sm:justify-between sm:pt-2">
+          {shownTabs.length === 0 ? (
+            <div className="px-3 py-2 text-[13px] text-ink-faint">Nothing matches “{query}”</div>
+          ) : null}
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 px-3 text-[11.5px] text-ink-faint sm:mt-auto sm:ml-0 sm:pt-2">
             <span>{saved ? 'Saved' : ''}</span>
-            <button onClick={onClose} className="hover:text-ink">
-              Close
-            </button>
           </div>
         </nav>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+        <div className="relative flex-1 overflow-y-auto p-4 sm:p-5">
+          <button
+            onClick={onClose}
+            aria-label="Close settings"
+            className="absolute top-3 right-3 grid h-8 w-8 place-items-center rounded-lg text-[16px] text-ink-faint hover:bg-raised hover:text-ink"
+          >
+            ✕
+          </button>
+
           {tab === 'instructions' ? (
             <section>
+              {/* Appearance sits above the instructions box because it is the
+                  thing people open Settings for most and change least — a
+                  one-tap row does not deserve to be below twelve rows of
+                  textarea. */}
+              <h2 className="mb-3 text-[16px] font-semibold">Preferences</h2>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-line-soft pb-5">
+                <div>
+                  <div className="text-[13px]">Appearance</div>
+                  <div className="text-[11.5px] text-ink-faint">
+                    System follows whatever this machine is set to.
+                  </div>
+                </div>
+                <ThemeToggle />
+              </div>
+
               <h2 className="mb-1 text-[16px] font-semibold">Your instructions</h2>
               <p className="mb-3 text-[13px] text-ink-dim">
                 Sent with every message you send, on top of the house instructions an
@@ -164,7 +220,7 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={12}
                 placeholder="I review individual returns and mostly work in California. Give me the figure first, then the reasoning. Assume I know the terminology."
-                className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-3 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
+                className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-3 text-[13px] leading-[1.55] outline-none focus:border-focus-line"
               />
               <div className="mt-3 flex items-center gap-3">
                 <button
@@ -290,14 +346,14 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                   value={styleName}
                   onChange={(e) => setStyleName(e.target.value)}
                   placeholder="Name — e.g. Client email"
-                  className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] outline-none focus:border-[#3c4653]"
+                  className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] outline-none focus:border-focus-line"
                 />
                 <textarea
                   value={styleText}
                   onChange={(e) => setStyleText(e.target.value)}
                   rows={5}
                   placeholder="Write as if to a client who is not an accountant. No jargon without a short gloss. Never more than four paragraphs."
-                  className="w-full resize-y rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
+                  className="w-full resize-y rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] leading-[1.55] outline-none focus:border-focus-line"
                 />
                 <button
                   disabled={!styleName.trim() || !styleText.trim()}
