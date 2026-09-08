@@ -82,7 +82,7 @@ export function AdminPanel() {
 
   return (
     <div className={`${page.wide} pt-7 pb-16`}>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="flex items-center gap-3 text-[21px] font-medium">
           <Mark size={20} />
           Admin
@@ -97,7 +97,9 @@ export function AdminPanel() {
         </div>
       </div>
 
-      <div className="mb-5 flex gap-1 border-b border-line-soft">
+      {/* Seven tabs do not fit a phone. They scroll sideways rather than
+          wrapping, so the row stays one line and the page itself never does. */}
+      <div className="mb-5 -mx-4 flex gap-1 overflow-x-auto border-b border-line-soft px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
         {(
           [
             ['prompt', 'Instructions'],
@@ -112,7 +114,7 @@ export function AdminPanel() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`border-b-2 px-4 py-2 font-medium ${
+            className={`shrink-0 border-b-2 px-4 py-2 font-medium whitespace-nowrap ${
               tab === key ? 'border-accent text-ink' : 'border-transparent text-ink-faint'
             }`}
           >
