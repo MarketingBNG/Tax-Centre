@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SkeletonRows } from '../ui';
 
 /**
  * The books behind an engagement.
@@ -209,7 +210,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
           can still be defended against the data it actually saw.
         </p>
 
-        {!imports && !error && <div className="text-[13px] text-ink-faint">Loading…</div>}
+        {!imports && !error && <SkeletonRows rows={2} />}
         {imports?.length === 0 && (
           <div className="text-[13px] text-ink-faint">
             Nothing imported yet, so the books stage will read whatever is in the attached
@@ -253,7 +254,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
 
               {selected === row.id && (
                 <div className="mt-2 mb-2 rounded-lg border border-line-soft p-3">
-                  {!accounts && <div className="text-[12.5px] text-ink-faint">Loading…</div>}
+                  {!accounts && <SkeletonRows rows={2} />}
 
                   {unmapped.length > 0 && (
                     <div className="mb-4">

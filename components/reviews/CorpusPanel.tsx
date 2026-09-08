@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { SkeletonRows } from '../ui';
 
 /**
  * Loading and reading the authority corpus.
@@ -308,7 +309,7 @@ export function CorpusPanel() {
       <section className="rounded-xl border border-line-soft bg-panel p-4">
         <h2 className="mb-3 text-[14px] font-medium">What is loaded</h2>
 
-        {!state && !error && <div className="text-[13px] text-ink-faint">Loading…</div>}
+        {!state && !error && <SkeletonRows rows={3} />}
         {state?.sources.length === 0 && (
           <div className="text-[13px] text-ink-faint">
             Nothing is loaded, so nothing can be cited at all. That is the correct behaviour rather
