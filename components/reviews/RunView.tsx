@@ -1,5 +1,6 @@
 'use client';
 
+import { page } from '../ui-classes';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SummaryPage } from './SummaryPage';
@@ -9,7 +10,7 @@ import { QuestionsPanel } from './QuestionsPanel';
 import { RunCompare } from './RunCompare';
 import { ApprovalBar } from './ApprovalBar';
 import { useRunAdvance } from './useRunAdvance';
-import { SkeletonRows } from '../ui';
+import { SkeletonRows, btn } from '../ui';
 import type { FindingView, RunDetail } from './types';
 
 /**
@@ -79,7 +80,7 @@ export function RunView({ runId }: { runId: string }) {
 
   if (loadError) {
     return (
-      <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6">
+      <div className={page.read}>
         <div role="alert" className="rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
           {loadError}
         </div>
@@ -89,7 +90,7 @@ export function RunView({ runId }: { runId: string }) {
 
   if (!detail) {
     return (
-      <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6">
+      <div className={page.read}>
         <SkeletonRows rows={5} className="[&>*]:h-16" />
       </div>
     );
@@ -102,11 +103,11 @@ export function RunView({ runId }: { runId: string }) {
   const finished = ['complete', 'halted', 'failed', 'cancelled'].includes(run.status) && !running;
 
   return (
-    <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6">
+    <div className={page.read}>
       <div className="trc-print-hide mb-3 flex flex-wrap items-center justify-between gap-2">
         <Link
           href={`/reviews/${run.engagementId}`}
-          className="text-[12.5px] text-ink-dim no-underline hover:text-accent"
+          className="text-[13px] text-ink-dim no-underline hover:text-accent"
         >
           ← {detail.engagement?.entityName || detail.engagement?.clientLabel || 'Engagement'}
         </Link>
@@ -116,7 +117,7 @@ export function RunView({ runId }: { runId: string }) {
             <button
               onClick={() => void rerun()}
               disabled={rerunning}
-              className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-accent hover:text-accent disabled:opacity-40"
+              className={btn('quiet')}
               title="Creates the next run. Only the stages an answer could have affected run again."
             >
               {rerunning ? 'Creating…' : 'Run again'}
@@ -125,7 +126,7 @@ export function RunView({ runId }: { runId: string }) {
           {finished && (
             <button
               onClick={() => setShowCompare(!showCompare)}
-              className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-accent hover:text-accent"
+              className={btn('quiet')}
             >
               {showCompare ? 'Hide comparison' : 'Compare'}
             </button>
@@ -134,14 +135,14 @@ export function RunView({ runId }: { runId: string }) {
             <>
               <a
                 href={`/api/review-runs/${runId}/register?download=1`}
-                className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim no-underline hover:border-accent hover:text-accent"
+                className={btn('quiet')}
                 title="The whole register as JSON, for the workpaper file"
               >
                 Export
               </a>
               <button
                 onClick={() => window.print()}
-                className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-accent hover:text-accent"
+                className={btn('quiet')}
               >
                 Print
               </button>
@@ -150,7 +151,7 @@ export function RunView({ runId }: { runId: string }) {
           {(notStarted || (finished && run.status !== 'complete')) && (
             <button
               onClick={() => void start()}
-              className="rounded-[9px] bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:bg-accent-hover"
+              className={btn('primary')}
             >
               {notStarted ? 'Start review' : 'Resume'}
             </button>
@@ -158,7 +159,7 @@ export function RunView({ runId }: { runId: string }) {
           {inFlight && (
             <button
               onClick={halt}
-              className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-sev-blocking hover:text-sev-blocking"
+              className={btn('danger')}
             >
               Stop
             </button>
@@ -169,7 +170,7 @@ export function RunView({ runId }: { runId: string }) {
       {blocked && (
         <div className="mb-4 rounded-xl border border-sev-critical/35 bg-sev-critical/5 px-4 py-3">
           <div className="text-[14px] font-medium text-sev-critical">Waiting for documents</div>
-          <p className="mt-1 text-[12.5px] text-ink-dim">
+          <p className="mt-1 text-[13px] text-ink-dim">
             This review cannot start without the documents it ties out against. Nothing has been
             spent on it.
           </p>
@@ -185,7 +186,7 @@ export function RunView({ runId }: { runId: string }) {
       {run.status === 'halted' && (
         <div className="mb-4 rounded-xl border border-sev-critical/35 bg-sev-critical/5 px-4 py-3">
           <div className="text-[14px] font-medium text-sev-critical">Stopped at Stage 0</div>
-          <p className="mt-1 text-[12.5px] text-ink-dim">
+          <p className="mt-1 text-[13px] text-ink-dim">
             Something about the identity of this return is wrong, so the later stages would have
             been reviewing the wrong thing. Fix it and run again.
           </p>
@@ -201,7 +202,7 @@ export function RunView({ runId }: { runId: string }) {
               const state = STAGE_STATUS[stage.status] ?? { label: stage.status, tone: 'text-ink-faint' };
               return (
                 <li key={stage.key} className="flex items-baseline gap-2.5 text-[13px]">
-                  <span className="w-16 shrink-0 font-mono text-[11px] text-ink-faint">
+                  <span className="w-16 shrink-0 font-mono text-[11.5px] text-ink-faint">
                     {stage.key}
                   </span>
                   <span className="flex-1">{stage.label}</span>

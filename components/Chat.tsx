@@ -9,7 +9,7 @@ import { ToolPanel } from './ToolPanel';
 import { SettingsDialog } from './SettingsDialog';
 import { ProjectPanel } from './ProjectPanel';
 import { ComposerMenu } from './ComposerMenu';
-import { useConfirm } from './ui';
+import { btn, useConfirm } from './ui';
 import { doSignOut } from '../app/actions';
 import { APP_NAME } from '../lib/app';
 import type { ToolRun } from '../lib/types';
@@ -764,7 +764,7 @@ export function Chat({ me }: { me: Me }) {
           e.stopPropagation();
           setMenu(menu === kind ? null : kind);
         }}
-        className="rounded-[7px] border border-line px-2 py-1 text-[12px] text-ink-dim hover:bg-raised hover:text-ink"
+        className="rounded-[6px] border border-line px-2 py-1 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
       >
         {optionLabel(options, selected)} ⌄
       </button>
@@ -834,21 +834,21 @@ export function Chat({ me }: { me: Me }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center gap-2.5 px-1.5 pt-1 pb-2.5 text-[16.5px] font-semibold tracking-tight">
+        <div className="flex items-center gap-2.5 px-1.5 pt-1 pb-2.5 text-[16px] font-semibold tracking-tight">
           <Mark size={19} />
           {APP_NAME}
         </div>
 
         <button
           onClick={startNew}
-          className="flex w-full items-center gap-2 rounded-[10px] border border-line bg-raised px-3 py-2 text-left font-medium hover:bg-raised-hover"
+          className={btn('secondary','md','w-full justify-start font-medium')}
         >
           ＋ New chat
         </button>
 
         <Link
           href="/reviews"
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13.5px] text-ink-dim no-underline hover:bg-raised hover:text-ink"
+          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] text-ink-dim no-underline hover:bg-raised hover:text-ink"
         >
           ▣ Reviews
         </Link>
@@ -856,14 +856,14 @@ export function Chat({ me }: { me: Me }) {
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setShowSettings(true)}
-            className="flex flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13.5px] text-ink-dim hover:bg-raised hover:text-ink"
+            className="flex flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
           >
             ⚙ Settings
           </button>
           {me.role === 'admin' ? (
             <Link
               href="/admin"
-              className="rounded-lg px-2.5 py-1.5 text-[13.5px] text-ink-dim hover:bg-raised hover:text-ink"
+              className="rounded-lg px-2.5 py-1.5 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
             >
               Admin
             </Link>
@@ -908,7 +908,7 @@ export function Chat({ me }: { me: Me }) {
           {projects.map((p) => (
             <div
               key={p.id}
-              className={`group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13.5px] ${
+              className={`group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] ${
                 p.id === projectId ? 'bg-raised text-ink' : 'text-ink-dim hover:bg-raised hover:text-ink'
               }`}
             >
@@ -933,7 +933,7 @@ export function Chat({ me }: { me: Me }) {
             </div>
           ))}
           {projects.length === 0 ? (
-            <div className="px-2.5 py-1 text-[12px] text-ink-faint">None yet</div>
+            <div className="px-2.5 py-1 text-[13px] text-ink-faint">None yet</div>
           ) : null}
         </div>
 
@@ -953,14 +953,14 @@ export function Chat({ me }: { me: Me }) {
 
         <div className="flex flex-1 flex-col gap-px overflow-y-auto">
           {listed.length === 0 ? (
-            <div className="p-3 text-center text-[12.5px] text-ink-faint">
+            <div className="p-3 text-center text-[13px] text-ink-faint">
               {results ? 'Nothing found' : showArchived ? 'Nothing archived' : 'No chats yet'}
             </div>
           ) : (
             listed.map((c) => (
               <div
                 key={c.id}
-                className={`group rounded-lg px-2.5 py-1.5 text-[13.5px] ${
+                className={`group rounded-lg px-2.5 py-1.5 text-[13px] ${
                   c.id === conversationId
                     ? 'bg-raised text-ink'
                     : 'text-ink-dim hover:bg-raised hover:text-ink'
@@ -1041,7 +1041,7 @@ export function Chat({ me }: { me: Me }) {
         </div>
 
         <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5 text-[13px]">
-          <div className="grid h-6.5 w-6.5 place-items-center rounded-full bg-accent text-[12px] font-bold text-accent-ink">
+          <div className="grid h-6.5 w-6.5 place-items-center rounded-full bg-accent text-[13px] font-bold text-accent-ink">
             {initial}
           </div>
           <div className="flex-1 overflow-hidden">
@@ -1103,7 +1103,7 @@ export function Chat({ me }: { me: Me }) {
         </div>
 
         {conversationId || currentProject ? (
-          <div className="flex items-center gap-2.5 border-b border-line-soft px-4 py-2 text-[12.5px] text-ink-faint sm:px-6">
+          <div className="flex items-center gap-2.5 border-b border-line-soft px-4 py-2 text-[13px] text-ink-faint sm:px-6">
             {currentProject ? (
               <button onClick={() => setOpenProject(currentProject.id)} className="hover:text-ink">
                 ▤ {currentProject.name}
@@ -1147,7 +1147,7 @@ export function Chat({ me }: { me: Me }) {
                     {m.role === 'user' ? 'You' : 'Assistant'}
                   </span>
                   {m.role === 'assistant' && m.model ? (
-                    <span className="text-[11px] text-ink-faint opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="text-[11.5px] text-ink-faint opacity-0 transition-opacity group-hover:opacity-100">
                       {optionLabel(pickers?.models, m.model)}
                     </span>
                   ) : null}
@@ -1164,10 +1164,10 @@ export function Chat({ me }: { me: Me }) {
                         rows={Math.min(12, editDraft.split('\n').length + 1)}
                         className="w-full resize-y bg-transparent text-[14px] outline-none"
                       />
-                      <div className="mt-2 flex justify-end gap-2 text-[12.5px]">
+                      <div className="mt-2 flex justify-end gap-2 text-[13px]">
                         <button
                           onClick={() => setEditing(null)}
-                          className="rounded-[7px] border border-line px-2.5 py-1 hover:bg-raised-hover"
+                          className="rounded-[6px] border border-line px-2.5 py-1 hover:bg-raised-hover"
                         >
                           Cancel
                         </button>
@@ -1178,7 +1178,7 @@ export function Chat({ me }: { me: Me }) {
                             setEditing(null);
                             run('edit', { question: text, messageId: m.id });
                           }}
-                          className="rounded-[7px] bg-accent px-2.5 py-1 font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-40"
+                          className="rounded-[6px] bg-accent px-2.5 py-1 font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-40"
                         >
                           Send
                         </button>
@@ -1192,7 +1192,7 @@ export function Chat({ me }: { me: Me }) {
                       <div className="mt-1 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                         <button
                           onClick={() => copyMessage(m)}
-                          className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint hover:text-ink"
+                          className="rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint hover:text-ink"
                         >
                           {copied === m.id ? 'Copied' : 'Copy'}
                         </button>
@@ -1202,7 +1202,7 @@ export function Chat({ me }: { me: Me }) {
                               setEditing(m.id);
                               setEditDraft(m.content);
                             }}
-                            className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint hover:text-ink"
+                            className="rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint hover:text-ink"
                           >
                             Edit
                           </button>
@@ -1228,7 +1228,7 @@ export function Chat({ me }: { me: Me }) {
                       <button
                         disabled={busy}
                         onClick={() => run('continue', { messageId: m.id })}
-                        className="mt-2 rounded-[9px] border border-line bg-raised px-3 py-1 text-[12.5px] hover:bg-raised-hover disabled:opacity-40"
+                        className={btn('secondary','sm','mt-2')}
                       >
                         {m.finish === 'length' ? 'Continue' : 'Continue from where it stopped'}
                       </button>
@@ -1237,14 +1237,14 @@ export function Chat({ me }: { me: Me }) {
                     <div className="mt-1.5 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => copyMessage(m)}
-                        className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint hover:text-ink"
+                        className="rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint hover:text-ink"
                       >
                         {copied === m.id ? 'Copied' : 'Copy'}
                       </button>
                       <button
                         disabled={busy}
                         onClick={() => run('retry', { messageId: m.id })}
-                        className="rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-faint hover:text-ink disabled:opacity-40"
+                        className="rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint hover:text-ink disabled:opacity-40"
                       >
                         Retry
                       </button>
@@ -1252,7 +1252,7 @@ export function Chat({ me }: { me: Me }) {
                         onClick={() => vote(m.id, 1)}
                         title="Good answer"
                         aria-label="Good answer"
-                        className={`rounded border border-line px-1.5 py-0.5 text-[11px] hover:text-ink ${
+                        className={`rounded border border-line px-1.5 py-0.5 text-[11.5px] hover:text-ink ${
                           m.vote === 1 ? 'text-accent' : 'text-ink-faint'
                         }`}
                       >
@@ -1262,7 +1262,7 @@ export function Chat({ me }: { me: Me }) {
                         onClick={() => vote(m.id, -1)}
                         title="Bad answer"
                         aria-label="Bad answer"
-                        className={`rounded border border-line px-1.5 py-0.5 text-[11px] hover:text-ink ${
+                        className={`rounded border border-line px-1.5 py-0.5 text-[11.5px] hover:text-ink ${
                           m.vote === -1 ? 'text-sev-blocking' : 'text-ink-faint'
                         }`}
                       >
@@ -1317,7 +1317,7 @@ export function Chat({ me }: { me: Me }) {
                 {attachments.map((f) => (
                   <div
                     key={f.id}
-                    className="flex items-center gap-2 rounded-[9px] border border-line bg-raised px-2.5 py-1.5 text-[12.5px]"
+                    className={btn('secondary','sm')}
                   >
                     {f.filename}
                     <small className="text-ink-faint">
@@ -1402,7 +1402,7 @@ export function Chat({ me }: { me: Me }) {
                 onOpenSettings={() => setShowSettings(true)}
               />
 
-              <span className="text-[12px] text-ink-faint">
+              <span className="text-[13px] text-ink-faint">
                 {uploading ? `Uploading ${uploading} file(s)…` : ''}
               </span>
 
@@ -1429,7 +1429,7 @@ export function Chat({ me }: { me: Me }) {
                 {busy ? (
                   <button
                     onClick={() => chatAbort.current?.abort()}
-                    className="rounded-[9px] border border-line bg-raised px-3.5 py-1.5 font-medium hover:bg-raised-hover"
+                    className={btn('secondary')}
                   >
                     ■ Stop
                   </button>
@@ -1437,7 +1437,7 @@ export function Chat({ me }: { me: Me }) {
                   <button
                     onClick={send}
                     disabled={!canSend}
-                    className="rounded-[9px] bg-accent px-3.5 py-1.5 font-semibold text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                    className={btn('primary')}
                   >
                     Send
                   </button>
@@ -1446,7 +1446,7 @@ export function Chat({ me }: { me: Me }) {
             </div>
           </div>
 
-          <div className="mx-auto mt-2 max-w-[780px] text-center text-[12px] text-ink-faint">
+          <div className="mx-auto mt-2 max-w-[780px] text-center text-[13px] text-ink-faint">
             AI can make mistakes — check anything that matters.
             {' · '}
             <span title={`provider: ${me.provider}`}>

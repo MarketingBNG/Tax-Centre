@@ -1,3 +1,4 @@
+import { btn } from '@/components/ui-classes';
 import { redirect } from 'next/navigation';
 import { currentUser, isAuthConfigured } from '@/lib/auth';
 import { one } from '@/lib/db';
@@ -46,7 +47,7 @@ export default async function LoginPage({
           <Mark size={20} />
           {APP_NAME}
         </h1>
-        <p className="mb-5 text-[13.5px] text-ink-dim">
+        <p className="mb-5 text-[13px] text-ink-dim">
           Sign in with your work Google account to start.
         </p>
 
@@ -65,7 +66,7 @@ export default async function LoginPage({
           <form action={googleSignIn}>
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-3 rounded-[9px] border border-line bg-raised px-4 py-2.5 font-medium hover:bg-raised-hover"
+              className={btn('secondary','lg','w-full font-medium')}
             >
               {/* Google's mark, inline so the page needs no external asset. */}
               <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
@@ -98,14 +99,14 @@ export default async function LoginPage({
         ) : null}
 
 {configured && isFirstRun && ADMIN_EMAILS.length === 0 ? (
-          <div className="mt-4 rounded-lg border border-sev-math/35 bg-sev-math/10 px-3 py-2 text-[12.5px] text-[#dcc79a]">
+          <div className="mt-4 rounded-lg border border-sev-math/35 bg-sev-math/10 px-3 py-2 text-[13px] text-[#dcc79a]">
             No admins are configured yet, so nobody can sign in. Add your team&apos;s
             addresses to <code>ADMIN_EMAILS</code> in <code>.env</code> and restart.
           </div>
         ) : null}
 
         {configured && ADMIN_EMAILS.length > 0 ? (
-          <p className="mt-4 text-[12.5px] text-ink-faint">
+          <p className="mt-4 text-[13px] text-ink-faint">
             Access is by invitation
             {ALLOWED_EMAIL_DOMAIN ? `, and limited to @${ALLOWED_EMAIL_DOMAIN} addresses` : ''}.
             Admins can sign in directly; everyone else needs to be added by one first.

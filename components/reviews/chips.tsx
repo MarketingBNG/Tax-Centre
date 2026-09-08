@@ -21,14 +21,14 @@ export function SeverityChip({ severity }: { severity: Severity | null }) {
   // An agreed line has no severity; it says so rather than showing an empty box.
   if (!severity) {
     return (
-      <span className="inline-block rounded border border-line px-1.5 py-0.5 text-[10.5px] text-ink-faint">
+      <span className="inline-block rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint">
         Agreed
       </span>
     );
   }
   return (
     <span
-      className={`inline-block rounded border px-1.5 py-0.5 text-[10.5px] font-medium ${SEVERITY_STYLE[severity]}`}
+      className={`inline-block rounded border px-1.5 py-0.5 text-[11.5px] font-medium ${SEVERITY_STYLE[severity]}`}
     >
       {severity}
     </span>
@@ -50,14 +50,14 @@ export const VERDICT_WORD: Record<Verdict, string> = {
 export function VerdictChip({ verdict }: { verdict: Verdict | null }) {
   if (!verdict) {
     return (
-      <span className="inline-block rounded border border-line px-2 py-0.5 text-[11px] text-ink-faint">
+      <span className="inline-block rounded border border-line px-2 py-0.5 text-[11.5px] text-ink-faint">
         Not yet run
       </span>
     );
   }
   return (
     <span
-      className={`inline-block rounded border px-2 py-0.5 text-[11px] font-medium ${VERDICT_STYLE[verdict]}`}
+      className={`inline-block rounded border px-2 py-0.5 text-[11.5px] font-medium ${VERDICT_STYLE[verdict]}`}
     >
       {VERDICT_WORD[verdict]}
     </span>
@@ -94,7 +94,7 @@ const STATUS_STYLE: Record<FindingStatus, string> = {
 
 export function StatusChip({ status }: { status: FindingStatus }) {
   return (
-    <span className={`inline-block rounded border px-1.5 py-0.5 text-[10.5px] ${STATUS_STYLE[status]}`}>
+    <span className={`inline-block rounded border px-1.5 py-0.5 text-[11.5px] ${STATUS_STYLE[status]}`}>
       {STATUS_LABEL[status]}
     </span>
   );
@@ -120,7 +120,7 @@ export function AuthorityChip({
 
   if (status === 'grounded' && citation) {
     return (
-      <span className="inline-block rounded border border-verdict-clear/40 px-1.5 py-0.5 text-[10.5px] text-verdict-clear">
+      <span className="inline-block rounded border border-verdict-clear/40 px-1.5 py-0.5 text-[11.5px] text-verdict-clear">
         {citation}
       </span>
     );
@@ -128,7 +128,7 @@ export function AuthorityChip({
 
   return (
     <span
-      className="inline-block rounded border border-sev-high/40 px-1.5 py-0.5 text-[10.5px] text-sev-high"
+      className="inline-block rounded border border-sev-high/40 px-1.5 py-0.5 text-[11.5px] text-sev-high"
       title={
         claimedCitation
           ? `The model offered "${claimedCitation}". Nothing verified it, so it is not shown as authority.`

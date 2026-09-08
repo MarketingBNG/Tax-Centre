@@ -68,7 +68,7 @@ export function RecurrencePanel({ engagementId }: { engagementId: string }) {
 
   if (error) {
     return (
-      <div role="alert" className="rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
+      <div role="alert" className="rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[13px] text-sev-critical">
         {error}
       </div>
     );
@@ -90,7 +90,7 @@ export function RecurrencePanel({ engagementId }: { engagementId: string }) {
         ) : (
           <ul className="space-y-1">
             {data.years.map((year) => (
-              <li key={year.engagementId} className="text-[12.5px]">
+              <li key={year.engagementId} className="text-[13px]">
                 <Link
                   href={`/reviews/${year.engagementId}/runs/${year.runNumber}`}
                   className="text-ink no-underline hover:text-accent"
@@ -118,7 +118,7 @@ export function RecurrencePanel({ engagementId }: { engagementId: string }) {
 
       <section className="rounded-xl border border-line-soft bg-panel p-4">
         <h2 className="mb-1 text-[14px] font-medium">What keeps coming back</h2>
-        <p className="mb-3 text-[12px] text-ink-faint">
+        <p className="mb-3 text-[13px] text-ink-faint">
           Matched on where the problem is and what kind it is, never on how it was worded — the
           same problem is described differently on a second pass, and that must not read as one
           closing and another appearing. Recurrence does not change a grade: an account
@@ -133,7 +133,7 @@ export function RecurrencePanel({ engagementId }: { engagementId: string }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[12.5px]">
+            <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="text-left text-ink-faint">
                   <th className="border-b border-line-soft py-1.5 pr-3 font-normal">Problem</th>

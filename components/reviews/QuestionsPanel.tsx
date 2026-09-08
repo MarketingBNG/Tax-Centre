@@ -1,5 +1,6 @@
 'use client';
 
+import { btn, field } from '../ui';
 import { useRef, useState } from 'react';
 import type { RunDetail } from './types';
 
@@ -82,7 +83,7 @@ function AnswerForm({
         onChange={(e) => setText(e.target.value)}
         rows={2}
         placeholder="The fact, or what the document shows…"
-        className="w-full resize-y rounded-[9px] border border-line bg-canvas px-2.5 py-1.5 text-[13px] outline-none placeholder:text-ink-faint focus:border-[#3c4653]"
+        className={`${field} resize-y`}
       />
 
       {files.length > 0 && (
@@ -90,7 +91,7 @@ function AnswerForm({
           {files.map((file) => (
             <span
               key={file.id}
-              className="inline-flex items-center gap-1 rounded border border-verdict-clear/40 px-1.5 py-0.5 text-[11px] text-verdict-clear"
+              className="inline-flex items-center gap-1 rounded border border-verdict-clear/40 px-1.5 py-0.5 text-[11.5px] text-verdict-clear"
             >
               {file.filename}
               <button
@@ -121,19 +122,19 @@ function AnswerForm({
         <button
           onClick={() => picker.current?.click()}
           disabled={busy}
-          className="rounded-[9px] border border-line px-2.5 py-1 text-[12px] text-ink-dim hover:border-accent hover:text-accent disabled:opacity-40"
+          className={btn('quiet','sm')}
         >
           Attach evidence
         </button>
         <button
           onClick={() => void submit()}
           disabled={busy || !text.trim()}
-          className="rounded-[9px] bg-accent px-3 py-1 text-[12.5px] font-medium text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className={btn('primary','sm')}
         >
           {busy ? 'Saving…' : 'Answer'}
         </button>
 
-        <span className="ml-auto text-[11px] text-ink-faint">
+        <span className="ml-auto text-[11.5px] text-ink-faint">
           {files.length === 0
             ? 'Without a document this stays open'
             : `${files.length} document${files.length === 1 ? '' : 's'} attached`}
@@ -189,13 +190,13 @@ export function QuestionsPanel({
               }`}
             >
               <div className="flex items-start gap-2.5">
-                <span className="shrink-0 pt-0.5 font-mono text-[11px] text-ink-faint">
+                <span className="shrink-0 pt-0.5 font-mono text-[11.5px] text-ink-faint">
                   {question.code}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-[13px]">{question.question}</div>
 
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
                     {code && <span className="font-mono">{code}</span>}
                     {question.figure && <span>{question.figure}</span>}
                     {question.owner === 'client' && (
@@ -222,7 +223,7 @@ export function QuestionsPanel({
                   )}
 
                   {answered && (
-                    <div className="mt-1.5 rounded-md border border-line-soft px-2 py-1.5 text-[12px] text-ink-dim">
+                    <div className="mt-1.5 rounded-md border border-line-soft px-2 py-1.5 text-[13px] text-ink-dim">
                       {question.answerText}
                     </div>
                   )}
@@ -242,7 +243,7 @@ export function QuestionsPanel({
                 {!answered && question.owner === 'preparer' && !isOpen && (
                   <button
                     onClick={() => setOpenId(question.id)}
-                    className="trc-print-hide shrink-0 rounded-[9px] border border-line px-2.5 py-1 text-[12px] text-ink-dim hover:border-accent hover:text-accent"
+                    className={btn('quiet','sm','trc-print-hide shrink-0')}
                   >
                     Answer
                   </button>

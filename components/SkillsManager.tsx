@@ -24,7 +24,7 @@ const btn =
   'rounded-[9px] border border-line bg-raised px-3.5 py-1.5 text-[13px] font-medium hover:bg-raised-hover disabled:opacity-50';
 const btnPrimary =
   'rounded-[9px] bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-50';
-const btnSm = 'rounded-md border border-line px-2.5 py-1 text-[12.5px] hover:bg-raised';
+const btnSm = 'rounded-md border border-line px-2.5 py-1 text-[13px] hover:bg-raised';
 
 const kb = (n: number) => (n < 1000 ? `${n} chars` : `${(n / 1000).toFixed(1)}k chars`);
 
@@ -100,10 +100,10 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
         >
           {busy ? 'Installing…' : 'Install a skill folder'}
         </button>
-        {note ? <span className="text-[12.5px] text-ink-dim">{note}</span> : null}
+        {note ? <span className="text-[13px] text-ink-dim">{note}</span> : null}
       </div>
 
-      <p className="mb-4 text-[12.5px] text-ink-faint">
+      <p className="mb-4 text-[13px] text-ink-faint">
         Pick the folder that contains <code className="font-mono">SKILL.md</code> — not the
         one above it. Everything beside it comes too, and a folder with the same skill
         name replaces the one already here rather than adding a second copy.
@@ -115,14 +115,14 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
             <div className="flex flex-wrap items-start gap-2.5">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-[13.5px] font-medium">{s.name}</span>
+                  <span className="font-mono text-[13px] font-medium">{s.name}</span>
                   {!s.enabled ? (
-                    <span className="rounded border border-line px-1.5 text-[11px] text-ink-faint">
+                    <span className="rounded border border-line px-1.5 text-[11.5px] text-ink-faint">
                       off
                     </span>
                   ) : null}
                 </div>
-                <div className="mt-1 line-clamp-2 text-[12.5px] text-ink-dim">
+                <div className="mt-1 line-clamp-2 text-[13px] text-ink-dim">
                   {s.description}
                 </div>
                 <div className="mt-1 text-[11.5px] text-ink-faint">
@@ -171,7 +171,7 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
             {open === s.id ? (
               <div className="mt-2.5 border-t border-line-soft pt-2.5">
                 {s.files.length === 0 ? (
-                  <div className="text-[12.5px] text-ink-faint">
+                  <div className="text-[13px] text-ink-faint">
                     Just the SKILL.md — no supporting files.
                   </div>
                 ) : (
@@ -179,7 +179,7 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
                     {s.files.map((f) => (
                       <div
                         key={f.path}
-                        className="flex items-center justify-between text-[12.5px]"
+                        className="flex items-center justify-between text-[13px]"
                       >
                         <span className="truncate font-mono text-ink-dim">{f.path}</span>
                         <span className="shrink-0 text-ink-faint">{kb(f.bytes)}</span>
@@ -193,14 +193,14 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
         ))}
 
         {shown.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-line px-3 py-5 text-center text-[12.5px] text-ink-faint">
+          <div className="rounded-lg border border-dashed border-line px-3 py-5 text-center text-[13px] text-ink-faint">
             {scope === 'firm' ? 'No firm skills installed yet' : 'No skills of your own yet'}
           </div>
         ) : null}
       </div>
 
       {scope === 'firm' && !isAdmin ? (
-        <p className="mt-3 text-[12.5px] text-ink-faint">
+        <p className="mt-3 text-[13px] text-ink-faint">
           Only an admin can install or change a firm skill.
         </p>
       ) : null}

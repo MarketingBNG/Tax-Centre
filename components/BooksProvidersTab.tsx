@@ -65,10 +65,10 @@ function Copyable({ value }: { value: string }) {
       className="group inline-flex max-w-full items-center gap-2 text-left"
       title="Copy"
     >
-      <code className="truncate rounded-[5px] bg-raised px-1.5 py-0.5 text-[11.5px] text-ink-dim group-hover:text-ink">
+      <code className="truncate rounded-[6px] bg-raised px-1.5 py-0.5 text-[11.5px] text-ink-dim group-hover:text-ink">
         {value}
       </code>
-      <span className="shrink-0 text-[11px] text-ink-faint group-hover:text-accent">
+      <span className="shrink-0 text-[11.5px] text-ink-faint group-hover:text-accent">
         {copied ? 'copied' : 'copy'}
       </span>
     </button>
@@ -98,7 +98,7 @@ export function BooksProvidersTab() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-line-soft bg-panel px-5 py-4">
-        <h2 className="text-[15px] font-semibold">What we can connect</h2>
+        <h2 className="text-[16px] font-semibold">What we can connect</h2>
         <p className="mt-1 max-w-[700px] text-[13px] text-ink-dim">
           Every system this server can reach, and what each one is waiting for. {ready} of{' '}
           {total} are usable now. Setting one up is still done where it belongs — this is the
@@ -108,16 +108,16 @@ export function BooksProvidersTab() {
 
       {groups.map((group) => (
         <div key={group.id} className="rounded-xl border border-line-soft bg-panel p-5">
-          <h3 className="text-[14.5px] font-semibold">{group.title}</h3>
-          <p className="mt-1 max-w-[700px] text-[12.5px] text-ink-dim">{group.blurb}</p>
-          <p className="mt-1 text-[12px] text-ink-faint">{group.where}</p>
+          <h3 className="text-[14px] font-semibold">{group.title}</h3>
+          <p className="mt-1 max-w-[700px] text-[13px] text-ink-dim">{group.blurb}</p>
+          <p className="mt-1 text-[13px] text-ink-faint">{group.where}</p>
 
           <div className="mt-4 space-y-2.5">
             {group.items.map((item) => (
-              <div key={item.id} className="rounded-[10px] border border-line px-4 py-3">
+              <div key={item.id} className="rounded-[9px] border border-line px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-[13.5px] font-medium">{item.label}</div>
+                    <div className="text-[13px] font-medium">{item.label}</div>
                     <div className="text-[11.5px] text-ink-faint">
                       {item.how}
                       {item.inUse ? ` · ${item.inUse} in use` : ''}
@@ -138,7 +138,7 @@ export function BooksProvidersTab() {
                 {(item.detail || item.redirectUri || item.envKeys.length) && (
                   <div className="mt-2.5 border-t border-line-soft pt-2.5">
                     {item.detail && (
-                      <p className="text-[12.5px] text-ink-dim">{item.detail}</p>
+                      <p className="text-[13px] text-ink-dim">{item.detail}</p>
                     )}
 
                     {/*

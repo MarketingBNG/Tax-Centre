@@ -112,7 +112,7 @@ export function FindingsTable({
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as Sort)}
-          className="ml-auto rounded-[7px] border border-line bg-canvas px-2 py-1 text-[11.5px] text-ink-dim outline-none"
+          className="ml-auto rounded-[6px] border border-line bg-canvas px-2 py-1 text-[11.5px] text-ink-dim outline-none"
         >
           <option value="severity">Worst first</option>
           <option value="code">By code</option>
@@ -121,7 +121,7 @@ export function FindingsTable({
       </div>
 
       {rows.length === 0 ? (
-        <p className="py-4 text-center text-[12.5px] text-ink-faint">
+        <p className="py-4 text-center text-[13px] text-ink-faint">
           Nothing matches those filters.
         </p>
       ) : (
@@ -132,7 +132,7 @@ export function FindingsTable({
                 onClick={() => onOpen(finding)}
                 className="flex w-full flex-wrap items-start gap-x-2.5 gap-y-1 rounded-lg px-2 py-1.5 text-left hover:bg-raised"
               >
-                <span className="w-14 shrink-0 pt-0.5 font-mono text-[11px] text-ink-faint">
+                <span className="w-14 shrink-0 pt-0.5 font-mono text-[11.5px] text-ink-faint">
                   {finding.code}
                 </span>
                 <span className="shrink-0 pt-0.5">

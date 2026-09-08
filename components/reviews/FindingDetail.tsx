@@ -90,21 +90,21 @@ export function FindingDetail({
               ×
             </button>
           </div>
-          <h2 className="mt-2 text-[15px] font-medium">{finding.title}</h2>
+          <h2 className="mt-2 text-[16px] font-medium">{finding.title}</h2>
         </header>
 
         <div className="space-y-5 px-5 py-4">
           <section>
-            <h3 className="mb-1 text-[11px] tracking-wide text-ink-faint uppercase">What is wrong</h3>
-            <p className="text-[13.5px] leading-[1.55]">{finding.whatIsWrong}</p>
+            <h3 className="mb-1 text-[11.5px] tracking-wide text-ink-faint uppercase">What is wrong</h3>
+            <p className="text-[13px] leading-[1.55]">{finding.whatIsWrong}</p>
             {finding.whyItMatters && (
-              <p className="mt-2 text-[12.5px] text-ink-dim">{finding.whyItMatters}</p>
+              <p className="mt-2 text-[13px] text-ink-dim">{finding.whyItMatters}</p>
             )}
           </section>
 
           {finding.location && (
             <section>
-              <h3 className="mb-1 text-[11px] tracking-wide text-ink-faint uppercase">Where</h3>
+              <h3 className="mb-1 text-[11.5px] tracking-wide text-ink-faint uppercase">Where</h3>
               <p className="text-[13px]">
                 {[
                   finding.location.form && `Form ${finding.location.form}`,
@@ -120,7 +120,7 @@ export function FindingDetail({
 
           {finding.fix && (
             <section>
-              <h3 className="mb-1.5 text-[11px] tracking-wide text-ink-faint uppercase">
+              <h3 className="mb-1.5 text-[11.5px] tracking-wide text-ink-faint uppercase">
                 How to fix it
               </h3>
               <ol className="space-y-1.5 text-[13px]">
@@ -141,15 +141,15 @@ export function FindingDetail({
                   </span>
                 </li>
               </ol>
-              <p className="mt-2 text-[12px] text-ink-faint">{finding.fix.why}</p>
+              <p className="mt-2 text-[13px] text-ink-faint">{finding.fix.why}</p>
             </section>
           )}
 
           {finding.amounts.length > 0 && (
             <section>
-              <h3 className="mb-1.5 text-[11px] tracking-wide text-ink-faint uppercase">Figures</h3>
+              <h3 className="mb-1.5 text-[11.5px] tracking-wide text-ink-faint uppercase">Figures</h3>
               <div className="overflow-x-auto">
-              <table className="w-full text-[12.5px]">
+              <table className="w-full text-[13px]">
                 <tbody>
                   {finding.amounts.map((amount, i) => (
                     <tr key={i} className="border-b border-line-soft last:border-0">
@@ -189,13 +189,13 @@ export function FindingDetail({
                           <button
                             onClick={() => confirm(amount.label)}
                             disabled={confirming === amount.label}
-                            className="rounded-[7px] border border-line px-2 py-0.5 text-[11px] text-ink-dim hover:border-line-strong hover:text-ink disabled:opacity-50"
+                            className="rounded-[6px] border border-line px-2 py-0.5 text-[11.5px] text-ink-dim hover:border-line-strong hover:text-ink disabled:opacity-50"
                             title="Record that you have checked this figure against the page. Your name is stored against it."
                           >
                             {confirming === amount.label ? 'saving…' : 'I checked this'}
                           </button>
                         ) : amount.confirmed_by ? (
-                          <span className="text-[11px] text-ink-faint" title="Confirmed by a reviewer">
+                          <span className="text-[11.5px] text-ink-faint" title="Confirmed by a reviewer">
                             confirmed
                           </span>
                         ) : null}
@@ -216,7 +216,7 @@ export function FindingDetail({
 
           {(finding.authority.status !== 'none_required' || finding.evidence.length > 0) && (
             <section>
-              <h3 className="mb-1.5 text-[11px] tracking-wide text-ink-faint uppercase">
+              <h3 className="mb-1.5 text-[11.5px] tracking-wide text-ink-faint uppercase">
                 Authority and evidence
               </h3>
               <AuthorityChip
@@ -231,7 +231,7 @@ export function FindingDetail({
                 </p>
               )}
               {finding.evidence.length > 0 && (
-                <ul className="mt-2 space-y-1 text-[12.5px]">
+                <ul className="mt-2 space-y-1 text-[13px]">
                   {finding.evidence.map((item, i) => (
                     <li key={i} className="flex items-baseline gap-1.5">
                       <span className="text-ink-faint">—</span>
@@ -254,7 +254,7 @@ export function FindingDetail({
             </section>
           )}
 
-          <section className="border-t border-line-soft pt-3 text-[12px] text-ink-faint">
+          <section className="border-t border-line-soft pt-3 text-[13px] text-ink-faint">
             <div>Owner: {finding.owner ?? 'unassigned'}</div>
             <div>Found in stage {finding.stage}</div>
             {finding.confidence !== null && (

@@ -1,3 +1,4 @@
+import { page } from '@/components/ui-classes';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
@@ -18,10 +19,10 @@ export default async function BooksPage({ params }: Ctx) {
   if (!engagement) redirect('/reviews');
 
   return (
-    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
+    <div className={page.wide}>
       <Link
         href={`/reviews/${engagementId}`}
-        className="text-[12.5px] text-ink-dim no-underline hover:text-accent"
+        className="text-[13px] text-ink-dim no-underline hover:text-accent"
       >
         ← {engagement.entity_name || engagement.client_label}
       </Link>

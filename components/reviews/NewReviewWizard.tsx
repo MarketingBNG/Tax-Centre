@@ -1,5 +1,7 @@
 'use client';
 
+import { page } from '../ui-classes';
+import { btn, field } from '../ui';
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RETURN_TYPES, type DocRole, type ReturnType } from '@/lib/review-types';
@@ -105,7 +107,7 @@ const isBlocking = (slot: SlotDef, returnType: ReturnType | ''): boolean =>
 
 const input =
   'w-full rounded-[9px] border border-line bg-canvas px-3 py-1.5 text-[13px] text-ink outline-none focus:border-[#3c4653]';
-const label = 'mb-1 block text-[12px] text-ink-dim';
+const label = 'mb-1 block text-[13px] text-ink-dim';
 
 export function NewReviewWizard() {
   const router = useRouter();
@@ -219,7 +221,7 @@ export function NewReviewWizard() {
   }
 
   return (
-    <div className="mx-auto max-w-[780px] px-4 py-6 sm:px-6">
+    <div className={page.form}>
       <h1 className="text-[21px] font-semibold tracking-tight">New review</h1>
       <p className="mt-1 mb-6 text-[13px] text-ink-dim">
         The engagement facts decide which checks run — an Indian link or a foreign owner turns on
@@ -296,7 +298,7 @@ export function NewReviewWizard() {
         </div>
 
         <div className="mt-4 border-t border-line-soft pt-3">
-          <div className="mb-2 text-[12px] text-ink-dim">
+          <div className="mb-2 text-[13px] text-ink-dim">
             Cross-border facts — each one turns on checks that are otherwise skipped.
           </div>
           <div className="flex flex-wrap gap-4 text-[13px]">
@@ -315,7 +317,7 @@ export function NewReviewWizard() {
             <label className="flex items-center gap-1.5">
               Foreign owner %
               <input
-                className="w-16 rounded-[9px] border border-line bg-canvas px-2 py-1 text-[13px] outline-none focus:border-[#3c4653]"
+                className={`${field} w-16`}
                 inputMode="numeric"
                 value={foreignOwnerPct}
                 onChange={(e) => setForeignOwnerPct(e.target.value)}
@@ -329,7 +331,7 @@ export function NewReviewWizard() {
 
       <section className="mb-6 rounded-xl border border-line-soft bg-panel p-4">
         <h2 className="mb-1 text-[14px] font-medium">Documents</h2>
-        <p className="mb-3 text-[12px] text-ink-faint">
+        <p className="mb-3 text-[13px] text-ink-faint">
           Anything marked required has to be here before the review can start. The rest are
           optional — what is missing gets written onto the register rather than passed over in
           silence.
@@ -352,9 +354,9 @@ export function NewReviewWizard() {
                   <div className="min-w-0">
                     <div className="text-[13px]">
                       {slot.label}
-                      {blocking && <span className="ml-1.5 text-[11px] text-sev-critical">required</span>}
+                      {blocking && <span className="ml-1.5 text-[11.5px] text-sev-critical">required</span>}
                       {slot.requirement === 'conditional' && !blocking && (
-                        <span className="ml-1.5 text-[11px] text-ink-faint">
+                        <span className="ml-1.5 text-[11.5px] text-ink-faint">
                           required for 1065 and 5472 filers
                         </span>
                       )}
@@ -365,7 +367,7 @@ export function NewReviewWizard() {
                         {files.map((file) => (
                           <span
                             key={file.fileId}
-                            className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-dim"
+                            className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-dim"
                           >
                             {file.filename}
                             <button
@@ -401,7 +403,7 @@ export function NewReviewWizard() {
                       type="button"
                       onClick={() => pickers.current[slot.role]?.click()}
                       disabled={uploading !== null}
-                      className="rounded-[9px] border border-line px-2.5 py-1 text-[12px] text-ink-dim hover:border-accent hover:text-accent disabled:opacity-40"
+                      className={btn('quiet','sm')}
                     >
                       {uploading === slot.role ? 'Uploading…' : 'Attach'}
                     </button>
@@ -416,7 +418,7 @@ export function NewReviewWizard() {
       {/* ---------------------------------------------------------- start */}
 
       <div className="flex items-center justify-between">
-        <div className="text-[12.5px] text-ink-faint">
+        <div className="text-[13px] text-ink-faint">
           {!returnType
             ? 'Choose a return type — it decides which documents are required.'
             : blockingMissing.length > 0
@@ -427,7 +429,7 @@ export function NewReviewWizard() {
           type="button"
           onClick={() => void start()}
           disabled={!canStart}
-          className="rounded-[9px] bg-accent px-4 py-1.5 text-[13px] font-medium text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className={btn('primary')}
         >
           {busy ? 'Creating…' : 'Create review'}
         </button>

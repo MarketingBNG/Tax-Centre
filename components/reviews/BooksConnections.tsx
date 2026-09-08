@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { SkeletonRows } from '../ui';
+import { SkeletonRows, btn } from '../ui';
 
 /**
  * The client's own accounting systems, and how to connect them.
@@ -134,7 +134,7 @@ export function BooksConnections({
   }
 
   if (error && !providers) {
-    return <p role="alert" className="text-[12.5px] text-rose-400">{error}</p>;
+    return <p role="alert" className="text-[13px] text-rose-400">{error}</p>;
   }
   if (!providers) {
     return <SkeletonRows rows={2} />;
@@ -143,25 +143,25 @@ export function BooksConnections({
   return (
     <section className="mb-5 rounded-xl border border-line-soft bg-panel p-4">
       <h2 className="text-[14px] font-medium">Connect the client&apos;s books</h2>
-      <p className="mt-1 max-w-[640px] text-[12px] text-ink-faint">
+      <p className="mt-1 max-w-[640px] text-[13px] text-ink-faint">
         Read the trial balance from the client&apos;s own system instead of asking them to
         export one. Read-only. The client authorises this on their provider&apos;s own screen,
         and the grant is stored against the client rather than against whoever connected it, so
         it keeps working when the file changes hands.
       </p>
 
-      {note && <p className="mt-3 text-[12.5px] text-accent">{note}</p>}
-      {error && <p role="alert" className="mt-3 text-[12.5px] text-rose-400">{error}</p>}
+      {note && <p className="mt-3 text-[13px] text-accent">{note}</p>}
+      {error && <p role="alert" className="mt-3 text-[13px] text-rose-400">{error}</p>}
 
       <div className="mt-4 space-y-3">
         {providers.map((provider) => (
           <div
             key={provider.id}
-            className="rounded-[10px] border border-line bg-raised px-3.5 py-3"
+            className="rounded-[9px] border border-line bg-raised px-3.5 py-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-[13.5px] font-medium">{provider.label}</div>
+                <div className="text-[13px] font-medium">{provider.label}</div>
                 <div className="text-[11.5px] text-ink-faint">
                   {provider.configured
                     ? provider.connections.length
@@ -177,7 +177,7 @@ export function BooksConnections({
                     <select
                       value={zohoRegion}
                       onChange={(e) => setZohoRegion(e.target.value)}
-                      className="rounded-[7px] border border-line bg-panel px-2 py-1 text-[12px] text-ink"
+                      className="rounded-[6px] border border-line bg-panel px-2 py-1 text-[13px] text-ink"
                       title="An account on one Zoho data centre cannot be read from another."
                     >
                       {ZOHO_REGIONS.map((r) => (
@@ -190,13 +190,13 @@ export function BooksConnections({
                   <button
                     type="button"
                     onClick={() => connect(provider)}
-                    className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] text-ink-dim hover:border-accent hover:text-accent"
+                    className={btn('quiet')}
                   >
                     {provider.connections.length ? 'Connect another' : 'Connect'}
                   </button>
                 </div>
               ) : (
-                <span className="text-[12px] text-ink-faint">Unavailable</span>
+                <span className="text-[13px] text-ink-faint">Unavailable</span>
               )}
             </div>
 
@@ -207,7 +207,7 @@ export function BooksConnections({
             */}
             {!provider.configured && provider.setupHint && (
               <div className="mt-3 border-t border-line-soft pt-3">
-                <p className="text-[12px] text-ink-dim">{provider.setupHint}</p>
+                <p className="text-[13px] text-ink-dim">{provider.setupHint}</p>
                 <p className="mt-1.5 text-[11.5px] text-ink-faint">
                   Redirect URI to register:{' '}
                   <code className="text-ink-dim">
@@ -225,10 +225,10 @@ export function BooksConnections({
                 className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-3"
               >
                 <div>
-                  <div className="text-[12.5px] text-ink">
+                  <div className="text-[13px] text-ink">
                     {conn.company}
                     {conn.revoked && (
-                      <span className="ml-2 rounded-[5px] bg-rose-500/15 px-1.5 py-0.5 text-[11px] text-rose-300">
+                      <span className="ml-2 rounded-[6px] bg-rose-500/15 px-1.5 py-0.5 text-[11.5px] text-rose-300">
                         needs reconnecting
                       </span>
                     )}
@@ -256,7 +256,7 @@ export function BooksConnections({
                       type="button"
                       disabled={busy === conn.id}
                       onClick={() => act(conn.id, 'probe')}
-                      className="rounded-[9px] border border-line px-2.5 py-1 text-[12px] text-ink-faint hover:border-accent hover:text-accent disabled:opacity-50"
+                      className={btn('quiet','sm')}
                       title="Fetch the trial balance and show the shape of the response."
                     >
                       {busy === conn.id ? 'Probing…' : 'Probe'}
@@ -266,7 +266,7 @@ export function BooksConnections({
                     type="button"
                     disabled={busy === conn.id}
                     onClick={() => act(conn.id, 'disconnect')}
-                    className="rounded-[9px] border border-line px-2.5 py-1 text-[12px] text-ink-faint hover:border-rose-400 hover:text-rose-300 disabled:opacity-50"
+                    className={btn('danger','sm')}
                   >
                     Disconnect
                   </button>
@@ -278,13 +278,13 @@ export function BooksConnections({
       </div>
 
       {probe && (
-        <div className="mt-4 rounded-[10px] border border-line bg-raised p-3">
+        <div className="mt-4 rounded-[9px] border border-line bg-raised p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[12.5px] text-ink-dim">What the provider returned</span>
+            <span className="text-[13px] text-ink-dim">What the provider returned</span>
             <button
               type="button"
               onClick={() => setProbe(null)}
-              className="text-[12px] text-ink-faint hover:text-ink"
+              className="text-[13px] text-ink-faint hover:text-ink"
             >
               Close
             </button>

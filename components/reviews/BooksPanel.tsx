@@ -150,7 +150,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
     <div>
       <section className="mb-5 rounded-xl border border-line-soft bg-panel p-4">
         <h2 className="text-[14px] font-medium">Import a trial balance</h2>
-        <p className="mt-1 text-[12px] text-ink-faint">
+        <p className="mt-1 text-[13px] text-ink-faint">
           XLSX or CSV. A PDF trial balance can be read by the model but not normalised into the
           chart of accounts, so the checks that compare accounts across clients would not run on
           it. Re-importing identical data changes nothing.
@@ -163,7 +163,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
               type="date"
               value={periodStart}
               onChange={(e) => setPeriodStart(e.target.value)}
-              className="mt-1 block rounded-[7px] border border-line bg-raised px-2 py-1 text-[12.5px] text-ink"
+              className="mt-1 block rounded-[6px] border border-line bg-raised px-2 py-1 text-[13px] text-ink"
             />
           </label>
           <label className="text-[11.5px] text-ink-faint">
@@ -172,7 +172,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
               type="date"
               value={periodEnd}
               onChange={(e) => setPeriodEnd(e.target.value)}
-              className="mt-1 block rounded-[7px] border border-line bg-raised px-2 py-1 text-[12.5px] text-ink"
+              className="mt-1 block rounded-[6px] border border-line bg-raised px-2 py-1 text-[13px] text-ink"
             />
           </label>
           <label
@@ -192,12 +192,12 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
         </div>
 
         {note && (
-          <div className="mt-3 rounded-lg border border-line bg-raised px-3 py-2 text-[12.5px] text-ink-dim">
+          <div className="mt-3 rounded-lg border border-line bg-raised px-3 py-2 text-[13px] text-ink-dim">
             {note}
           </div>
         )}
         {error && (
-          <div role="alert" className="mt-3 rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
+          <div role="alert" className="mt-3 rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[13px] text-sev-critical">
             {error}
           </div>
         )}
@@ -205,7 +205,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
 
       <section className="rounded-xl border border-line-soft bg-panel p-4">
         <h2 className="mb-1 text-[14px] font-medium">Imports</h2>
-        <p className="mb-3 text-[12px] text-ink-faint">
+        <p className="mb-3 text-[13px] text-ink-faint">
           The most recent import is the one a review reads. Older ones are kept so a finished run
           can still be defended against the data it actually saw.
         </p>
@@ -234,7 +234,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
                   <span className="text-[13px] text-ink">
                     {SOURCE_LABEL[row.sourceSystem] ?? row.sourceSystem}
                     {index === 0 && (
-                      <span className="ml-2 text-[11px] text-verdict-clear">in use</span>
+                      <span className="ml-2 text-[11.5px] text-verdict-clear">in use</span>
                     )}
                   </span>
                   <span className="text-[11.5px] text-ink-faint">
@@ -258,7 +258,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
 
                   {unmapped.length > 0 && (
                     <div className="mb-4">
-                      <h3 className="text-[12.5px] font-medium text-sev-high">
+                      <h3 className="text-[13px] font-medium text-sev-high">
                         {unmapped.length} account{unmapped.length === 1 ? '' : 's'} could not be
                         placed
                       </h3>
@@ -273,7 +273,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
 
                   {mapped.length > 0 && (
                     <div>
-                      <h3 className="text-[12.5px] font-medium">
+                      <h3 className="text-[13px] font-medium">
                         {mapped.length} mapped to the firm&apos;s chart of accounts
                       </h3>
                       <p className="mt-0.5 mb-2 text-[11.5px] text-ink-faint">
@@ -296,7 +296,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
 function AccountTable({ rows }: { rows: AccountRow[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[12px]">
+      <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr className="text-left text-ink-faint">
             <th className="border-b border-line-soft py-1 pr-3 font-normal">Code</th>
@@ -311,11 +311,11 @@ function AccountTable({ rows }: { rows: AccountRow[] }) {
             const weak = row.key !== null && (row.confidence ?? 1) < 0.7;
             return (
               <tr key={`${row.code ?? ''}-${row.name}-${i}`} className="align-top">
-                <td className="border-b border-line-soft/60 py-1 pr-3 font-mono text-[11px] text-ink-faint">
+                <td className="border-b border-line-soft/60 py-1 pr-3 font-mono text-[11.5px] text-ink-faint">
                   {row.code ?? ''}
                 </td>
                 <td className="border-b border-line-soft/60 py-1 pr-3 text-ink">{row.name}</td>
-                <td className="border-b border-line-soft/60 py-1 pr-3 text-right font-mono text-[11px] text-ink-dim">
+                <td className="border-b border-line-soft/60 py-1 pr-3 text-right font-mono text-[11.5px] text-ink-dim">
                   {money(row.balance)}
                 </td>
                 <td className="border-b border-line-soft/60 py-1 pr-3">

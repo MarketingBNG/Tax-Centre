@@ -1,3 +1,4 @@
+import { btn, page } from '@/components/ui-classes';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
@@ -54,8 +55,8 @@ export default async function EngagementPage({ params }: Ctx) {
   const plan = planStages({ returnType: engagement.return_type, facts });
 
   return (
-    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
-      <Link href="/reviews" className="text-[12.5px] text-ink-dim no-underline hover:text-accent">
+    <div className={page.wide}>
+      <Link href="/reviews" className="text-[13px] text-ink-dim no-underline hover:text-accent">
         ← All reviews
       </Link>
 
@@ -64,7 +65,7 @@ export default async function EngagementPage({ params }: Ctx) {
         <h1 className="text-[21px] font-semibold tracking-tight">
           {engagement.entity_name || engagement.client_label}
         </h1>
-        <div className="mt-1 text-[12.5px] text-ink-faint">
+        <div className="mt-1 text-[13px] text-ink-faint">
           {[
             engagement.return_type,
             engagement.tax_year ? `TY ${engagement.tax_year}` : null,
@@ -80,13 +81,13 @@ export default async function EngagementPage({ params }: Ctx) {
         <div className="flex shrink-0 items-center gap-2">
           <Link
             href={`/reviews/${engagementId}/books`}
-            className="rounded-[9px] border border-line px-3 py-1.5 text-[13px] text-ink-dim no-underline hover:border-accent hover:text-accent"
+            className={btn('quiet')}
           >
             The books
           </Link>
           <Link
             href={`/reviews/${engagementId}/history`}
-            className="rounded-[9px] border border-line px-3 py-1.5 text-[13px] text-ink-dim no-underline hover:border-accent hover:text-accent"
+            className={btn('quiet')}
           >
             Year on year
           </Link>
@@ -116,7 +117,7 @@ export default async function EngagementPage({ params }: Ctx) {
                       <div className="mt-0.5 text-[11.5px] text-sev-high">{run.halt_reason}</div>
                     )}
                   </div>
-                  <div className="text-[12px] text-ink-dim">
+                  <div className="text-[13px] text-ink-dim">
                     {run.verdict ? VERDICT_WORD[run.verdict] : '—'}
                   </div>
                 </Link>
@@ -128,14 +129,14 @@ export default async function EngagementPage({ params }: Ctx) {
 
       <section className="rounded-xl border border-line-soft bg-panel p-4">
         <h2 className="mb-1 text-[14px] font-medium">What this review will check</h2>
-        <p className="mb-3 text-[12px] text-ink-faint">
+        <p className="mb-3 text-[13px] text-ink-faint">
           Fixed order — the books are read before the return, because most return errors are book
           errors that were copied across correctly.
         </p>
         <ol className="space-y-1">
           {plan.map((stage) => (
             <li key={stage.stageKey} className="flex items-baseline gap-2 text-[13px]">
-              <span className="w-16 shrink-0 font-mono text-[11px] text-ink-faint">
+              <span className="w-16 shrink-0 font-mono text-[11.5px] text-ink-faint">
                 {stage.stageKey}
               </span>
               <span className={stage.status === 'pending' ? 'text-ink' : 'text-ink-faint'}>

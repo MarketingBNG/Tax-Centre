@@ -46,14 +46,14 @@ export function Mermaid({ chart }: { chart: string }) {
   if (failed || (!svg && !chart.trim())) {
     return (
       <pre className="my-3 overflow-x-auto rounded-lg border border-line bg-panel p-3">
-        <code className="block font-mono text-[12.5px] leading-[1.5]">{chart}</code>
+        <code className="block font-mono text-[13px] leading-[1.5]">{chart}</code>
       </pre>
     );
   }
 
   if (!svg) {
     return (
-      <div className="my-3 rounded-lg border border-line bg-panel p-3 text-[12.5px] text-ink-faint">
+      <div className="my-3 rounded-lg border border-line bg-panel p-3 text-[13px] text-ink-faint">
         Drawing diagram…
       </div>
     );

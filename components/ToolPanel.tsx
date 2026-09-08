@@ -108,7 +108,7 @@ export function ToolPanel({ runs, streaming = false }: { runs: ToolRun[]; stream
           setPinned(true);
           setOpen((v) => !v);
         }}
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-faint hover:text-ink-dim"
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-faint hover:text-ink-dim"
       >
         <span className={`transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
         <span className={`flex-1 truncate ${failed ? 'text-sev-blocking' : 'font-medium'}`}>
@@ -137,10 +137,10 @@ export function ToolPanel({ runs, streaming = false }: { runs: ToolRun[]; stream
               >
                 <button
                   onClick={() => setDetail(expanded ? null : i)}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-faint hover:text-ink-dim"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-faint hover:text-ink-dim"
                 >
                   <span className={`transition-transform ${expanded ? 'rotate-90' : ''}`}>›</span>
-                  <span className="rounded border border-line px-1 font-mono text-[10.5px]">
+                  <span className="rounded border border-line px-1 font-mono text-[11.5px]">
                     {NAMES[run.name] ?? run.name}
                   </span>
                   <span className="flex-1 truncate">{run.summary}</span>
@@ -151,14 +151,14 @@ export function ToolPanel({ runs, streaming = false }: { runs: ToolRun[]; stream
                   <div className="space-y-2 border-t border-line-soft px-3 py-2">
                     {run.name === 'run_analysis' ? (
                       <div>
-                        <div className="mb-1 text-[11px] font-semibold text-ink-faint">Code</div>
+                        <div className="mb-1 text-[11.5px] font-semibold text-ink-faint">Code</div>
                         <pre className="overflow-x-auto rounded border border-line bg-canvas p-2 font-mono text-[11.5px] leading-[1.45]">
                           {code}
                         </pre>
                       </div>
                     ) : null}
                     <div>
-                      <div className="mb-1 text-[11px] font-semibold text-ink-faint">
+                      <div className="mb-1 text-[11.5px] font-semibold text-ink-faint">
                         {run.ok ? 'Output' : 'Failed'}
                       </div>
                       <pre className="max-h-[320px] overflow-auto rounded border border-line bg-canvas p-2 font-mono text-[11.5px] leading-[1.45] whitespace-pre-wrap">

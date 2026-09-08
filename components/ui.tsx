@@ -13,6 +13,11 @@ import { useDialog } from './useDialog';
  * it was the cost of every panel being written on its own.
  */
 
+// The class strings live in a non-client module so server components can call
+// them too; re-exported here so existing imports from './ui' keep working.
+import { btn } from './ui-classes';
+export { btn, field } from './ui-classes';
+
 /* ----------------------------------------------------------------- alert */
 
 export function Alert({
@@ -132,14 +137,14 @@ function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[420px] rounded-2xl border border-line bg-canvas p-5"
       >
-        <h2 className="text-[15px] font-semibold">{request.title}</h2>
+        <h2 className="text-[16px] font-semibold">{request.title}</h2>
         {request.body ? <p className="mt-1.5 text-[13px] text-ink-dim">{request.body}</p> : null}
 
         <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onClose}
             disabled={busy}
-            className="rounded-[9px] border border-line px-3 py-1.5 text-[13px] text-ink-dim hover:bg-raised hover:text-ink disabled:opacity-40"
+            className={btn('quiet')}
           >
             Cancel
           </button>

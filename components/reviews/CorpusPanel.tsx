@@ -1,5 +1,6 @@
 'use client';
 
+import { page } from '../ui-classes';
 import { useCallback, useEffect, useState } from 'react';
 import { SkeletonRows } from '../ui';
 
@@ -141,7 +142,7 @@ export function CorpusPanel() {
   const ready = title.trim() && effectiveFrom && passages.length > 0 && !busy;
 
   return (
-    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
+    <div className={page.wide}>
       <header className="mb-6">
         <h1 className="text-[21px] font-semibold tracking-tight">The citation library</h1>
         <p className="mt-1 max-w-[640px] text-[13px] text-ink-dim">
@@ -154,7 +155,7 @@ export function CorpusPanel() {
 
       {state && (
         <div
-          className={`mb-5 rounded-lg border px-3 py-2 text-[12.5px] ${
+          className={`mb-5 rounded-lg border px-3 py-2 text-[13px] ${
             state.enabled
               ? 'border-line bg-raised text-ink-dim'
               : 'border-sev-high/40 bg-sev-high/10 text-sev-high'
@@ -164,7 +165,7 @@ export function CorpusPanel() {
             <>
               Grounding is on. {state.inForce} source{state.inForce === 1 ? '' : 's'} in force
               today · corpus fingerprint{' '}
-              <span className="font-mono text-[11px]">{state.fingerprint}</span>
+              <span className="font-mono text-[11.5px]">{state.fingerprint}</span>
             </>
           ) : (
             <>
@@ -185,7 +186,7 @@ export function CorpusPanel() {
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value)}
-              className="mt-1 block w-full rounded-[7px] border border-line bg-raised px-2 py-1.5 text-[12.5px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
             >
               {KINDS.map((k) => (
                 <option key={k.value} value={k.value}>
@@ -201,7 +202,7 @@ export function CorpusPanel() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="2025 Instructions for Form 1065"
-              className="mt-1 block w-full rounded-[7px] border border-line bg-raised px-2 py-1.5 text-[12.5px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
             />
           </label>
 
@@ -211,7 +212,7 @@ export function CorpusPanel() {
               type="date"
               value={effectiveFrom}
               onChange={(e) => setEffectiveFrom(e.target.value)}
-              className="mt-1 block w-full rounded-[7px] border border-line bg-raised px-2 py-1.5 text-[12.5px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
             />
           </label>
 
@@ -221,7 +222,7 @@ export function CorpusPanel() {
               type="date"
               value={effectiveTo}
               onChange={(e) => setEffectiveTo(e.target.value)}
-              className="mt-1 block w-full rounded-[7px] border border-line bg-raised px-2 py-1.5 text-[12.5px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
             />
           </label>
 
@@ -230,7 +231,7 @@ export function CorpusPanel() {
             <input
               value={citationRoot}
               onChange={(e) => setCitationRoot(e.target.value)}
-              className="mt-1 block w-full rounded-[7px] border border-line bg-raised px-2 py-1.5 text-[12.5px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
             />
           </label>
 
@@ -239,7 +240,7 @@ export function CorpusPanel() {
             <input
               value={versionLabel}
               onChange={(e) => setVersionLabel(e.target.value)}
-              className="mt-1 block w-full rounded-[7px] border border-line bg-raised px-2 py-1.5 text-[12.5px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
             />
           </label>
 
@@ -249,7 +250,7 @@ export function CorpusPanel() {
               value={sourceUrl}
               onChange={(e) => setSourceUrl(e.target.value)}
               placeholder="https://www.irs.gov/…"
-              className="mt-1 block w-full rounded-[7px] border border-line bg-raised px-2 py-1.5 text-[12.5px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
             />
           </label>
         </div>
@@ -268,7 +269,7 @@ export function CorpusPanel() {
                 '## IRC 274(n)\nThe amount allowable as a deduction … shall not exceed 50 percent of ' +
                 'the amount of such expense or item.'
               }
-              className="mt-1 block w-full rounded-[7px] border border-line bg-raised px-2 py-2 font-mono text-[11.5px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 font-mono text-[11.5px] text-ink"
             />
           </label>
           <div className="mt-1.5 text-[11.5px] text-ink-faint">
@@ -295,12 +296,12 @@ export function CorpusPanel() {
         </button>
 
         {note && (
-          <div className="mt-3 rounded-lg border border-line bg-raised px-3 py-2 text-[12.5px] text-ink-dim">
+          <div className="mt-3 rounded-lg border border-line bg-raised px-3 py-2 text-[13px] text-ink-dim">
             {note}
           </div>
         )}
         {error && (
-          <div role="alert" className="mt-3 rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[12.5px] text-sev-critical">
+          <div role="alert" className="mt-3 rounded-lg border border-sev-critical/35 bg-sev-critical/10 px-3 py-2 text-[13px] text-sev-critical">
             {error}
           </div>
         )}
@@ -322,7 +323,7 @@ export function CorpusPanel() {
           {state?.sources.map((source) => (
             <li
               key={source.id}
-              className="rounded-lg border border-line-soft px-3 py-2 text-[12.5px]"
+              className="rounded-lg border border-line-soft px-3 py-2 text-[13px]"
             >
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-ink">{source.title}</span>

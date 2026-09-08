@@ -61,7 +61,7 @@ function Row({
     <button
       onClick={onClick}
       onMouseEnter={onHover}
-      className={`flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-[13.5px] ${
+      className={`flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-[13px] ${
         active ? 'bg-raised text-ink' : 'text-ink-dim hover:bg-raised hover:text-ink'
       }`}
     >
@@ -199,7 +199,7 @@ export function ComposerMenu(props: ComposerMenuProps) {
                   />
                 ))}
                 {props.projects.length === 0 ? (
-                  <div className="px-3 py-2 text-[12.5px] text-ink-faint">
+                  <div className="px-3 py-2 text-[13px] text-ink-faint">
                     No projects yet — make one in the sidebar.
                   </div>
                 ) : null}
@@ -234,7 +234,7 @@ export function ComposerMenu(props: ComposerMenuProps) {
                   />
                 ))}
                 {props.skills.length === 0 ? (
-                  <div className="px-3 py-2 text-[12.5px] text-ink-faint">
+                  <div className="px-3 py-2 text-[13px] text-ink-faint">
                     None installed. Add one under Settings, or ask an admin for a
                     firm-wide one.
                   </div>
@@ -266,7 +266,7 @@ export function ComposerMenu(props: ComposerMenuProps) {
                   />
                 ))}
                 {props.connectors.length === 0 ? (
-                  <div className="px-3 py-2 text-[12.5px] text-ink-faint">
+                  <div className="px-3 py-2 text-[13px] text-ink-faint">
                     Nothing connected. Add an account under Settings, or ask an admin
                     for a connector.
                   </div>

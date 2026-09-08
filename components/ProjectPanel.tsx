@@ -1,5 +1,6 @@
 'use client';
 
+import { btn } from './ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDialog } from './useDialog';
 
@@ -130,8 +131,8 @@ export function ProjectPanel({
 
         <div className="flex-1 space-y-5 overflow-y-auto p-4">
           <section>
-            <h3 className="mb-1 text-[13.5px] font-semibold">Project instructions</h3>
-            <p className="mb-2 text-[12.5px] text-ink-dim">
+            <h3 className="mb-1 text-[13px] font-semibold">Project instructions</h3>
+            <p className="mb-2 text-[13px] text-ink-dim">
               Prepended to every conversation in this project. The standing brief — who
               the client is, which year, what to assume, what never to assume.
             </p>
@@ -141,13 +142,13 @@ export function ProjectPanel({
               onBlur={save}
               rows={7}
               placeholder="This project covers the 2025 return for a two-partner LLC in Texas. Amounts are in USD. When I ask about a schedule, assume the federal one unless I say state."
-              className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-2.5 text-[13.5px] leading-[1.55] outline-none focus:border-[#3c4653]"
+              className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-2.5 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
             />
           </section>
 
           <section>
             <div className="mb-2 flex items-center gap-2.5">
-              <h3 className="flex-1 text-[13.5px] font-semibold">
+              <h3 className="flex-1 text-[13px] font-semibold">
                 Documents
                 <span className="ml-1.5 font-normal text-ink-faint">
                   in every chat in this project
@@ -155,14 +156,14 @@ export function ProjectPanel({
               </h3>
               <button
                 onClick={() => fileRef.current?.click()}
-                className="rounded-[9px] border border-line px-2.5 py-1 text-[12.5px] hover:bg-raised"
+                className={btn('secondary','sm')}
               >
                 {uploading ? `Uploading ${uploading}…` : '＋ Add'}
               </button>
             </div>
 
             {error ? (
-              <div role="alert" className="mb-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[12.5px] text-[#e8b0b0]">
+              <div role="alert" className="mb-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
                 {error}
               </div>
             ) : null}
@@ -191,7 +192,7 @@ export function ProjectPanel({
                 </div>
               ))}
               {project.files.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-[12.5px] text-ink-faint">
+                <div className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-[13px] text-ink-faint">
                   Nothing on the shelf yet
                 </div>
               ) : null}
@@ -199,7 +200,7 @@ export function ProjectPanel({
           </section>
 
           <section>
-            <h3 className="mb-2 text-[13.5px] font-semibold">
+            <h3 className="mb-2 text-[13px] font-semibold">
               Chats
               <span className="ml-1.5 font-normal text-ink-faint">{project.conversations.length}</span>
             </h3>
@@ -211,13 +212,13 @@ export function ProjectPanel({
                     onOpenChat(c.id);
                     onClose();
                   }}
-                  className="truncate rounded-lg px-2.5 py-1.5 text-left text-[13.5px] text-ink-dim hover:bg-raised hover:text-ink"
+                  className="truncate rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
                 >
                   {c.title}
                 </button>
               ))}
               {project.conversations.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-[12.5px] text-ink-faint">
+                <div className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-[13px] text-ink-faint">
                   No chats in this project yet
                 </div>
               ) : null}

@@ -46,16 +46,16 @@ export function DocumentViewer({
       >
         <div className="flex items-center gap-3 border-b border-line-soft px-4 py-2.5">
           <b className="flex-1 truncate text-[14px]">{title}</b>
-          {page ? <span className="text-[12.5px] text-ink-faint">page {page}</span> : null}
+          {page ? <span className="text-[13px] text-ink-faint">page {page}</span> : null}
           <a
             href={base}
-            className="rounded-md border border-line px-2.5 py-1 text-[12.5px] text-ink-dim no-underline hover:text-ink"
+            className="rounded-md border border-line px-2.5 py-1 text-[13px] text-ink-dim no-underline hover:text-ink"
           >
             Download
           </a>
           <button
             onClick={onClose}
-            className="rounded-md border border-line px-2.5 py-1 text-[12.5px] text-ink-dim hover:text-ink"
+            className="rounded-md border border-line px-2.5 py-1 text-[13px] text-ink-dim hover:text-ink"
           >
             Close
           </button>

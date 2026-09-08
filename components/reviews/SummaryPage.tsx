@@ -49,7 +49,7 @@ function HeaderBand({ detail }: { detail: RunDetail }) {
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
         {facts.map(([label, value]) => (
           <div key={label}>
-            <div className="text-[10.5px] tracking-wide text-ink-faint uppercase">{label}</div>
+            <div className="text-[11.5px] tracking-wide text-ink-faint uppercase">{label}</div>
             <div className="mt-0.5 truncate text-[13px]">{value}</div>
           </div>
         ))}
@@ -88,7 +88,7 @@ function VerdictBanner({ detail }: { detail: RunDetail }) {
     <div className="trc-print-sticky sticky top-0 z-10 bg-canvas py-1">
     <section className={`trc-print-zone rounded-xl border px-4 py-3.5 ${verdict ? style : 'border-line text-ink-dim'}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <div className="text-[22px] font-semibold tracking-tight">
+        <div className="text-[21px] font-semibold tracking-tight">
           {verdict ? VERDICT_WORD[verdict] : 'Not yet decided'}
         </div>
         <div className="text-[13px]">
@@ -99,7 +99,7 @@ function VerdictBanner({ detail }: { detail: RunDetail }) {
       </div>
 
       {blockers.length > 0 && (
-        <ul className="mt-2 space-y-0.5 text-[12.5px] opacity-90">
+        <ul className="mt-2 space-y-0.5 text-[13px] opacity-90">
           {blockers.slice(0, 4).map((blocker, i) => (
             <li key={i}>— {blocker}</li>
           ))}
@@ -187,7 +187,7 @@ function TopFindings({
     return (
       <section className="trc-print-zone rounded-xl border border-line-soft bg-panel px-4 py-3">
         <h2 className="mb-1 text-[13px] font-medium">Top findings</h2>
-        <p className="text-[12.5px] text-ink-faint">Nothing open. Every finding is closed or agreed.</p>
+        <p className="text-[13px] text-ink-faint">Nothing open. Every finding is closed or agreed.</p>
       </section>
     );
   }
@@ -204,7 +204,7 @@ function TopFindings({
               onClick={() => onOpen(finding)}
               className="flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-raised"
             >
-              <span className="w-14 shrink-0 pt-0.5 font-mono text-[11px] text-ink-faint">
+              <span className="w-14 shrink-0 pt-0.5 font-mono text-[11.5px] text-ink-faint">
                 {finding.code}
               </span>
               <span className="shrink-0 pt-0.5">
@@ -235,7 +235,7 @@ function TieOutStrip({ detail }: { detail: RunDetail }) {
       <h2 className="mb-2 text-[13px] font-medium">Tie-outs</h2>
       <ul className="space-y-1">
         {detail.tieOuts.map((tie) => (
-          <li key={tie.id} className="flex items-baseline gap-2 text-[12.5px]">
+          <li key={tie.id} className="flex items-baseline gap-2 text-[13px]">
             <span className={tie.agrees ? 'text-verdict-clear' : 'text-sev-critical'}>
               {tie.agrees ? '✓' : '✕'}
             </span>
@@ -262,7 +262,7 @@ function TieOutStrip({ detail }: { detail: RunDetail }) {
 function PrintFooter({ detail }: { detail: RunDetail }) {
   const { run, engagement } = detail;
   return (
-    <div className="hidden border-t border-line-soft pt-2 text-[10px] text-ink-faint print:block">
+    <div className="hidden border-t border-line-soft pt-2 text-[11.5px] text-ink-faint print:block">
       {[
         engagement?.entityName || engagement?.clientLabel,
         engagement?.returnType,
@@ -304,7 +304,7 @@ export function SummaryPage({
           <h2 className="text-[13px] font-medium text-sev-high">
             {detail.derived.escalated} item{detail.derived.escalated === 1 ? '' : 's'} need a reviewer
           </h2>
-          <p className="mt-1 text-[12px] text-ink-dim">
+          <p className="mt-1 text-[13px] text-ink-dim">
             These were not confident enough to assert. Deferring is the correct outcome — they are
             here to be looked at, not to be taken on trust.
           </p>
@@ -315,9 +315,9 @@ export function SummaryPage({
                 <li key={f.id}>
                   <button
                     onClick={() => onOpenFinding(f)}
-                    className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left text-[12.5px] hover:bg-raised"
+                    className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left text-[13px] hover:bg-raised"
                   >
-                    <span className="font-mono text-[11px] text-ink-faint">{f.code}</span>
+                    <span className="font-mono text-[11.5px] text-ink-faint">{f.code}</span>
                     <span className="min-w-0 flex-1 truncate">{f.title}</span>
                     <StatusChip status={f.status} />
                   </button>

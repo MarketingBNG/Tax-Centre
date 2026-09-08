@@ -1,5 +1,6 @@
 'use client';
 
+import { page } from './ui-classes';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Mark } from './Mark';
@@ -69,9 +70,9 @@ const btn =
   'rounded-[9px] border border-line bg-raised px-4 py-2 font-medium hover:bg-raised-hover disabled:opacity-50';
 const btnPrimary =
   'rounded-[9px] bg-accent px-4 py-2 font-medium text-accent-ink hover:bg-accent-hover disabled:opacity-50';
-const btnSm = 'rounded-md border border-line px-2.5 py-1 text-[12.5px] hover:bg-raised';
+const btnSm = 'rounded-md border border-line px-2.5 py-1 text-[13px] hover:bg-raised';
 const panel = 'mb-4 rounded-xl border border-line bg-panel p-5';
-const label = 'mb-1.5 mt-3 block text-[12.5px] text-ink-dim';
+const label = 'mb-1.5 mt-3 block text-[13px] text-ink-dim';
 
 const usd = (n: number) => `$${Number(n || 0).toFixed(2)}`;
 const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
@@ -80,7 +81,7 @@ export function AdminPanel() {
   const [tab, setTab] = useState<Tab>('prompt');
 
   return (
-    <div className="mx-auto max-w-[1000px] px-4 pt-7 pb-16 sm:px-6">
+    <div className={`${page.wide} pt-7 pb-16`}>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2.5 text-[21px] font-medium">
           <Mark size={20} />
@@ -125,7 +126,7 @@ export function AdminPanel() {
       {tab === 'people' ? <PeopleTab /> : null}
       {tab === 'skills' ? (
         <div className={panel}>
-          <h2 className="mb-1 text-[15px] font-semibold">Firm skills</h2>
+          <h2 className="mb-1 text-[16px] font-semibold">Firm skills</h2>
           <p className="mb-3 text-[13px] text-ink-dim">
             A skill is a folder of instructions the assistant loads when it applies.
             Only the name and description of each one travel in every prompt, so a
@@ -185,7 +186,7 @@ function PromptTab() {
   return (
     <>
       <div className={panel}>
-        <h2 className="mb-1 text-[15px] font-semibold">House instructions</h2>
+        <h2 className="mb-1 text-[16px] font-semibold">House instructions</h2>
         <p className="mb-3 text-[13px] text-ink-dim">
           Added to <em>every</em> conversation, for everyone. Good for house style, the
           names of your systems, or what to do when someone asks about a client. It is
@@ -208,7 +209,7 @@ function PromptTab() {
             {busy ? 'Saving…' : 'Save'}
           </button>
           {data ? (
-            <span className="text-[12.5px] text-ink-faint">
+            <span className="text-[13px] text-ink-faint">
               ~{data.tokenEstimate.toLocaleString()} tokens on every message
             </span>
           ) : null}
@@ -217,11 +218,11 @@ function PromptTab() {
       </div>
 
       <div className={panel}>
-        <h2 className="mb-1 text-[15px] font-semibold">Built-in rules</h2>
+        <h2 className="mb-1 text-[16px] font-semibold">Built-in rules</h2>
         <p className="mb-3 text-[13px] text-ink-dim">
           Always applied, before your text. Shown so you know what not to repeat.
         </p>
-        <pre className="max-h-[280px] overflow-auto rounded-[9px] border border-line bg-raised p-3 text-[12.5px] whitespace-pre-wrap text-ink-dim">
+        <pre className="max-h-[280px] overflow-auto rounded-[9px] border border-line bg-raised p-3 text-[13px] whitespace-pre-wrap text-ink-dim">
           {data?.basePrompt ?? ''}
         </pre>
       </div>
@@ -265,20 +266,20 @@ function CostsTab() {
       {confirmDialog}
       <div className="mb-4 flex flex-wrap gap-3.5">
         <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-3.5">
-          <div className="mb-1.5 text-[12px] text-ink-faint">Spend this month</div>
-          <div className="text-[22px] font-semibold tabular-nums">{usd(data.monthToDateUsd)}</div>
+          <div className="mb-1.5 text-[13px] text-ink-faint">Spend this month</div>
+          <div className="text-[21px] font-semibold tabular-nums">{usd(data.monthToDateUsd)}</div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-raised">
             <i className="block h-full bg-accent" style={{ width: `${pct}%` }} />
           </div>
-          <div className="mt-1.5 text-[12px] text-ink-faint">of {usd(data.capUsd)} cap</div>
+          <div className="mt-1.5 text-[13px] text-ink-faint">of {usd(data.capUsd)} cap</div>
         </div>
 
         <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-3.5">
-          <div className="mb-1.5 text-[12px] text-ink-faint">Cache hit rate</div>
-          <div className="text-[22px] font-semibold tabular-nums">
+          <div className="mb-1.5 text-[13px] text-ink-faint">Cache hit rate</div>
+          <div className="text-[21px] font-semibold tabular-nums">
             {(data.cacheHitRate * 100).toFixed(0)}%
           </div>
-          <div className={`mt-1.5 text-[12px] ${cacheLow ? 'text-sev-math' : 'text-ink-faint'}`}>
+          <div className={`mt-1.5 text-[13px] ${cacheLow ? 'text-sev-math' : 'text-ink-faint'}`}>
             {cacheLow
               ? 'Low — check nothing volatile entered the prompt prefix'
               : 'Healthy'}
@@ -287,9 +288,9 @@ function CostsTab() {
 
         {retention ? (
           <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-3.5">
-            <div className="mb-1.5 text-[12px] text-ink-faint">Stored documents</div>
-            <div className="text-[22px] font-semibold tabular-nums">{retention.liveFiles}</div>
-            <div className="mt-1.5 text-[12px] text-ink-faint">
+            <div className="mb-1.5 text-[13px] text-ink-faint">Stored documents</div>
+            <div className="text-[21px] font-semibold tabular-nums">{retention.liveFiles}</div>
+            <div className="mt-1.5 text-[13px] text-ink-faint">
               {mb(retention.liveBytes)} · {retention.purgedFiles} purged
             </div>
           </div>
@@ -297,7 +298,7 @@ function CostsTab() {
       </div>
 
       <div className={panel}>
-        <h2 className="mb-1 text-[15px] font-semibold">Monthly spend cap</h2>
+        <h2 className="mb-1 text-[16px] font-semibold">Monthly spend cap</h2>
         <p className="mb-3 text-[13px] text-ink-dim">
           A guide rail for watching the month, shown on this page.
         </p>
@@ -336,7 +337,7 @@ function CostsTab() {
 
       {retention ? (
         <div className={panel}>
-          <h2 className="mb-1 text-[15px] font-semibold">Document retention</h2>
+          <h2 className="mb-1 text-[16px] font-semibold">Document retention</h2>
           <p className="mb-3 text-[13px] text-ink-dim">
             Uploaded originals expire after {retention.retentionDays} days; conversations
             and the audit trail are kept. This app is an assistant, not your document
@@ -371,7 +372,7 @@ function CostsTab() {
 
       {data.reviews?.length ? (
         <div className={panel}>
-          <h2 className="mb-1 text-[15px] font-semibold">Reviews, priced per return</h2>
+          <h2 className="mb-1 text-[16px] font-semibold">Reviews, priced per return</h2>
           <p className="mb-3 text-[13px] text-ink-dim">
             {usd(data.reviewsMonthToDateUsd ?? 0)} this month. Kept separate from chat because it
             answers a different question: chat spend is managed by the cap above, while a review is
@@ -388,7 +389,7 @@ function CostsTab() {
                 className="no-underline hover:text-accent"
               >
                 {r.entity ?? '(engagement removed)'}
-                <div className="text-[12px] text-ink-faint">
+                <div className="text-[13px] text-ink-faint">
                   {[r.taxYear ? `TY ${r.taxYear}` : null, new Date(r.createdAt).toLocaleDateString()]
                     .filter(Boolean)
                     .join(' · ')}
@@ -405,14 +406,14 @@ function CostsTab() {
       ) : null}
 
       <div className={panel}>
-        <h2 className="mb-3 text-[15px] font-semibold">By person, this month</h2>
+        <h2 className="mb-3 text-[16px] font-semibold">By person, this month</h2>
         {data.byUser.length ? (
           <Table
             head={['Person', 'API calls', 'Cost']}
             rows={data.byUser.map((u) => [
               <div key="p">
                 {u.display_name || u.email}
-                <div className="text-[12px] text-ink-faint">{u.email}</div>
+                <div className="text-[13px] text-ink-faint">{u.email}</div>
               </div>,
               String(u.calls),
               usd(u.usd),
@@ -425,7 +426,7 @@ function CostsTab() {
       </div>
 
       <div className={panel}>
-        <h2 className="mb-3 text-[15px] font-semibold">Recent activity</h2>
+        <h2 className="mb-3 text-[16px] font-semibold">Recent activity</h2>
         {data.recent.length ? (
           <Table
             head={['When', 'Person', 'Kind', 'Tokens', 'Cost']}
@@ -467,7 +468,7 @@ function PeopleTab() {
   return (
     <>
       <div className={panel}>
-        <h2 className="mb-1 text-[15px] font-semibold">Add someone</h2>
+        <h2 className="mb-1 text-[16px] font-semibold">Add someone</h2>
         <p className="mb-3 text-[13px] text-ink-dim">
           Everyone signs in with Google — there are no passwords. Adding someone here puts
           their work email on the access list; until then Google sign-in is refused.
@@ -541,7 +542,7 @@ function PeopleTab() {
       </div>
 
       <div className={panel}>
-        <h2 className="mb-3 text-[15px] font-semibold">People</h2>
+        <h2 className="mb-3 text-[16px] font-semibold">People</h2>
         {error ? <Alert className="mb-3">{error}</Alert> : null}
         <Table
           head={['Name', 'Email', 'Role', 'Status', '']}
@@ -591,13 +592,13 @@ function Table({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[13.5px]">
+      <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr>
             {head.map((h, i) => (
               <th
                 key={i}
-                className={`border-b border-line-soft px-2.5 py-2 text-[12px] font-semibold text-ink-faint ${
+                className={`border-b border-line-soft px-2.5 py-2 text-[13px] font-semibold text-ink-faint ${
                   numeric.includes(i) ? 'text-right' : 'text-left'
                 }`}
               >
@@ -667,7 +668,7 @@ function AuditTab() {
   return (
     <div>
       <div className={panel}>
-        <h2 className="mb-1 text-[15px] font-semibold">Audit log</h2>
+        <h2 className="mb-1 text-[16px] font-semibold">Audit log</h2>
         <p className="mb-3 text-[13px] text-ink-dim">
           Who did what, and when. Append-only: nothing in this app edits or deletes a
           row here, which is what makes it worth having. Uploads, deletions, access
@@ -699,13 +700,13 @@ function AuditTab() {
           rows={entries.map((e) => [
             new Date(e.at).toLocaleString(),
             e.actor ?? <span className="text-ink-faint">system</span>,
-            <code key="a" className="font-mono text-[12px]">
+            <code key="a" className="font-mono text-[13px]">
               {e.action}
             </code>,
             <span key="t" className="text-ink-dim">
               {e.target ?? '—'}
             </span>,
-            <span key="d" className="text-[12px] text-ink-faint">
+            <span key="d" className="text-[13px] text-ink-faint">
               {e.detail ?? ''}
             </span>,
           ])}

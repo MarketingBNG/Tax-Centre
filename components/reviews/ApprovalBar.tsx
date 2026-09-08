@@ -1,5 +1,6 @@
 'use client';
 
+import { btn, field } from '../ui';
 import { useState } from 'react';
 import { VERDICT_WORD } from './chips';
 import type { RunDetail } from './types';
@@ -102,7 +103,7 @@ export function ApprovalBar({
         {canOffer ? (
           <button
             onClick={() => setConfirming(true)}
-            className="shrink-0 rounded-[9px] bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:bg-accent-hover"
+            className={btn('primary','md','shrink-0')}
           >
             Sign off as {VERDICT_WORD[verdict]}
           </button>
@@ -125,7 +126,7 @@ export function ApprovalBar({
 
       {confirming && (
         <div className="mt-3 border-t border-line-soft pt-3">
-          <div className="text-[12.5px]">
+          <div className="text-[13px]">
             Signing off <b>{verdict ? VERDICT_WORD[verdict] : ''}</b> on register version{' '}
             <b>{run.registerVersion}</b>, with {detail.derived.openCriticalHigh} Critical or High
             item{detail.derived.openCriticalHigh === 1 ? '' : 's'} open.
@@ -142,11 +143,11 @@ export function ApprovalBar({
             onChange={(e) => setNote(e.target.value)}
             rows={2}
             placeholder="Anything to record alongside the sign-off (optional)…"
-            className="mt-2 w-full resize-y rounded-[9px] border border-line bg-canvas px-2.5 py-1.5 text-[12.5px] outline-none placeholder:text-ink-faint focus:border-[#3c4653]"
+            className={`${field} mt-2 resize-y`}
           />
 
           {error && (
-            <div role="alert" className="mt-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-2.5 py-1.5 text-[12px] text-[#e8b0b0]">
+            <div role="alert" className="mt-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-2.5 py-1.5 text-[13px] text-[#e8b0b0]">
               {error}
             </div>
           )}
@@ -155,7 +156,7 @@ export function ApprovalBar({
             {stale ? (
               <button
                 onClick={() => window.location.reload()}
-                className="rounded-[9px] bg-accent px-3 py-1 text-[12.5px] font-medium text-accent-ink hover:bg-accent-hover"
+                className={btn('primary','sm')}
               >
                 Reload and re-read
               </button>
@@ -163,7 +164,7 @@ export function ApprovalBar({
               <button
                 onClick={() => void approve()}
                 disabled={busy}
-                className="rounded-[9px] bg-accent px-3 py-1 text-[12.5px] font-medium text-accent-ink hover:bg-accent-hover disabled:opacity-40"
+                className={btn('primary','sm')}
               >
                 {busy ? 'Recording…' : 'Confirm sign-off'}
               </button>
@@ -174,7 +175,7 @@ export function ApprovalBar({
                 setError(null);
                 setStale(false);
               }}
-              className="rounded-[9px] border border-line px-3 py-1 text-[12.5px] text-ink-dim hover:text-ink"
+              className={btn('quiet','sm')}
             >
               Cancel
             </button>

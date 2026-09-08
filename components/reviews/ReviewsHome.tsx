@@ -1,9 +1,10 @@
 'use client';
 
+import { page } from '../ui-classes';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { VerdictChip } from './chips';
-import { SkeletonRows } from '../ui';
+import { SkeletonRows, btn } from '../ui';
 import type { ReturnType, RunStatus, Verdict } from '@/lib/review-types';
 
 interface EngagementSummary {
@@ -54,7 +55,7 @@ export function ReviewsHome() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
+    <div className={page.wide}>
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[21px] font-semibold tracking-tight">Reviews</h1>
@@ -66,13 +67,13 @@ export function ReviewsHome() {
         <div className="flex items-center gap-2">
           <Link
             href="/"
-            className="rounded-[9px] border border-line px-3 py-1.5 text-[13px] text-ink-dim no-underline hover:border-accent hover:text-accent"
+            className={btn('quiet')}
           >
             Back to chat
           </Link>
           <Link
             href="/reviews/new"
-            className="rounded-[9px] bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink no-underline hover:bg-accent-hover"
+            className={btn('primary')}
           >
             New review
           </Link>
@@ -90,14 +91,14 @@ export function ReviewsHome() {
       {engagements?.length === 0 && (
         <div className="rounded-xl border border-dashed border-line p-8 text-center">
           <div className="text-[14px] text-ink-dim">No reviews yet.</div>
-          <div className="mx-auto mt-1.5 max-w-[460px] text-[12.5px] text-ink-faint">
+          <div className="mx-auto mt-1.5 max-w-[460px] text-[13px] text-ink-faint">
             A review needs the prepared return and the trial balances for both year ends. It reads
             the books first, because most return errors are book errors that were copied onto the
             form correctly.
           </div>
           <Link
             href="/reviews/new"
-            className="mt-4 inline-block rounded-[9px] bg-accent px-3.5 py-1.5 text-[13px] font-medium text-accent-ink no-underline hover:bg-accent-hover"
+            className={btn('primary','md','mt-4')}
           >
             Start the first one
           </Link>
@@ -108,7 +109,7 @@ export function ReviewsHome() {
           one, and the client it dropped reads exactly like a client that does
           not exist. */}
       {omitted > 0 && (
-        <p className="mb-3 rounded-[9px] border border-line-soft bg-raised px-3 py-2 text-[12.5px] text-ink-dim">
+        <p className="mb-3 rounded-[9px] border border-line-soft bg-raised px-3 py-2 text-[13px] text-ink-dim">
           Showing the {engagements?.length} most recent of {omitted + (engagements?.length ?? 0)}{' '}
           engagements. {omitted} older {omitted === 1 ? 'one is' : 'ones are'} not listed here.
         </p>
@@ -126,10 +127,10 @@ export function ReviewsHome() {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <div className="truncate text-[14.5px] font-medium text-ink">
+                      <div className="truncate text-[14px] font-medium text-ink">
                         {engagement.entityName || engagement.clientLabel}
                       </div>
-                      <div className="mt-0.5 text-[12px] text-ink-faint">
+                      <div className="mt-0.5 text-[13px] text-ink-faint">
                         {[
                           engagement.returnType,
                           engagement.taxYear ? `TY ${engagement.taxYear}` : null,

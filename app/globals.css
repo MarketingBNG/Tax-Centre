@@ -11,9 +11,19 @@
   --color-raised-hover: #2a323d;
   --color-line: #2c3542;
   --color-line-soft: #232a34;
+  /*
+   * The three text weights, each a measured step apart and each legible on the
+   * darkest surface it can land on.
+   *
+   * ink-faint was #67737f, which is 3.07:1 on raised — under the 4.5 needed for
+   * normal text, in 223 places, most of them small. ink-dim moved up with it so
+   * the ladder keeps its spacing rather than collapsing into two shades that
+   * only differ on paper. Worst case against canvas, panel, raised and
+   * raised-hover: 10.6, 7.0 and 4.5.
+   */
   --color-ink: #e4e9ef;
-  --color-ink-dim: #97a3b1;
-  --color-ink-faint: #67737f;
+  --color-ink-dim: #b7c0c9;
+  --color-ink-faint: #8f9aa4;
   --color-accent: #6aa79b;
   --color-accent-hover: #7dbcaf;
   --color-accent-ink: #0d1614;
@@ -26,12 +36,12 @@
      in about twenty places that have nothing to do with a tax review. Renaming
      them to suit the review engine would have churned nine unrelated
      components. */
-  --color-sev-blocking: #d47d7d;
+  --color-sev-blocking: #d68282;
   --color-sev-risk: #d3a06f;
   --color-sev-math: #c4b477;
   --color-sev-opportunity: #7fae91;
   --color-sev-doc: #7fa0c2;
-  --color-sev-nit: #8a939e;
+  --color-sev-nit: #919aa4;
 
   /* The review engine's four severities, aliased onto the same palette so a
      finding and a warning elsewhere in the app look like the same product.
@@ -39,10 +49,10 @@
      Colour is never the only signal: every chip and banner carries the word as
      well, so the summary reads correctly printed in black and white and to
      anyone who does not separate red from amber. */
-  --color-sev-critical: #d47d7d;
+  --color-sev-critical: #d68282;
   --color-sev-high: #d3a06f;
   --color-sev-medium: #c4b477;
-  --color-sev-low: #8a939e;
+  --color-sev-low: #919aa4;
 
   /* Verdicts. Hold takes the Critical colour and Release-with-conditions takes
      High, so the banner and the counts beneath it cannot contradict each other. */
@@ -112,7 +122,7 @@ body {
 /* Streamed review text is plain text with a few markers; these style the
    headings the model emits without pulling in a markdown renderer. */
 .trc-prose h3 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   margin: 18px 0 6px;
 }
