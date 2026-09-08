@@ -128,7 +128,7 @@ function Chip({ citation, source }: { citation: Citation; source?: Source }) {
       target="_blank"
       rel="noopener noreferrer"
       title={label}
-      className="mx-0.5 inline-flex h-[15px] min-w-[15px] translate-y-[-2px] items-center justify-center rounded-[6px] border border-line bg-raised px-1 align-middle font-mono text-[11.5px] text-ink-dim no-underline hover:border-accent hover:text-accent"
+      className="mx-1 inline-flex h-[15px] min-w-[15px] translate-y-[-2px] items-center justify-center rounded-[6px] border border-line bg-raised px-1 align-middle font-mono text-[11.5px] text-ink-dim no-underline hover:border-accent hover:text-accent"
     >
       {citation.number}
     </a>
@@ -192,7 +192,7 @@ function CodeBlock({ children }: { children: ReactNode }) {
             /* the browser blocked the clipboard; nothing useful to say here */
           }
         }}
-        className="absolute top-2 right-2 rounded border border-line bg-panel px-1.5 py-0.5 text-[11.5px] text-ink-faint opacity-0 transition-opacity group-hover/code:opacity-100 hover:text-ink"
+        className="absolute top-2 right-2 rounded border border-line bg-panel px-2 py-1 text-[11.5px] text-ink-faint opacity-0 transition-opacity group-hover/code:opacity-100 hover:text-ink"
       >
         {copied ? 'Copied' : 'Copy'}
       </button>
@@ -241,7 +241,7 @@ export function Markdown({
         components={{
           h1: ({ children }) => <h3 className="mt-5 mb-2 text-[16px] font-semibold">{cite(children)}</h3>,
           h2: ({ children }) => <h3 className="mt-5 mb-2 text-[16px] font-semibold">{cite(children)}</h3>,
-          h3: ({ children }) => <h3 className="mt-4 mb-1.5 text-[14px] font-semibold">{cite(children)}</h3>,
+          h3: ({ children }) => <h3 className="mt-4 mb-2 text-[14px] font-semibold">{cite(children)}</h3>,
           h4: ({ children }) => <h4 className="mt-3 mb-1 text-[14px] font-semibold">{cite(children)}</h4>,
           p: ({ children }) => <p className="my-2 leading-[1.6] first:mt-0 last:mb-0">{cite(children)}</p>,
           ul: (p) => <ul className="my-2 list-disc space-y-1 pl-5" {...p} />,
@@ -276,7 +276,7 @@ export function Markdown({
             }
             return (
               <code
-                className="rounded border border-line-soft bg-raised px-1.5 py-0.5 font-mono text-[13px]"
+                className="rounded border border-line-soft bg-raised px-2 py-1 font-mono text-[13px]"
                 {...p}
               >
                 {children}
@@ -301,12 +301,12 @@ export function Markdown({
           ),
           thead: (p) => <thead className="bg-raised" {...p} />,
           th: ({ children }) => (
-            <th className="border-b border-line px-2.5 py-1.5 text-left text-[13px] font-semibold text-ink-dim">
+            <th className="border-b border-line px-3 py-2 text-left text-[13px] font-semibold text-ink-dim">
               {cite(children)}
             </th>
           ),
           td: ({ children }) => (
-            <td className="border-b border-line-soft px-2.5 py-1.5 align-top">{cite(children)}</td>
+            <td className="border-b border-line-soft px-3 py-2 align-top">{cite(children)}</td>
           ),
         }}
       >

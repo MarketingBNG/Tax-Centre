@@ -176,7 +176,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
             />
           </label>
           <label
-            className={`rounded-[9px] border border-line px-3 py-1.5 text-[13px] ${
+            className={`rounded-[9px] border border-line px-3 py-2 text-[13px] ${
               busy ? 'text-ink-faint' : 'cursor-pointer text-ink-dim hover:border-accent hover:text-accent'
             }`}
           >
@@ -218,7 +218,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
           </div>
         )}
 
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {imports?.map((row, index) => (
             <li key={row.id}>
               <button
@@ -244,7 +244,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
                     )}
                   </span>
                 </div>
-                <div className="mt-0.5 text-[11.5px] text-ink-faint">
+                <div className="mt-1 text-[11.5px] text-ink-faint">
                   Taken from the source {day(row.extractedAt)} · imported {day(row.importedAt)}
                   {row.periodStart && row.periodEnd
                     ? ` · covers ${row.periodStart} to ${row.periodEnd}`
@@ -262,7 +262,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
                         {unmapped.length} account{unmapped.length === 1 ? '' : 's'} could not be
                         placed
                       </h3>
-                      <p className="mt-0.5 mb-2 text-[11.5px] text-ink-faint">
+                      <p className="mt-1 mb-2 text-[11.5px] text-ink-faint">
                         Left unmapped rather than filed under the nearest guess. The books stage is
                         shown these too, so it cannot review a subset and report it as the whole
                         ledger.
@@ -276,7 +276,7 @@ export function BooksPanel({ engagementId }: { engagementId: string }) {
                       <h3 className="text-[13px] font-medium">
                         {mapped.length} mapped to the firm&apos;s chart of accounts
                       </h3>
-                      <p className="mt-0.5 mb-2 text-[11.5px] text-ink-faint">
+                      <p className="mt-1 mb-2 text-[11.5px] text-ink-faint">
                         The client&apos;s own code and name are kept beside the standard key — a
                         preparer cannot act on a note about a name their screen does not show.
                       </p>

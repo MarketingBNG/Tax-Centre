@@ -77,7 +77,7 @@ function AnswerForm({
   }
 
   return (
-    <div className="mt-2.5 border-t border-line-soft pt-2.5">
+    <div className="mt-3 border-t border-line-soft pt-3">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -87,11 +87,11 @@ function AnswerForm({
       />
 
       {files.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="mt-2 flex flex-wrap gap-1">
           {files.map((file) => (
             <span
               key={file.id}
-              className="inline-flex items-center gap-1 rounded border border-verdict-clear/40 px-1.5 py-0.5 text-[11.5px] text-verdict-clear"
+              className="inline-flex items-center gap-1 rounded border border-verdict-clear/40 px-2 py-1 text-[11.5px] text-verdict-clear"
             >
               {file.filename}
               <button
@@ -106,7 +106,7 @@ function AnswerForm({
         </div>
       )}
 
-      {error && <div role="alert" className="mt-1.5 text-[11.5px] text-sev-critical">{error}</div>}
+      {error && <div role="alert" className="mt-2 text-[11.5px] text-sev-critical">{error}</div>}
 
       <div className="mt-2 flex items-center gap-2">
         <input
@@ -176,7 +176,7 @@ export function QuestionsPanel({
         </span>
       </div>
 
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {ordered.map((question) => {
           const code = findingCode(question.findingId);
           const isOpen = openId === question.id;
@@ -189,8 +189,8 @@ export function QuestionsPanel({
                 answered ? 'border-line-soft opacity-75' : 'border-line-soft'
               }`}
             >
-              <div className="flex items-start gap-2.5">
-                <span className="shrink-0 pt-0.5 font-mono text-[11.5px] text-ink-faint">
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 pt-1 font-mono text-[11.5px] text-ink-faint">
                   {question.code}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -200,14 +200,14 @@ export function QuestionsPanel({
                     {code && <span className="font-mono">{code}</span>}
                     {question.figure && <span>{question.figure}</span>}
                     {question.owner === 'client' && (
-                      <span className="rounded border border-line px-1.5 py-0.5">
+                      <span className="rounded border border-line px-2 py-1">
                         needs the client
                       </span>
                     )}
                   </div>
 
                   {question.branches.length > 0 && !answered && (
-                    <ul className="mt-1.5 space-y-0.5 text-[11.5px] text-ink-dim">
+                    <ul className="mt-2 space-y-1 text-[11.5px] text-ink-dim">
                       {question.branches.map((branch, i) => (
                         <li key={i}>
                           <span className="text-ink-faint">If {branch.if}:</span> {branch.then}
@@ -223,7 +223,7 @@ export function QuestionsPanel({
                   )}
 
                   {answered && (
-                    <div className="mt-1.5 rounded-md border border-line-soft px-2 py-1.5 text-[13px] text-ink-dim">
+                    <div className="mt-2 rounded-md border border-line-soft px-2 py-2 text-[13px] text-ink-dim">
                       {question.answerText}
                     </div>
                   )}

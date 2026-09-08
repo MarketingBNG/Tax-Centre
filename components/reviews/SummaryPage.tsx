@@ -50,7 +50,7 @@ function HeaderBand({ detail }: { detail: RunDetail }) {
         {facts.map(([label, value]) => (
           <div key={label}>
             <div className="text-[11.5px] tracking-wide text-ink-faint uppercase">{label}</div>
-            <div className="mt-0.5 truncate text-[13px]">{value}</div>
+            <div className="mt-1 truncate text-[13px]">{value}</div>
           </div>
         ))}
       </div>
@@ -86,7 +86,7 @@ function VerdictBanner({ detail }: { detail: RunDetail }) {
     // 10% tint, so without something solid behind it the register would scroll
     // visibly through the verdict. Print resets both (trc-print-sticky).
     <div className="trc-print-sticky sticky top-0 z-10 bg-canvas py-1">
-    <section className={`trc-print-zone rounded-xl border px-4 py-3.5 ${verdict ? style : 'border-line text-ink-dim'}`}>
+    <section className={`trc-print-zone rounded-xl border px-4 py-4 ${verdict ? style : 'border-line text-ink-dim'}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="text-[21px] font-semibold tracking-tight">
           {verdict ? VERDICT_WORD[verdict] : 'Not yet decided'}
@@ -99,7 +99,7 @@ function VerdictBanner({ detail }: { detail: RunDetail }) {
       </div>
 
       {blockers.length > 0 && (
-        <ul className="mt-2 space-y-0.5 text-[13px] opacity-90">
+        <ul className="mt-2 space-y-1 text-[13px] opacity-90">
           {blockers.slice(0, 4).map((blocker, i) => (
             <li key={i}>— {blocker}</li>
           ))}
@@ -197,23 +197,23 @@ function TopFindings({
       <h2 className="mb-2 text-[13px] font-medium">
         Top {top.length} finding{top.length === 1 ? '' : 's'}
       </h2>
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {top.map((finding) => (
           <li key={finding.id}>
             <button
               onClick={() => onOpen(finding)}
-              className="flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-raised"
+              className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-raised"
             >
-              <span className="w-14 shrink-0 pt-0.5 font-mono text-[11.5px] text-ink-faint">
+              <span className="w-14 shrink-0 pt-1 font-mono text-[11.5px] text-ink-faint">
                 {finding.code}
               </span>
-              <span className="shrink-0 pt-0.5">
+              <span className="shrink-0 pt-1">
                 <SeverityChip severity={finding.severity} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[13px]">{finding.title}</span>
                 {finding.fix?.change && (
-                  <span className="mt-0.5 block text-[11.5px] text-ink-faint">
+                  <span className="mt-1 block text-[11.5px] text-ink-faint">
                     Fix: {finding.fix.change}
                   </span>
                 )}
@@ -315,7 +315,7 @@ export function SummaryPage({
                 <li key={f.id}>
                   <button
                     onClick={() => onOpenFinding(f)}
-                    className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left text-[13px] hover:bg-raised"
+                    className="flex w-full items-baseline gap-2 rounded px-1 py-1 text-left text-[13px] hover:bg-raised"
                   >
                     <span className="font-mono text-[11.5px] text-ink-faint">{f.code}</span>
                     <span className="min-w-0 flex-1 truncate">{f.title}</span>

@@ -46,17 +46,17 @@ function Column({
   empty: string;
 }) {
   return (
-    <div className="min-w-0 flex-1 rounded-xl border border-line-soft bg-panel px-3 py-2.5">
+    <div className="min-w-0 flex-1 rounded-xl border border-line-soft bg-panel px-3 py-3">
       <h3 className={`mb-2 text-[13px] font-medium ${tone}`}>
         {title} <span className="text-ink-faint">({rows.length})</span>
       </h3>
       {rows.length === 0 ? (
         <p className="text-[11.5px] text-ink-faint">{empty}</p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {rows.map((row) => (
-            <li key={row.id} className="flex items-start gap-1.5">
-              <span className="shrink-0 pt-0.5">
+            <li key={row.id} className="flex items-start gap-2">
+              <span className="shrink-0 pt-1">
                 <SeverityChip severity={row.severity} />
               </span>
               <span className="min-w-0 text-[13px]">
@@ -104,7 +104,7 @@ export function RunCompare({ runId }: { runId: string }) {
                 <span className="text-ink-faint">
                   {diff.from.verdict ? VERDICT_WORD[diff.from.verdict] : '—'}
                 </span>
-                <span className="mx-1.5 text-ink-faint">→</span>
+                <span className="mx-2 text-ink-faint">→</span>
                 <span className="text-ink">
                   {diff.to.verdict ? VERDICT_WORD[diff.to.verdict] : '—'}
                 </span>
@@ -156,7 +156,7 @@ export function RunCompare({ runId }: { runId: string }) {
       {diff.changed.length > 0 && (
         <div className="rounded-xl border border-line-soft bg-panel px-4 py-3">
           <h3 className="mb-2 text-[13px] font-medium">Changed</h3>
-          <ul className="space-y-1.5">
+          <ul className="space-y-2">
             {diff.changed.map(({ before, after }) => (
               <li key={after.id} className="flex items-center gap-2 text-[13px]">
                 <span className="font-mono text-[11.5px] text-ink-faint">{after.code}</span>

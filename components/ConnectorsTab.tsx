@@ -29,9 +29,9 @@ const btn =
   'rounded-[9px] border border-line bg-raised px-4 py-2 font-medium hover:bg-raised-hover disabled:opacity-50';
 const btnPrimary =
   'rounded-[9px] bg-accent px-4 py-2 font-medium text-accent-ink hover:bg-accent-hover disabled:opacity-50';
-const btnSm = 'rounded-md border border-line px-2.5 py-1 text-[13px] hover:bg-raised';
+const btnSm = 'rounded-md border border-line px-3 py-1 text-[13px] hover:bg-raised';
 const panel = 'mb-4 rounded-xl border border-line bg-panel p-5';
-const label = 'mb-1.5 mt-3 block text-[13px] text-ink-dim';
+const label = 'mb-2 mt-3 block text-[13px] text-ink-dim';
 
 /**
  * Connectors: remote MCP servers whose tools the model may call.
@@ -126,17 +126,17 @@ export function ConnectorsTab() {
 
       {connectors.map((c) => (
         <div key={c.id} className={panel}>
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex-1">
               <div className="flex items-center gap-2 text-[16px] font-semibold">
                 {c.name}
                 {!c.enabled ? (
-                  <span className="rounded border border-line px-1.5 py-0.5 text-[11.5px] font-normal text-ink-faint">
+                  <span className="rounded border border-line px-2 py-1 text-[11.5px] font-normal text-ink-faint">
                     off
                   </span>
                 ) : null}
               </div>
-              <div className="mt-0.5 font-mono text-[13px] text-ink-faint">{c.url}</div>
+              <div className="mt-1 font-mono text-[13px] text-ink-faint">{c.url}</div>
             </div>
             <span className="text-[13px] text-ink-dim">
               {c.approved.length} of {c.tools.length} tools approved
@@ -170,7 +170,7 @@ export function ConnectorsTab() {
           </div>
 
           {c.lastError ? (
-            <div role="alert" className="mt-2.5 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
+            <div role="alert" className="mt-3 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
               Last attempt failed: {c.lastError}
             </div>
           ) : null}
@@ -188,7 +188,7 @@ export function ConnectorsTab() {
                     return (
                       <label
                         key={t.name}
-                        className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-raised"
+                        className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-raised"
                       >
                         <input
                           type="checkbox"
@@ -219,7 +219,7 @@ export function ConnectorsTab() {
                             {t.name}
                           </span>
                           {t.description ? (
-                            <span className="mt-0.5 block text-[13px] text-ink-dim">
+                            <span className="mt-1 block text-[13px] text-ink-dim">
                               {t.description.slice(0, 220)}
                             </span>
                           ) : null}
@@ -232,7 +232,7 @@ export function ConnectorsTab() {
 
               <div className="mt-3 border-t border-line-soft pt-3">
                 <label className={label}>Credential header</label>
-                <div className="flex flex-wrap items-end gap-2.5">
+                <div className="flex flex-wrap items-end gap-3">
                   <input
                     defaultValue={c.authHeader ?? ''}
                     placeholder="Authorization"

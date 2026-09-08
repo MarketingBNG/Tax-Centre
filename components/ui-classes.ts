@@ -23,14 +23,18 @@ const BTN_BASE =
   'inline-flex items-center justify-center gap-2 rounded-[9px] no-underline transition-colors ' +
   'disabled:cursor-not-allowed disabled:opacity-40';
 
+// A 4px ladder that still reads as three sizes: rounding sm and md to the
+// grid had left both at px-3, which is not two sizes, it is one.
 const BTN_SIZE = {
-  sm: 'px-2.5 py-1 text-[13px]',
-  md: 'px-3 py-1.5 text-[13px]',
-  lg: 'px-4 py-2.5 text-[14px]',
+  sm: 'px-2 py-1 text-[13px]',
+  md: 'px-3 py-2 text-[13px]',
+  lg: 'px-4 py-3 text-[14px]',
 } as const;
 
 const BTN_INTENT = {
-  primary: 'bg-accent font-medium text-accent-ink hover:bg-accent-hover',
+  // The transparent border is load-bearing: without it primary is 2px shorter
+  // than the bordered intents, and every row that mixes them sits crooked.
+  primary: 'border border-transparent bg-accent font-medium text-accent-ink hover:bg-accent-hover',
   secondary: 'border border-line bg-raised hover:bg-raised-hover',
   quiet: 'border border-line text-ink-dim hover:border-accent hover:text-accent',
   danger: 'border border-line text-ink-dim hover:border-sev-blocking hover:text-sev-blocking',
@@ -50,7 +54,7 @@ export function btn(
  * so focus reads as "here" rather than as "this is the action".
  */
 export const field =
-  'w-full rounded-[9px] border border-line bg-canvas px-2.5 py-1.5 text-[13px] outline-none ' +
+  'w-full rounded-[9px] border border-line bg-canvas px-3 py-2 text-[13px] outline-none ' +
   'placeholder:text-ink-faint focus:border-[#3c4653]';
 
 /**

@@ -138,7 +138,7 @@ function ConfirmDialog({
         className="w-full max-w-[420px] rounded-2xl border border-line bg-canvas p-5"
       >
         <h2 className="text-[16px] font-semibold">{request.title}</h2>
-        {request.body ? <p className="mt-1.5 text-[13px] text-ink-dim">{request.body}</p> : null}
+        {request.body ? <p className="mt-2 text-[13px] text-ink-dim">{request.body}</p> : null}
 
         <div className="mt-4 flex justify-end gap-2">
           <button
@@ -153,7 +153,7 @@ function ConfirmDialog({
             disabled={busy}
             // Focused by the dialog hook only if it is first in the DOM, which
             // it deliberately is not — Cancel takes focus on a destructive box.
-            className={`rounded-[9px] px-3 py-1.5 text-[13px] font-medium disabled:opacity-40 ${
+            className={`rounded-[9px] px-3 py-2 text-[13px] font-medium disabled:opacity-40 ${
               request.destructive
                 ? 'bg-sev-blocking text-[#2a0f0f] hover:brightness-110'
                 : 'bg-accent text-accent-ink hover:bg-accent-hover'

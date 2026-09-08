@@ -70,9 +70,9 @@ const btn =
   'rounded-[9px] border border-line bg-raised px-4 py-2 font-medium hover:bg-raised-hover disabled:opacity-50';
 const btnPrimary =
   'rounded-[9px] bg-accent px-4 py-2 font-medium text-accent-ink hover:bg-accent-hover disabled:opacity-50';
-const btnSm = 'rounded-md border border-line px-2.5 py-1 text-[13px] hover:bg-raised';
+const btnSm = 'rounded-md border border-line px-3 py-1 text-[13px] hover:bg-raised';
 const panel = 'mb-4 rounded-xl border border-line bg-panel p-5';
-const label = 'mb-1.5 mt-3 block text-[13px] text-ink-dim';
+const label = 'mb-2 mt-3 block text-[13px] text-ink-dim';
 
 const usd = (n: number) => `$${Number(n || 0).toFixed(2)}`;
 const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
@@ -83,7 +83,7 @@ export function AdminPanel() {
   return (
     <div className={`${page.wide} pt-7 pb-16`}>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2.5 text-[21px] font-medium">
+        <h1 className="flex items-center gap-3 text-[21px] font-medium">
           <Mark size={20} />
           Admin
         </h1>
@@ -112,7 +112,7 @@ export function AdminPanel() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`border-b-2 px-3.5 py-2 font-medium ${
+            className={`border-b-2 px-4 py-2 font-medium ${
               tab === key ? 'border-accent text-ink' : 'border-transparent text-ink-faint'
             }`}
           >
@@ -264,22 +264,22 @@ function CostsTab() {
   return (
     <>
       {confirmDialog}
-      <div className="mb-4 flex flex-wrap gap-3.5">
-        <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-3.5">
-          <div className="mb-1.5 text-[13px] text-ink-faint">Spend this month</div>
+      <div className="mb-4 flex flex-wrap gap-4">
+        <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-4">
+          <div className="mb-2 text-[13px] text-ink-faint">Spend this month</div>
           <div className="text-[21px] font-semibold tabular-nums">{usd(data.monthToDateUsd)}</div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-raised">
             <i className="block h-full bg-accent" style={{ width: `${pct}%` }} />
           </div>
-          <div className="mt-1.5 text-[13px] text-ink-faint">of {usd(data.capUsd)} cap</div>
+          <div className="mt-2 text-[13px] text-ink-faint">of {usd(data.capUsd)} cap</div>
         </div>
 
-        <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-3.5">
-          <div className="mb-1.5 text-[13px] text-ink-faint">Cache hit rate</div>
+        <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-4">
+          <div className="mb-2 text-[13px] text-ink-faint">Cache hit rate</div>
           <div className="text-[21px] font-semibold tabular-nums">
             {(data.cacheHitRate * 100).toFixed(0)}%
           </div>
-          <div className={`mt-1.5 text-[13px] ${cacheLow ? 'text-sev-math' : 'text-ink-faint'}`}>
+          <div className={`mt-2 text-[13px] ${cacheLow ? 'text-sev-math' : 'text-ink-faint'}`}>
             {cacheLow
               ? 'Low — check nothing volatile entered the prompt prefix'
               : 'Healthy'}
@@ -287,10 +287,10 @@ function CostsTab() {
         </div>
 
         {retention ? (
-          <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-3.5">
-            <div className="mb-1.5 text-[13px] text-ink-faint">Stored documents</div>
+          <div className="min-w-[170px] flex-1 rounded-xl border border-line bg-panel px-4 py-4">
+            <div className="mb-2 text-[13px] text-ink-faint">Stored documents</div>
             <div className="text-[21px] font-semibold tabular-nums">{retention.liveFiles}</div>
-            <div className="mt-1.5 text-[13px] text-ink-faint">
+            <div className="mt-2 text-[13px] text-ink-faint">
               {mb(retention.liveBytes)} · {retention.purgedFiles} purged
             </div>
           </div>
@@ -598,7 +598,7 @@ function Table({
             {head.map((h, i) => (
               <th
                 key={i}
-                className={`border-b border-line-soft px-2.5 py-2 text-[13px] font-semibold text-ink-faint ${
+                className={`border-b border-line-soft px-3 py-2 text-[13px] font-semibold text-ink-faint ${
                   numeric.includes(i) ? 'text-right' : 'text-left'
                 }`}
               >
@@ -613,7 +613,7 @@ function Table({
               {row.map((cell, c) => (
                 <td
                   key={c}
-                  className={`border-b border-line-soft px-2.5 py-2 ${
+                  className={`border-b border-line-soft px-3 py-2 ${
                     numeric.includes(c) ? 'text-right tabular-nums' : 'text-left'
                   }`}
                 >
@@ -674,7 +674,7 @@ function AuditTab() {
           row here, which is what makes it worth having. Uploads, deletions, access
           changes and instruction edits are all recorded.
         </p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setFilter('')}
             className={`${btnSm} ${filter === '' ? 'border-accent text-ink' : 'text-ink-dim'}`}
@@ -688,7 +688,7 @@ function AuditTab() {
               className={`${btnSm} ${filter === a.action ? 'border-accent text-ink' : 'text-ink-dim'}`}
             >
               {a.action}
-              <span className="ml-1.5 text-ink-faint">{a.count}</span>
+              <span className="ml-2 text-ink-faint">{a.count}</span>
             </button>
           ))}
         </div>

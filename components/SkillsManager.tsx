@@ -21,10 +21,10 @@ interface Skill {
 }
 
 const btn =
-  'rounded-[9px] border border-line bg-raised px-3.5 py-1.5 text-[13px] font-medium hover:bg-raised-hover disabled:opacity-50';
+  'rounded-[9px] border border-line bg-raised px-4 py-2 text-[13px] font-medium hover:bg-raised-hover disabled:opacity-50';
 const btnPrimary =
-  'rounded-[9px] bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-50';
-const btnSm = 'rounded-md border border-line px-2.5 py-1 text-[13px] hover:bg-raised';
+  'rounded-[9px] bg-accent px-4 py-2 text-[13px] font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-50';
+const btnSm = 'rounded-md border border-line px-3 py-1 text-[13px] hover:bg-raised';
 
 const kb = (n: number) => (n < 1000 ? `${n} chars` : `${(n / 1000).toFixed(1)}k chars`);
 
@@ -92,7 +92,7 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
   return (
     <div>
       {confirmDialog}
-      <div className="mb-3 flex flex-wrap items-center gap-2.5">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
         <button
           className={btnPrimary}
           disabled={busy}
@@ -111,13 +111,13 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
 
       <div className="flex flex-col gap-2">
         {shown.map((s) => (
-          <div key={s.id} className="rounded-lg border border-line px-3 py-2.5">
-            <div className="flex flex-wrap items-start gap-2.5">
+          <div key={s.id} className="rounded-lg border border-line px-3 py-3">
+            <div className="flex flex-wrap items-start gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[13px] font-medium">{s.name}</span>
                   {!s.enabled ? (
-                    <span className="rounded border border-line px-1.5 text-[11.5px] text-ink-faint">
+                    <span className="rounded border border-line px-2 text-[11.5px] text-ink-faint">
                       off
                     </span>
                   ) : null}
@@ -131,7 +131,7 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
                 </div>
               </div>
 
-              <div className="flex shrink-0 gap-1.5">
+              <div className="flex shrink-0 gap-2">
                 <button className={btnSm} onClick={() => setOpen(open === s.id ? null : s.id)}>
                   {open === s.id ? 'Close' : 'Files'}
                 </button>
@@ -169,13 +169,13 @@ export function SkillsManager({ scope }: { scope: 'firm' | 'personal' }) {
             </div>
 
             {open === s.id ? (
-              <div className="mt-2.5 border-t border-line-soft pt-2.5">
+              <div className="mt-3 border-t border-line-soft pt-3">
                 {s.files.length === 0 ? (
                   <div className="text-[13px] text-ink-faint">
                     Just the SKILL.md — no supporting files.
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1">
                     {s.files.map((f) => (
                       <div
                         key={f.path}

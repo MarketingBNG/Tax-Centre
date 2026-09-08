@@ -128,20 +128,20 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
         onClick={(e) => e.stopPropagation()}
         className="flex h-[600px] max-h-full w-full max-w-[760px] flex-col overflow-hidden rounded-2xl border border-line bg-canvas sm:flex-row"
       >
-        <nav className="flex w-full shrink-0 flex-row items-center gap-px overflow-x-auto border-b border-line-soft bg-panel p-2.5 sm:w-44 sm:flex-col sm:items-stretch sm:overflow-x-visible sm:border-r sm:border-b-0">
-          <div className="hidden px-2.5 pt-1 pb-2.5 text-[16px] font-semibold tracking-tight sm:block">Settings</div>
+        <nav className="flex w-full shrink-0 flex-row items-center gap-px overflow-x-auto border-b border-line-soft bg-panel p-3 sm:w-44 sm:flex-col sm:items-stretch sm:overflow-x-visible sm:border-r sm:border-b-0">
+          <div className="hidden px-3 pt-1 pb-3 text-[16px] font-semibold tracking-tight sm:block">Settings</div>
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`shrink-0 rounded-lg px-2.5 py-1.5 text-left text-[13px] ${
+              className={`shrink-0 rounded-lg px-3 py-2 text-left text-[13px] ${
                 tab === t.id ? 'bg-raised text-ink' : 'text-ink-dim hover:bg-raised hover:text-ink'
               }`}
             >
               {t.label}
             </button>
           ))}
-          <div className="ml-auto flex shrink-0 items-center gap-2 px-2.5 text-[11.5px] text-ink-faint sm:mt-auto sm:ml-0 sm:justify-between sm:pt-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2 px-3 text-[11.5px] text-ink-faint sm:mt-auto sm:ml-0 sm:justify-between sm:pt-2">
             <span>{saved ? 'Saved' : ''}</span>
             <button onClick={onClose} className="hover:text-ink">
               Close
@@ -164,9 +164,9 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={12}
                 placeholder="I review individual returns and mostly work in California. Give me the figure first, then the reasoning. Assume I know the terminology."
-                className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-2.5 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
+                className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-3 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
               />
-              <div className="mt-2.5 flex items-center gap-2.5">
+              <div className="mt-3 flex items-center gap-3">
                 <button
                   onClick={() => patch({ instructions })}
                   className={btn('primary')}
@@ -184,11 +184,11 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
             <section className="space-y-5">
               <div>
                 <h2 className="mb-1 text-[16px] font-semibold">Model</h2>
-                <p className="mb-2.5 text-[13px] text-ink-dim">
+                <p className="mb-3 text-[13px] text-ink-dim">
                   Where a new conversation starts. Any thread can be switched from the
                   composer without changing this.
                 </p>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   {prefs.models.map((m) => (
                     <button
                       key={m.id}
@@ -208,7 +208,7 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
 
               <div>
                 <h2 className="mb-1 text-[16px] font-semibold">Thinking</h2>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   {prefs.thinkingLevels.map((t) => (
                     <button
                       key={t.id}
@@ -228,12 +228,12 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
 
               <div>
                 <h2 className="mb-1 text-[16px] font-semibold">Style</h2>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {prefs.styles.map((s) => (
                     <button
                       key={s.id}
                       onClick={() => patch({ style: s.id })}
-                      className={`rounded-[9px] border px-3 py-1.5 text-[13px] ${
+                      className={`rounded-[9px] border px-3 py-2 text-[13px] ${
                         (prefs.style ?? prefs.defaults.style) === s.id
                           ? 'border-accent bg-raised'
                           : 'border-line hover:bg-raised'
@@ -255,7 +255,7 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                 plenty — it is sent on every message written in that style.
               </p>
 
-              <div className="mb-4 flex flex-col gap-1.5">
+              <div className="mb-4 flex flex-col gap-2">
                 {prefs.styles
                   .filter((s) => !s.builtIn)
                   .map((s) => (
@@ -290,14 +290,14 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                   value={styleName}
                   onChange={(e) => setStyleName(e.target.value)}
                   placeholder="Name — e.g. Client email"
-                  className="w-full rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-[13px] outline-none focus:border-[#3c4653]"
+                  className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] outline-none focus:border-[#3c4653]"
                 />
                 <textarea
                   value={styleText}
                   onChange={(e) => setStyleText(e.target.value)}
                   rows={5}
                   placeholder="Write as if to a client who is not an accountant. No jargon without a short gloss. Never more than four paragraphs."
-                  className="w-full resize-y rounded-lg border border-line bg-canvas px-2.5 py-2 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
+                  className="w-full resize-y rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
                 />
                 <button
                   disabled={!styleName.trim() || !styleText.trim()}
@@ -348,8 +348,8 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
 
               <div className="flex flex-col gap-2">
                 {accounts.map((a) => (
-                  <div key={a.id} className="rounded-lg border border-line px-3 py-2.5">
-                    <div className="flex flex-wrap items-center gap-2.5">
+                  <div key={a.id} className="rounded-lg border border-line px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <div className="flex-1">
                         <div className="text-[13px] font-medium">{a.label}</div>
                         <div className="text-[13px] text-ink-faint">
@@ -394,7 +394,7 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                     {!a.configured && a.setupHint ? (
                       <div className="mt-2 border-t border-line-soft pt-2 text-[13px] text-ink-dim">
                         {a.setupHint}
-                        <div className="mt-1.5 text-ink-faint">
+                        <div className="mt-2 text-ink-faint">
                           Redirect URI to register:{' '}
                           <code className="font-mono text-[11.5px]">{a.redirectUri}</code>
                         </div>
@@ -421,7 +421,7 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                 has kept is here, and deleting one deletes it for good.
               </p>
 
-              <label className="mb-3 flex items-center gap-2.5 rounded-lg border border-line px-3 py-2 text-[13px]">
+              <label className="mb-3 flex items-center gap-3 rounded-lg border border-line px-3 py-2 text-[13px]">
                 <input
                   type="checkbox"
                   checked={prefs.memoryEnabled}
@@ -430,7 +430,7 @@ export function SettingsDialog({ onClose, onSaved }: { onClose: () => void; onSa
                 Let the assistant remember things between conversations
               </label>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 {memories.map((m) => (
                   <div
                     key={m.id}

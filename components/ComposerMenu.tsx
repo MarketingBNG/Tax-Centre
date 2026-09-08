@@ -61,7 +61,7 @@ function Row({
     <button
       onClick={onClick}
       onMouseEnter={onHover}
-      className={`flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-[13px] ${
+      className={`flex w-full items-center gap-3 px-3 py-[7px] text-left text-[13px] ${
         active ? 'bg-raised text-ink' : 'text-ink-dim hover:bg-raised hover:text-ink'
       }`}
     >
@@ -145,7 +145,7 @@ export function ComposerMenu(props: ComposerMenuProps) {
       </button>
 
       {open ? (
-        <div className="absolute bottom-full left-0 z-20 mb-1.5 w-64 rounded-xl border border-line bg-panel py-1 shadow-xl">
+        <div className="absolute bottom-full left-0 z-20 mb-2 w-64 rounded-xl border border-line bg-panel py-1 shadow-xl">
           <Row
             icon="🖇"
             label="Add files or photos"

@@ -43,7 +43,7 @@ export default async function LoginPage({
   return (
     <div className="grid h-screen place-items-center p-5">
       <div className="w-full max-w-[400px] rounded-2xl border border-line bg-panel p-6">
-        <h1 className="mb-1 flex items-center gap-2.5 text-[21px] font-medium">
+        <h1 className="mb-1 flex items-center gap-3 text-[21px] font-medium">
           <Mark size={20} />
           {APP_NAME}
         </h1>

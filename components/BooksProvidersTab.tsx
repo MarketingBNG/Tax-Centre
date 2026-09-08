@@ -65,7 +65,7 @@ function Copyable({ value }: { value: string }) {
       className="group inline-flex max-w-full items-center gap-2 text-left"
       title="Copy"
     >
-      <code className="truncate rounded-[6px] bg-raised px-1.5 py-0.5 text-[11.5px] text-ink-dim group-hover:text-ink">
+      <code className="truncate rounded-[6px] bg-raised px-2 py-1 text-[11.5px] text-ink-dim group-hover:text-ink">
         {value}
       </code>
       <span className="shrink-0 text-[11.5px] text-ink-faint group-hover:text-accent">
@@ -112,7 +112,7 @@ export function BooksProvidersTab() {
           <p className="mt-1 max-w-[700px] text-[13px] text-ink-dim">{group.blurb}</p>
           <p className="mt-1 text-[13px] text-ink-faint">{group.where}</p>
 
-          <div className="mt-4 space-y-2.5">
+          <div className="mt-4 space-y-3">
             {group.items.map((item) => (
               <div key={item.id} className="rounded-[9px] border border-line px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -127,7 +127,7 @@ export function BooksProvidersTab() {
                     </div>
                   </div>
                   <span
-                    className={`shrink-0 rounded-[6px] px-2 py-0.5 text-[11.5px] ${
+                    className={`shrink-0 rounded-[6px] px-2 py-1 text-[11.5px] ${
                       BADGE[item.state].className
                     }`}
                   >
@@ -136,7 +136,7 @@ export function BooksProvidersTab() {
                 </div>
 
                 {(item.detail || item.redirectUri || item.envKeys.length) && (
-                  <div className="mt-2.5 border-t border-line-soft pt-2.5">
+                  <div className="mt-3 border-t border-line-soft pt-3">
                     {item.detail && (
                       <p className="text-[13px] text-ink-dim">{item.detail}</p>
                     )}
@@ -154,7 +154,7 @@ export function BooksProvidersTab() {
                       </div>
                     )}
                     {item.state === 'needs_setup' && item.envKeys.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
+                      <div className="mt-2 flex flex-wrap items-baseline gap-2">
                         <span className="w-[110px] shrink-0 text-[11.5px] text-ink-faint">
                           Environment
                         </span>
@@ -164,7 +164,7 @@ export function BooksProvidersTab() {
                       </div>
                     )}
                     {item.scopes.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
+                      <div className="mt-2 flex flex-wrap items-baseline gap-2">
                         <span className="w-[110px] shrink-0 text-[11.5px] text-ink-faint">
                           Scopes
                         </span>

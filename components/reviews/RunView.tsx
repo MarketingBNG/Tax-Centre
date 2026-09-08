@@ -201,14 +201,14 @@ export function RunView({ runId }: { runId: string }) {
             {detail.stages.map((stage) => {
               const state = STAGE_STATUS[stage.status] ?? { label: stage.status, tone: 'text-ink-faint' };
               return (
-                <li key={stage.key} className="flex items-baseline gap-2.5 text-[13px]">
+                <li key={stage.key} className="flex items-baseline gap-3 text-[13px]">
                   <span className="w-16 shrink-0 font-mono text-[11.5px] text-ink-faint">
                     {stage.key}
                   </span>
                   <span className="flex-1">{stage.label}</span>
                   <span className={`text-[11.5px] ${state.tone}`}>
                     {state.label}
-                    {stage.status === 'running' && <span className="trc-cursor ml-1.5" />}
+                    {stage.status === 'running' && <span className="trc-cursor ml-2" />}
                   </span>
                 </li>
               );

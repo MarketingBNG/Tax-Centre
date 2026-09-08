@@ -79,7 +79,7 @@ export function FindingDetail({
         className="h-full w-[520px] max-w-full overflow-y-auto border-l border-line bg-panel"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="sticky top-0 border-b border-line-soft bg-panel px-5 py-3.5">
+        <header className="sticky top-0 border-b border-line-soft bg-panel px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11.5px] text-ink-faint">{finding.code}</span>
@@ -120,10 +120,10 @@ export function FindingDetail({
 
           {finding.fix && (
             <section>
-              <h3 className="mb-1.5 text-[11.5px] tracking-wide text-ink-faint uppercase">
+              <h3 className="mb-2 text-[11.5px] tracking-wide text-ink-faint uppercase">
                 How to fix it
               </h3>
-              <ol className="space-y-1.5 text-[13px]">
+              <ol className="space-y-2 text-[13px]">
                 <li className="flex gap-2">
                   <span className="text-ink-faint">1.</span>
                   <span>
@@ -147,17 +147,17 @@ export function FindingDetail({
 
           {finding.amounts.length > 0 && (
             <section>
-              <h3 className="mb-1.5 text-[11.5px] tracking-wide text-ink-faint uppercase">Figures</h3>
+              <h3 className="mb-2 text-[11.5px] tracking-wide text-ink-faint uppercase">Figures</h3>
               <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <tbody>
                   {finding.amounts.map((amount, i) => (
                     <tr key={i} className="border-b border-line-soft last:border-0">
-                      <td className="py-1.5 pr-2 text-ink-dim">{amount.label.replace(/_/g, ' ')}</td>
-                      <td className="py-1.5 pr-2 text-right font-mono tabular-nums">
+                      <td className="py-2 pr-2 text-ink-dim">{amount.label.replace(/_/g, ' ')}</td>
+                      <td className="py-2 pr-2 text-right font-mono tabular-nums">
                         {money(amount.value)}
                       </td>
-                      <td className="py-1.5 text-right">
+                      <td className="py-2 text-right">
                         {amount.source_kind === 'visual' ? (
                           <button
                             onClick={() =>
@@ -184,12 +184,12 @@ export function FindingDetail({
                           </span>
                         )}
                       </td>
-                      <td className="py-1.5 pl-2 text-right">
+                      <td className="py-2 pl-2 text-right">
                         {amount.needs_confirmation ? (
                           <button
                             onClick={() => confirm(amount.label)}
                             disabled={confirming === amount.label}
-                            className="rounded-[6px] border border-line px-2 py-0.5 text-[11.5px] text-ink-dim hover:border-line-strong hover:text-ink disabled:opacity-50"
+                            className="rounded-[6px] border border-line px-2 py-1 text-[11.5px] text-ink-dim hover:border-line-strong hover:text-ink disabled:opacity-50"
                             title="Record that you have checked this figure against the page. Your name is stored against it."
                           >
                             {confirming === amount.label ? 'saving…' : 'I checked this'}
@@ -206,7 +206,7 @@ export function FindingDetail({
               </table>
               </div>
               {finding.amounts.some((a) => a.needs_confirmation) && (
-                <p className="mt-1.5 text-[11.5px] text-ink-faint">
+                <p className="mt-2 text-[11.5px] text-ink-faint">
                   Figures read off a page image cannot be checked by anything here. Open the page,
                   confirm the figure, and your name is recorded against it.
                 </p>
@@ -216,7 +216,7 @@ export function FindingDetail({
 
           {(finding.authority.status !== 'none_required' || finding.evidence.length > 0) && (
             <section>
-              <h3 className="mb-1.5 text-[11.5px] tracking-wide text-ink-faint uppercase">
+              <h3 className="mb-2 text-[11.5px] tracking-wide text-ink-faint uppercase">
                 Authority and evidence
               </h3>
               <AuthorityChip
@@ -225,7 +225,7 @@ export function FindingDetail({
                 claimedCitation={finding.authority.claimedCitation}
               />
               {finding.authority.claimedCitation && (
-                <p className="mt-1.5 text-[11.5px] text-ink-faint">
+                <p className="mt-2 text-[11.5px] text-ink-faint">
                   The model offered “{finding.authority.claimedCitation}”. Nothing verified it, so
                   it is recorded but not shown as authority.
                 </p>
@@ -233,7 +233,7 @@ export function FindingDetail({
               {finding.evidence.length > 0 && (
                 <ul className="mt-2 space-y-1 text-[13px]">
                   {finding.evidence.map((item, i) => (
-                    <li key={i} className="flex items-baseline gap-1.5">
+                    <li key={i} className="flex items-baseline gap-2">
                       <span className="text-ink-faint">—</span>
                       <button
                         onClick={() =>

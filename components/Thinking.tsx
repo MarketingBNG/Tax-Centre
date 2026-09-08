@@ -37,7 +37,7 @@ export function Thinking({
           setPinned(true);
           setOpen((v) => !v);
         }}
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-faint hover:text-ink-dim"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink-faint hover:text-ink-dim"
       >
         <span className={`transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
         <span className="font-medium">

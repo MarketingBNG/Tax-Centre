@@ -136,11 +136,11 @@ export function RecurrencePanel({ engagementId }: { engagementId: string }) {
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="text-left text-ink-faint">
-                  <th className="border-b border-line-soft py-1.5 pr-3 font-normal">Problem</th>
+                  <th className="border-b border-line-soft py-2 pr-3 font-normal">Problem</th>
                   {columns.map((year) => (
                     <th
                       key={year}
-                      className="border-b border-line-soft py-1.5 pr-3 text-center font-normal"
+                      className="border-b border-line-soft py-2 pr-3 text-center font-normal"
                     >
                       TY {year}
                     </th>
@@ -152,7 +152,7 @@ export function RecurrencePanel({ engagementId }: { engagementId: string }) {
                   <tr key={item.lineageKey} className="align-top">
                     <td className="border-b border-line-soft/60 py-2 pr-3">
                       <div className="text-ink">{item.title}</div>
-                      <div className="mt-0.5 text-[11.5px] text-ink-faint">
+                      <div className="mt-1 text-[11.5px] text-ink-faint">
                         {[
                           CATEGORY_LABEL[item.category] ?? item.category,
                           item.where,

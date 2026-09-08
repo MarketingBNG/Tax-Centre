@@ -106,7 +106,7 @@ const isBlocking = (slot: SlotDef, returnType: ReturnType | ''): boolean =>
     Boolean(slot.conditionalFor?.includes(returnType as ReturnType)));
 
 const input =
-  'w-full rounded-[9px] border border-line bg-canvas px-3 py-1.5 text-[13px] text-ink outline-none focus:border-[#3c4653]';
+  'w-full rounded-[9px] border border-line bg-canvas px-3 py-2 text-[13px] text-ink outline-none focus:border-[#3c4653]';
 const label = 'mb-1 block text-[13px] text-ink-dim';
 
 export function NewReviewWizard() {
@@ -303,7 +303,7 @@ export function NewReviewWizard() {
           </div>
           <div className="flex flex-wrap gap-4 text-[13px]">
             {FOREIGN_FACTS.map((fact) => (
-              <label key={fact.key} className="flex items-center gap-1.5" title={fact.indiaExpectation}>
+              <label key={fact.key} className="flex items-center gap-2" title={fact.indiaExpectation}>
                 <input
                   type="checkbox"
                   checked={crossBorder[fact.key] === true}
@@ -314,7 +314,7 @@ export function NewReviewWizard() {
                 {fact.label}
               </label>
             ))}
-            <label className="flex items-center gap-1.5">
+            <label className="flex items-center gap-2">
               Foreign owner %
               <input
                 className={`${field} w-16`}
@@ -337,7 +337,7 @@ export function NewReviewWizard() {
           silence.
         </p>
 
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {SLOTS.map((slot) => {
             const files = attached.filter((a) => a.role === slot.role);
             const blocking = isBlocking(slot, returnType);
@@ -354,20 +354,20 @@ export function NewReviewWizard() {
                   <div className="min-w-0">
                     <div className="text-[13px]">
                       {slot.label}
-                      {blocking && <span className="ml-1.5 text-[11.5px] text-sev-critical">required</span>}
+                      {blocking && <span className="ml-2 text-[11.5px] text-sev-critical">required</span>}
                       {slot.requirement === 'conditional' && !blocking && (
-                        <span className="ml-1.5 text-[11.5px] text-ink-faint">
+                        <span className="ml-2 text-[11.5px] text-ink-faint">
                           required for 1065 and 5472 filers
                         </span>
                       )}
                     </div>
-                    <div className="mt-0.5 text-[11.5px] text-ink-faint">{slot.note}</div>
+                    <div className="mt-1 text-[11.5px] text-ink-faint">{slot.note}</div>
                     {files.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {files.map((file) => (
                           <span
                             key={file.fileId}
-                            className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-dim"
+                            className="inline-flex items-center gap-1 rounded border border-line px-2 py-1 text-[11.5px] text-ink-dim"
                           >
                             {file.filename}
                             <button

@@ -157,7 +157,7 @@ export function BooksConnections({
         {providers.map((provider) => (
           <div
             key={provider.id}
-            className="rounded-[9px] border border-line bg-raised px-3.5 py-3"
+            className="rounded-[9px] border border-line bg-raised px-4 py-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -208,7 +208,7 @@ export function BooksConnections({
             {!provider.configured && provider.setupHint && (
               <div className="mt-3 border-t border-line-soft pt-3">
                 <p className="text-[13px] text-ink-dim">{provider.setupHint}</p>
-                <p className="mt-1.5 text-[11.5px] text-ink-faint">
+                <p className="mt-2 text-[11.5px] text-ink-faint">
                   Redirect URI to register:{' '}
                   <code className="text-ink-dim">
                     {typeof window === 'undefined'
@@ -228,7 +228,7 @@ export function BooksConnections({
                   <div className="text-[13px] text-ink">
                     {conn.company}
                     {conn.revoked && (
-                      <span className="ml-2 rounded-[6px] bg-rose-500/15 px-1.5 py-0.5 text-[11.5px] text-rose-300">
+                      <span className="ml-2 rounded-[6px] bg-rose-500/15 px-2 py-1 text-[11.5px] text-rose-300">
                         needs reconnecting
                       </span>
                     )}

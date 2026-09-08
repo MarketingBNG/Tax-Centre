@@ -116,12 +116,12 @@ export function ProjectPanel({
         onClick={(e) => e.stopPropagation()}
         className="flex h-[620px] max-h-full w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-line bg-canvas"
       >
-        <div className="flex items-center gap-2.5 border-b border-line-soft px-4 py-3">
+        <div className="flex items-center gap-3 border-b border-line-soft px-4 py-3">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={save}
-            className="flex-1 rounded-lg bg-transparent px-1 py-0.5 text-[16px] font-semibold tracking-tight outline-none hover:bg-raised focus:bg-raised"
+            className="flex-1 rounded-lg bg-transparent px-1 py-1 text-[16px] font-semibold tracking-tight outline-none hover:bg-raised focus:bg-raised"
           />
           <span className="text-[11.5px] text-ink-faint">{saved ? 'Saved' : ''}</span>
           <button onClick={onClose} className="px-1 text-ink-faint hover:text-ink">
@@ -142,15 +142,15 @@ export function ProjectPanel({
               onBlur={save}
               rows={7}
               placeholder="This project covers the 2025 return for a two-partner LLC in Texas. Amounts are in USD. When I ask about a schedule, assume the federal one unless I say state."
-              className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-2.5 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
+              className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-3 text-[13px] leading-[1.55] outline-none focus:border-[#3c4653]"
             />
           </section>
 
           <section>
-            <div className="mb-2 flex items-center gap-2.5">
+            <div className="mb-2 flex items-center gap-3">
               <h3 className="flex-1 text-[13px] font-semibold">
                 Documents
-                <span className="ml-1.5 font-normal text-ink-faint">
+                <span className="ml-2 font-normal text-ink-faint">
                   in every chat in this project
                 </span>
               </h3>
@@ -168,11 +168,11 @@ export function ProjectPanel({
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               {project.files.map((f) => (
                 <div
                   key={f.id}
-                  className="group flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-[13px]"
+                  className="group flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[13px]"
                 >
                   <span className="flex-1 truncate">{f.filename}</span>
                   <small className="text-ink-faint">
@@ -202,7 +202,7 @@ export function ProjectPanel({
           <section>
             <h3 className="mb-2 text-[13px] font-semibold">
               Chats
-              <span className="ml-1.5 font-normal text-ink-faint">{project.conversations.length}</span>
+              <span className="ml-2 font-normal text-ink-faint">{project.conversations.length}</span>
             </h3>
             <div className="flex flex-col gap-px">
               {project.conversations.map((c) => (
@@ -212,7 +212,7 @@ export function ProjectPanel({
                     onOpenChat(c.id);
                     onClose();
                   }}
-                  className="truncate rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
+                  className="truncate rounded-lg px-3 py-2 text-left text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
                 >
                   {c.title}
                 </button>

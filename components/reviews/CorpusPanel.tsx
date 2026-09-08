@@ -186,7 +186,7 @@ export function CorpusPanel() {
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value)}
-              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 text-[13px] text-ink"
             >
               {KINDS.map((k) => (
                 <option key={k.value} value={k.value}>
@@ -202,7 +202,7 @@ export function CorpusPanel() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="2025 Instructions for Form 1065"
-              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 text-[13px] text-ink"
             />
           </label>
 
@@ -212,7 +212,7 @@ export function CorpusPanel() {
               type="date"
               value={effectiveFrom}
               onChange={(e) => setEffectiveFrom(e.target.value)}
-              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 text-[13px] text-ink"
             />
           </label>
 
@@ -222,7 +222,7 @@ export function CorpusPanel() {
               type="date"
               value={effectiveTo}
               onChange={(e) => setEffectiveTo(e.target.value)}
-              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 text-[13px] text-ink"
             />
           </label>
 
@@ -231,7 +231,7 @@ export function CorpusPanel() {
             <input
               value={citationRoot}
               onChange={(e) => setCitationRoot(e.target.value)}
-              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 text-[13px] text-ink"
             />
           </label>
 
@@ -240,7 +240,7 @@ export function CorpusPanel() {
             <input
               value={versionLabel}
               onChange={(e) => setVersionLabel(e.target.value)}
-              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 text-[13px] text-ink"
             />
           </label>
 
@@ -250,7 +250,7 @@ export function CorpusPanel() {
               value={sourceUrl}
               onChange={(e) => setSourceUrl(e.target.value)}
               placeholder="https://www.irs.gov/…"
-              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-1.5 text-[13px] text-ink"
+              className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 text-[13px] text-ink"
             />
           </label>
         </div>
@@ -272,7 +272,7 @@ export function CorpusPanel() {
               className="mt-1 block w-full rounded-[6px] border border-line bg-raised px-2 py-2 font-mono text-[11.5px] text-ink"
             />
           </label>
-          <div className="mt-1.5 text-[11.5px] text-ink-faint">
+          <div className="mt-2 text-[11.5px] text-ink-faint">
             {passages.length === 0
               ? 'No passages read yet — each one needs a heading line for its citation, and text under it.'
               : `${passages.length} passage${passages.length === 1 ? '' : 's'}: ${passages
@@ -286,7 +286,7 @@ export function CorpusPanel() {
           type="button"
           disabled={!ready}
           onClick={submit}
-          className={`mt-4 rounded-[9px] px-3.5 py-1.5 text-[13px] font-medium ${
+          className={`mt-4 rounded-[9px] px-4 py-2 text-[13px] font-medium ${
             ready
               ? 'bg-accent text-accent-ink hover:bg-accent-hover'
               : 'border border-line text-ink-faint'
@@ -319,7 +319,7 @@ export function CorpusPanel() {
           </div>
         )}
 
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {state?.sources.map((source) => (
             <li
               key={source.id}
@@ -331,7 +331,7 @@ export function CorpusPanel() {
                   {KINDS.find((k) => k.value === source.kind)?.label ?? source.kind}
                 </span>
               </div>
-              <div className="mt-0.5 text-[11.5px] text-ink-faint">
+              <div className="mt-1 text-[11.5px] text-ink-faint">
                 In force {day(source.effectiveFrom)}
                 {source.effectiveTo ? ` to ${day(source.effectiveTo)}` : ' onwards'}
                 {source.citationRoot ? ` · cites under ${source.citationRoot}` : ''}

@@ -42,7 +42,7 @@ export function ApprovalBar({
         <div className="text-[13px] text-verdict-clear">
           Signed off as {VERDICT_WORD[approval.verdictSeen]} by {approval.approvedBy}
         </div>
-        <div className="mt-0.5 text-[11.5px] text-ink-faint">
+        <div className="mt-1 text-[11.5px] text-ink-faint">
           {new Date(approval.approvedAt).toLocaleString()} · register version{' '}
           {approval.registerVersionSeen}. Any later change to the register lapses this
           automatically.
@@ -94,7 +94,7 @@ export function ApprovalBar({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <div className="text-[13px]">Not yet signed off</div>
-          <div className="mt-0.5 text-[11.5px] text-ink-faint">
+          <div className="mt-1 text-[11.5px] text-ink-faint">
             The review above is a first pass. A named person signs a return off, and what they
             saw is recorded with it.
           </div>
@@ -117,7 +117,7 @@ export function ApprovalBar({
       </div>
 
       {!canOffer && blockers.length > 0 && (
-        <ul className="mt-2 space-y-0.5 border-t border-line-soft pt-2 text-[11.5px] text-ink-dim">
+        <ul className="mt-2 space-y-1 border-t border-line-soft pt-2 text-[11.5px] text-ink-dim">
           {blockers.slice(0, 4).map((blocker, i) => (
             <li key={i}>— {blocker}</li>
           ))}
@@ -133,7 +133,7 @@ export function ApprovalBar({
           </div>
 
           {verdict === 'release_with_conditions' && (
-            <div className="mt-1.5 text-[11.5px] text-sev-high">
+            <div className="mt-2 text-[11.5px] text-sev-high">
               The conditions below stay open and owned. This is not a clearance.
             </div>
           )}
@@ -147,7 +147,7 @@ export function ApprovalBar({
           />
 
           {error && (
-            <div role="alert" className="mt-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-2.5 py-1.5 text-[13px] text-[#e8b0b0]">
+            <div role="alert" className="mt-2 rounded-lg border border-sev-blocking/35 bg-sev-blocking/10 px-3 py-2 text-[13px] text-[#e8b0b0]">
               {error}
             </div>
           )}

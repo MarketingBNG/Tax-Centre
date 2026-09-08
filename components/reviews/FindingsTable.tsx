@@ -63,13 +63,13 @@ export function FindingsTable({
   );
 
   const pill = (active: boolean) =>
-    `rounded-full border px-2.5 py-0.5 text-[11.5px] ${
+    `rounded-full border px-3 py-1 text-[11.5px] ${
       active ? 'border-accent text-accent' : 'border-line text-ink-dim hover:text-ink'
     }`;
 
   return (
     <section className="rounded-xl border border-line-soft bg-panel px-4 py-3">
-      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 className="text-[13px] font-medium">The register</h2>
         <span className="text-[11.5px] text-ink-faint">
           {counts.total} lines · {counts.open} open · {counts.agreed} agreed · {counts.coverage} not
@@ -77,7 +77,7 @@ export function FindingsTable({
         </span>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <button onClick={() => setCategory(null)} className={pill(category === null)}>
           All
         </button>
@@ -125,28 +125,28 @@ export function FindingsTable({
           Nothing matches those filters.
         </p>
       ) : (
-        <ul className="space-y-0.5">
+        <ul className="space-y-1">
           {rows.map((finding) => (
             <li key={finding.id}>
               <button
                 onClick={() => onOpen(finding)}
-                className="flex w-full flex-wrap items-start gap-x-2.5 gap-y-1 rounded-lg px-2 py-1.5 text-left hover:bg-raised"
+                className="flex w-full flex-wrap items-start gap-x-3 gap-y-1 rounded-lg px-2 py-2 text-left hover:bg-raised"
               >
-                <span className="w-14 shrink-0 pt-0.5 font-mono text-[11.5px] text-ink-faint">
+                <span className="w-14 shrink-0 pt-1 font-mono text-[11.5px] text-ink-faint">
                   {finding.code}
                 </span>
-                <span className="shrink-0 pt-0.5">
+                <span className="shrink-0 pt-1">
                   <SeverityChip severity={finding.severity} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13px]">{finding.title}</span>
                   {finding.kind === 'coverage' && (
-                    <span className="mt-0.5 block text-[11.5px] text-ink-faint">
+                    <span className="mt-1 block text-[11.5px] text-ink-faint">
                       {finding.whatIsWrong}
                     </span>
                   )}
                 </span>
-                <span className="shrink-0 basis-full pl-16 sm:basis-auto sm:pt-0.5 sm:pl-0">
+                <span className="shrink-0 basis-full pl-16 sm:basis-auto sm:pt-1 sm:pl-0">
                   <StatusChip status={finding.status} />
                 </span>
               </button>

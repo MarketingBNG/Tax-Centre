@@ -771,7 +771,7 @@ export function Chat({ me }: { me: Me }) {
       {menu === kind ? (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute bottom-full left-0 z-20 mb-1.5 w-60 overflow-hidden rounded-xl border border-line bg-panel shadow-xl"
+          className="absolute bottom-full left-0 z-20 mb-2 w-60 overflow-hidden rounded-xl border border-line bg-panel shadow-xl"
         >
           {options.map((o) => (
             <button
@@ -796,7 +796,7 @@ export function Chat({ me }: { me: Me }) {
         <button
           disabled={m.version === 1 || busy}
           onClick={() => switchVersion(m.versionIds[m.version - 2])}
-          className="px-0.5 hover:text-ink disabled:opacity-30"
+          className="px-1 hover:text-ink disabled:opacity-30"
         >
           ‹
         </button>
@@ -806,7 +806,7 @@ export function Chat({ me }: { me: Me }) {
         <button
           disabled={m.version === m.versionCount || busy}
           onClick={() => switchVersion(m.versionIds[m.version])}
-          className="px-0.5 hover:text-ink disabled:opacity-30"
+          className="px-1 hover:text-ink disabled:opacity-30"
         >
           ›
         </button>
@@ -830,11 +830,11 @@ export function Chat({ me }: { me: Me }) {
 
       {/* ------------------------------------------------------ sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] shrink-0 flex-col gap-2.5 border-r border-line-soft bg-panel p-3 transition-transform duration-200 md:static md:z-auto md:max-w-none md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] shrink-0 flex-col gap-3 border-r border-line-soft bg-panel p-3 transition-transform duration-200 md:static md:z-auto md:max-w-none md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center gap-2.5 px-1.5 pt-1 pb-2.5 text-[16px] font-semibold tracking-tight">
+        <div className="flex items-center gap-3 px-2 pt-1 pb-3 text-[16px] font-semibold tracking-tight">
           <Mark size={19} />
           {APP_NAME}
         </div>
@@ -848,22 +848,22 @@ export function Chat({ me }: { me: Me }) {
 
         <Link
           href="/reviews"
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] text-ink-dim no-underline hover:bg-raised hover:text-ink"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] text-ink-dim no-underline hover:bg-raised hover:text-ink"
         >
           ▣ Reviews
         </Link>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowSettings(true)}
-            className="flex flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
+            className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
           >
             ⚙ Settings
           </button>
           {me.role === 'admin' ? (
             <Link
               href="/admin"
-              className="rounded-lg px-2.5 py-1.5 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
+              className="rounded-lg px-3 py-2 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
             >
               Admin
             </Link>
@@ -875,11 +875,11 @@ export function Chat({ me }: { me: Me }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search chats…"
-          className="w-full rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-[13px] outline-none placeholder:text-ink-faint focus:border-[#3c4653]"
+          className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-[13px] outline-none placeholder:text-ink-faint focus:border-[#3c4653]"
         />
 
         {/* -------------------------------------------------- projects */}
-        <div className="flex items-center justify-between px-2.5 pt-1 text-[11.5px] font-semibold text-ink-faint">
+        <div className="flex items-center justify-between px-3 pt-1 text-[11.5px] font-semibold text-ink-faint">
           <span>Projects</span>
           <button
             title="New project"
@@ -908,7 +908,7 @@ export function Chat({ me }: { me: Me }) {
           {projects.map((p) => (
             <div
               key={p.id}
-              className={`group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] ${
+              className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] ${
                 p.id === projectId ? 'bg-raised text-ink' : 'text-ink-dim hover:bg-raised hover:text-ink'
               }`}
             >
@@ -933,12 +933,12 @@ export function Chat({ me }: { me: Me }) {
             </div>
           ))}
           {projects.length === 0 ? (
-            <div className="px-2.5 py-1 text-[13px] text-ink-faint">None yet</div>
+            <div className="px-3 py-1 text-[13px] text-ink-faint">None yet</div>
           ) : null}
         </div>
 
         {/* ----------------------------------------------------- chats */}
-        <div className="flex items-center justify-between px-2.5 pt-1 pb-1 text-[11.5px] font-semibold text-ink-faint">
+        <div className="flex items-center justify-between px-3 pt-1 pb-1 text-[11.5px] font-semibold text-ink-faint">
           <span>
             {results
               ? `${results.length} match${results.length === 1 ? '' : 'es'}`
@@ -960,13 +960,13 @@ export function Chat({ me }: { me: Me }) {
             listed.map((c) => (
               <div
                 key={c.id}
-                className={`group rounded-lg px-2.5 py-1.5 text-[13px] ${
+                className={`group rounded-lg px-3 py-2 text-[13px] ${
                   c.id === conversationId
                     ? 'bg-raised text-ink'
                     : 'text-ink-dim hover:bg-raised hover:text-ink'
                 }`}
               >
-                <div className="flex items-center justify-between gap-1.5">
+                <div className="flex items-center justify-between gap-2">
                   {renaming === c.id ? (
                     <input
                       autoFocus
@@ -977,7 +977,7 @@ export function Chat({ me }: { me: Me }) {
                         if (e.key === 'Enter') saveRename(c.id);
                         if (e.key === 'Escape') setRenaming(null);
                       }}
-                      className="w-full rounded border border-accent bg-canvas px-1.5 py-0.5 text-[13px] outline-none"
+                      className="w-full rounded border border-accent bg-canvas px-2 py-1 text-[13px] outline-none"
                     />
                   ) : (
                     <>
@@ -1033,14 +1033,14 @@ export function Chat({ me }: { me: Me }) {
                   )}
                 </div>
                 {c.snippet ? (
-                  <div className="mt-0.5 truncate text-[11.5px] text-ink-faint">{c.snippet}</div>
+                  <div className="mt-1 truncate text-[11.5px] text-ink-faint">{c.snippet}</div>
                 ) : null}
               </div>
             ))
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5 text-[13px]">
+        <div className="flex items-center gap-3 border-t border-line-soft pt-3 text-[13px]">
           <div className="grid h-6.5 w-6.5 place-items-center rounded-full bg-accent text-[13px] font-bold text-accent-ink">
             {initial}
           </div>
@@ -1086,7 +1086,7 @@ export function Chat({ me }: { me: Me }) {
       >
         {/* The phone header. The drawer has no other way in, so unlike the
             context strip below it this bar is always present. */}
-        <div className="flex items-center gap-2.5 border-b border-line-soft px-4 py-2 md:hidden">
+        <div className="flex items-center gap-3 border-b border-line-soft px-4 py-2 md:hidden">
           <button
             type="button"
             aria-label="Open the menu"
@@ -1103,7 +1103,7 @@ export function Chat({ me }: { me: Me }) {
         </div>
 
         {conversationId || currentProject ? (
-          <div className="flex items-center gap-2.5 border-b border-line-soft px-4 py-2 text-[13px] text-ink-faint sm:px-6">
+          <div className="flex items-center gap-3 border-b border-line-soft px-4 py-2 text-[13px] text-ink-faint sm:px-6">
             {currentProject ? (
               <button onClick={() => setOpenProject(currentProject.id)} className="hover:text-ink">
                 ▤ {currentProject.name}
@@ -1114,7 +1114,7 @@ export function Chat({ me }: { me: Me }) {
                 {files.length} document{files.length === 1 ? '' : 's'} in context
               </span>
             ) : null}
-            <div className="ml-auto flex items-center gap-2.5">
+            <div className="ml-auto flex items-center gap-3">
               {conversationId ? (
                 <a href={`/api/export?conversationId=${conversationId}`} className="hover:text-ink">
                   Export
@@ -1131,7 +1131,7 @@ export function Chat({ me }: { me: Me }) {
                 <div className="mb-4 flex justify-center opacity-80">
                   <Mark size={34} />
                 </div>
-                <h1 className="mb-2.5 text-[30px] font-normal tracking-tight">How can I help?</h1>
+                <h1 className="mb-3 text-[30px] font-normal tracking-tight">How can I help?</h1>
                 <p className="mx-auto max-w-[460px] text-ink-dim">
                   {currentProject
                     ? `Working in ${currentProject.name}. Its instructions and documents apply to this chat.`
@@ -1142,7 +1142,7 @@ export function Chat({ me }: { me: Me }) {
 
             {messages.map((m) => (
               <div key={m.id} className="group mb-6">
-                <div className="mb-1.5 flex items-center gap-2">
+                <div className="mb-2 flex items-center gap-2">
                   <span className="text-[11.5px] font-semibold tracking-wide text-ink-faint">
                     {m.role === 'user' ? 'You' : 'Assistant'}
                   </span>
@@ -1156,7 +1156,7 @@ export function Chat({ me }: { me: Me }) {
 
                 {m.role === 'user' ? (
                   editing === m.id ? (
-                    <div className="rounded-xl border border-accent bg-raised px-3 py-2.5">
+                    <div className="rounded-xl border border-accent bg-raised px-3 py-3">
                       <textarea
                         autoFocus
                         value={editDraft}
@@ -1167,7 +1167,7 @@ export function Chat({ me }: { me: Me }) {
                       <div className="mt-2 flex justify-end gap-2 text-[13px]">
                         <button
                           onClick={() => setEditing(null)}
-                          className="rounded-[6px] border border-line px-2.5 py-1 hover:bg-raised-hover"
+                          className="rounded-[6px] border border-line px-3 py-1 hover:bg-raised-hover"
                         >
                           Cancel
                         </button>
@@ -1178,7 +1178,7 @@ export function Chat({ me }: { me: Me }) {
                             setEditing(null);
                             run('edit', { question: text, messageId: m.id });
                           }}
-                          className="rounded-[6px] bg-accent px-2.5 py-1 font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-40"
+                          className="rounded-[6px] bg-accent px-3 py-1 font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-40"
                         >
                           Send
                         </button>
@@ -1192,7 +1192,7 @@ export function Chat({ me }: { me: Me }) {
                       <div className="mt-1 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                         <button
                           onClick={() => copyMessage(m)}
-                          className="rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint hover:text-ink"
+                          className="rounded border border-line px-2 py-1 text-[11.5px] text-ink-faint hover:text-ink"
                         >
                           {copied === m.id ? 'Copied' : 'Copy'}
                         </button>
@@ -1202,7 +1202,7 @@ export function Chat({ me }: { me: Me }) {
                               setEditing(m.id);
                               setEditDraft(m.content);
                             }}
-                            className="rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint hover:text-ink"
+                            className="rounded border border-line px-2 py-1 text-[11.5px] text-ink-faint hover:text-ink"
                           >
                             Edit
                           </button>
@@ -1234,17 +1234,17 @@ export function Chat({ me }: { me: Me }) {
                       </button>
                     ) : null}
 
-                    <div className="mt-1.5 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="mt-2 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => copyMessage(m)}
-                        className="rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint hover:text-ink"
+                        className="rounded border border-line px-2 py-1 text-[11.5px] text-ink-faint hover:text-ink"
                       >
                         {copied === m.id ? 'Copied' : 'Copy'}
                       </button>
                       <button
                         disabled={busy}
                         onClick={() => run('retry', { messageId: m.id })}
-                        className="rounded border border-line px-1.5 py-0.5 text-[11.5px] text-ink-faint hover:text-ink disabled:opacity-40"
+                        className="rounded border border-line px-2 py-1 text-[11.5px] text-ink-faint hover:text-ink disabled:opacity-40"
                       >
                         Retry
                       </button>
@@ -1252,7 +1252,7 @@ export function Chat({ me }: { me: Me }) {
                         onClick={() => vote(m.id, 1)}
                         title="Good answer"
                         aria-label="Good answer"
-                        className={`rounded border border-line px-1.5 py-0.5 text-[11.5px] hover:text-ink ${
+                        className={`rounded border border-line px-2 py-1 text-[11.5px] hover:text-ink ${
                           m.vote === 1 ? 'text-accent' : 'text-ink-faint'
                         }`}
                       >
@@ -1262,7 +1262,7 @@ export function Chat({ me }: { me: Me }) {
                         onClick={() => vote(m.id, -1)}
                         title="Bad answer"
                         aria-label="Bad answer"
-                        className={`rounded border border-line px-1.5 py-0.5 text-[11.5px] hover:text-ink ${
+                        className={`rounded border border-line px-2 py-1 text-[11.5px] hover:text-ink ${
                           m.vote === -1 ? 'text-sev-blocking' : 'text-ink-faint'
                         }`}
                       >
@@ -1278,7 +1278,7 @@ export function Chat({ me }: { me: Me }) {
                 above instead, so this is skipped while one is running. */}
             {streamText !== null && !continuingId ? (
               <div className="mb-6">
-                <div className="mb-1.5 text-[11.5px] font-semibold tracking-wide text-ink-faint">
+                <div className="mb-2 text-[11.5px] font-semibold tracking-wide text-ink-faint">
                   Assistant
                 </div>
                 <Thinking text={streamThinking} streaming={!streamText} />
@@ -1294,11 +1294,11 @@ export function Chat({ me }: { me: Me }) {
         </div>
 
         {/* ---------------------------------------------------- composer */}
-        <div className="px-4 pt-2.5 pb-5 sm:px-6">
+        <div className="px-4 pt-3 pb-5 sm:px-6">
           {banner ? (
             <div
               role="alert"
-              className={`mx-auto mb-2.5 flex max-w-[780px] items-start gap-3 rounded-lg border px-3 py-2 text-[13px] ${
+              className={`mx-auto mb-3 flex max-w-[780px] items-start gap-3 rounded-lg border px-3 py-2 text-[13px] ${
                 banner.kind === 'warn'
                   ? 'border-sev-math/35 bg-sev-math/10 text-[#dcc79a]'
                   : 'border-sev-blocking/35 bg-sev-blocking/10 text-[#e8b0b0]'
@@ -1311,9 +1311,9 @@ export function Chat({ me }: { me: Me }) {
             </div>
           ) : null}
 
-          <div className="mx-auto max-w-[780px] rounded-2xl border border-line bg-panel px-3.5 py-3 focus-within:border-[#3c4653]">
+          <div className="mx-auto max-w-[780px] rounded-2xl border border-line bg-panel px-4 py-3 focus-within:border-[#3c4653]">
             {attachments.length ? (
-              <div className="mb-2.5 flex flex-wrap gap-2">
+              <div className="mb-3 flex flex-wrap gap-2">
                 {attachments.map((f) => (
                   <div
                     key={f.id}

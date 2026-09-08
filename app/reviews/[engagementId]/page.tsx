@@ -99,7 +99,7 @@ export default async function EngagementPage({ params }: Ctx) {
         {runs.length === 0 ? (
           <div className="text-[13px] text-ink-faint">No runs yet.</div>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="space-y-2">
             {runs.map((run) => (
               <li key={run.id}>
                 <Link
@@ -114,7 +114,7 @@ export default async function EngagementPage({ params }: Ctx) {
                       </span>
                     </div>
                     {run.halt_reason && (
-                      <div className="mt-0.5 text-[11.5px] text-sev-high">{run.halt_reason}</div>
+                      <div className="mt-1 text-[11.5px] text-sev-high">{run.halt_reason}</div>
                     )}
                   </div>
                   <div className="text-[13px] text-ink-dim">

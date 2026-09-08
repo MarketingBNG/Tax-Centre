@@ -108,7 +108,7 @@ export function ToolPanel({ runs, streaming = false }: { runs: ToolRun[]; stream
           setPinned(true);
           setOpen((v) => !v);
         }}
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-faint hover:text-ink-dim"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink-faint hover:text-ink-dim"
       >
         <span className={`transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
         <span className={`flex-1 truncate ${failed ? 'text-sev-blocking' : 'font-medium'}`}>
@@ -118,7 +118,7 @@ export function ToolPanel({ runs, streaming = false }: { runs: ToolRun[]; stream
       </button>
 
       {open ? (
-        <div className="flex flex-col gap-1.5 border-t border-line-soft px-2 py-2">
+        <div className="flex flex-col gap-2 border-t border-line-soft px-2 py-2">
           {runs.map((run, i) => {
             const expanded = detail === i;
             let code = '';
@@ -137,7 +137,7 @@ export function ToolPanel({ runs, streaming = false }: { runs: ToolRun[]; stream
               >
                 <button
                   onClick={() => setDetail(expanded ? null : i)}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-faint hover:text-ink-dim"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink-faint hover:text-ink-dim"
                 >
                   <span className={`transition-transform ${expanded ? 'rotate-90' : ''}`}>›</span>
                   <span className="rounded border border-line px-1 font-mono text-[11.5px]">

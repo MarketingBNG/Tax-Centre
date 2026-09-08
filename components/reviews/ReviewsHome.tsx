@@ -91,7 +91,7 @@ export function ReviewsHome() {
       {engagements?.length === 0 && (
         <div className="rounded-xl border border-dashed border-line p-8 text-center">
           <div className="text-[14px] text-ink-dim">No reviews yet.</div>
-          <div className="mx-auto mt-1.5 max-w-[460px] text-[13px] text-ink-faint">
+          <div className="mx-auto mt-2 max-w-[460px] text-[13px] text-ink-faint">
             A review needs the prepared return and the trial balances for both year ends. It reads
             the books first, because most return errors are book errors that were copied onto the
             form correctly.
@@ -130,7 +130,7 @@ export function ReviewsHome() {
                       <div className="truncate text-[14px] font-medium text-ink">
                         {engagement.entityName || engagement.clientLabel}
                       </div>
-                      <div className="mt-0.5 text-[13px] text-ink-faint">
+                      <div className="mt-1 text-[13px] text-ink-faint">
                         {[
                           engagement.returnType,
                           engagement.taxYear ? `TY ${engagement.taxYear}` : null,
