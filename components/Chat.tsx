@@ -879,23 +879,6 @@ export function Chat({ me }: { me: Me }) {
           ▣ Reviews
         </Link>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSettings(true)}
-            className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
-          >
-            ⚙ Settings
-          </button>
-          {me.role === 'admin' ? (
-            <Link
-              href="/admin"
-              className="rounded-lg px-3 py-2 text-[13px] text-ink-dim hover:bg-raised hover:text-ink"
-            >
-              Admin
-            </Link>
-          ) : null}
-        </div>
-
         <input
           ref={searchRef}
           value={query}
@@ -1109,14 +1092,6 @@ export function Chat({ me }: { me: Me }) {
                     Admin
                   </Link>
                 ) : null}
-                <Link
-                  role="menuitem"
-                  href="/reviews"
-                  onClick={() => setAccountMenu(false)}
-                  className="flex w-full items-center px-3 py-2 text-ink no-underline hover:bg-raised"
-                >
-                  Reviews
-                </Link>
                 <form action={doSignOut} className="border-t border-line-soft">
                   <button
                     role="menuitem"
